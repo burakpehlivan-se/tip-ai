@@ -129,8 +129,8 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
     setTestIstekleri((prev) => [...prev, yeniIstek]);
 
     const durumMesaji = mod === "cemicegek" && !raporHazir
-      ? `📋 **${statik.testAdi}** istendi. Numune alındı — rapor hazırlanıyor.`
-      : `📋 **${statik.testAdi}** istendi.`;
+      ? `🧪 ${statik.testAdi} istendi — rapor hazırlanıyor…`
+      : `🧪 ${statik.testAdi} istendi`;
 
     setMesajlar((prev) => [
       ...prev,
@@ -343,85 +343,101 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
             </div>
           </div>
 
-          {/* Hızlı Sorular — Accordion + Arama */}
+          {/* Hızlı Sorular — Yatay toolbar (md+) / Accordion (mobile) */}
           {faz === "anamnez" && vaka.soruChipleri && vaka.soruChipleri.length > 0 && (
             <div className="border-t border-hairline-soft">
+              {/* Toolbar header */}
               <div className="px-4 py-2 lg:px-8">
-                <div className="mx-auto flex max-w-2xl items-center justify-between gap-3">
-                  <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted">
-                    Hızlı Sorular
+                <div className="mx-auto flex max-w-2xl items-center gap-3">
+                  <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted hidden sm:inline">
+                    Sorular
                   </span>
                   <input
                     type="text"
                     value={chipArama}
                     onChange={(e) => {
                       setChipArama(e.target.value);
-                      if (e.target.value.trim()) {
-                        setAcikKategoriler(new Set(["anamnez-agri", "anamnez-sistemik", "anamnez-oyku", "soygecmis", "vital", "fizik", "red-flag"] as ChipKategorisi[]));
-                      }
+                      if (e.target.value.trim()) setAcikKategoriler(new Set(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]));
                     }}
-                    placeholder="Sorularda ara..."
+                    placeholder="Sorularda ara…"
                     className="flex-1 h-7 rounded-full border border-hairline bg-surface px-3 text-xs text-ink placeholder:text-muted focus:border-brand focus:outline-none"
                   />
-                  <span className="shrink-0 text-[10px] text-steel">
-                    {(vaka.soruChipleri as SoruChipi[]).length} soru
-                  </span>
+                  <span className="hidden sm:inline shrink-0 text-[10px] text-steel">{(vaka.soruChipleri as SoruChipi[]).length} soru</span>
                 </div>
               </div>
-              <div className="mx-auto max-w-2xl max-h-[32vh] overflow-y-auto scrollbar-thin px-4 pb-3 lg:px-8">
-                {(() => {
-                  const kategoriler: ChipKategorisi[] = ["anamnez-agri", "anamnez-sistemik", "anamnez-oyku", "soygecmis", "vital", "fizik", "red-flag"];
-                  const aramaAlt = chipArama.trim().toLowerCase();
-                  return kategoriler.map((kat) => {
-                    let chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === kat);
-                    if (aramaAlt) {
-                      chips = chips.filter((c) => c.etiket.toLowerCase().includes(aramaAlt));
-                    }
-                    const sorulanCount = chips.filter((c) => sorulanAksiyonlar.includes(c.aksiyon)).length;
+
+              {/* Desktop: yatay kategori bar */}
+              <div className="hidden md:block px-4 pb-2 lg:px-8">
+                <div className="mx-auto max-w-2xl flex gap-1 overflow-x-auto scrollbar-thin">
+                  {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
+                    const chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => (chipArama.trim() ? c.etiket.toLowerCase().includes(chipArama.trim().toLowerCase()) : true) && c.kategori === kat);
                     const isOpen = acikKategoriler.has(kat);
-                    if (chips.length === 0 && !aramaAlt) return null;
                     return (
-                      <div key={kat} className="mb-0.5 overflow-hidden">
-                        <button
-                          onClick={() => toggleKategori(kat)}
-                          className="flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left transition-colors hover:bg-surface"
-                        >
-                          <div className="flex items-center gap-2.5">
-                            <span className={`text-xs transition-transform ${isOpen ? "rotate-90" : ""}`}>▸</span>
-                            <span className="text-xs font-semibold text-ink">
-                              {CHIP_KATEGORI_ETIKETLERI[kat]}
-                            </span>
-                            <span className="text-[11px] text-muted">
-                              {chips.length} soru{sorulanCount > 0 && <span className="text-brand"> · {sorulanCount} soruldu</span>}
-                            </span>
-                          </div>
-                          {aramaAlt && chips.length === 0 && <span className="text-[10px] text-muted">eşleşme yok</span>}
-                        </button>
-                        {isOpen && chips.length > 0 && (
-                          <div className="ml-6 flex flex-wrap gap-1.5 pb-2">
-                            {chips.map((chip, i) => {
-                              const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
-                              return (
-                                <button
-                                  key={i}
-                                  onClick={() => chipSor(chip)}
-                                  disabled={soruldu}
-                                  className={`rounded-full border px-2.5 py-1.5 text-xs font-medium transition-all ${
-                                    soruldu
-                                      ? "cursor-default border-hairline bg-surface text-muted/60 line-through decoration-muted/30"
-                                      : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface active:scale-95"
-                                  }`}
-                                >
-                                  {chip.etiket}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        )}
-                      </div>
+                      <button
+                        key={kat}
+                        onClick={() => toggleKategori(kat)}
+                        className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors ${
+                          isOpen ? "border-ink/30 bg-ink text-white" : "border-hairline bg-canvas text-steel hover:border-ink/30 hover:text-ink"
+                        }`}
+                      >
+                        {CHIP_KATEGORI_ETIKETLERI[kat]} ({chips.length})
+                      </button>
                     );
-                  });
-                })()}
+                  })}
+                </div>
+                {/* Açık kategorinin chip'leri */}
+                {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
+                  if (!acikKategoriler.has(kat)) return null;
+                  const chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => (chipArama.trim() ? c.etiket.toLowerCase().includes(chipArama.trim().toLowerCase()) : true) && c.kategori === kat);
+                  return (
+                    <div key={kat} className="mx-auto max-w-2xl px-1 pt-1.5 flex flex-wrap gap-1">
+                      {chips.map((chip, i) => {
+                        const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
+                        return (
+                          <button key={i} onClick={() => chipSor(chip)} disabled={soruldu}
+                            className={`rounded-full border px-2 py-1 text-[11px] font-medium transition-all ${
+                              soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
+                            }`}>{chip.etiket}</button>
+                        );
+                      })}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Mobile: accordion */}
+              <div className="md:hidden mx-auto max-w-2xl max-h-[32vh] overflow-y-auto scrollbar-thin px-4 pb-3">
+                {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
+                  let chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === kat);
+                  if (chipArama.trim()) chips = chips.filter((c) => c.etiket.toLowerCase().includes(chipArama.trim().toLowerCase()));
+                  const sorulanCount = chips.filter((c) => sorulanAksiyonlar.includes(c.aksiyon)).length;
+                  const isOpen = acikKategoriler.has(kat);
+                  if (chips.length === 0 && !chipArama.trim()) return null;
+                  return (
+                    <div key={kat}>
+                      <button onClick={() => toggleKategori(kat)} className="flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left hover:bg-surface">
+                        <div className="flex items-center gap-2.5">
+                          <span className={`text-xs transition-transform ${isOpen ? "rotate-90" : ""}`}>▸</span>
+                          <span className="text-xs font-semibold text-ink">{CHIP_KATEGORI_ETIKETLERI[kat]}</span>
+                          <span className="text-[11px] text-muted">{chips.length}{sorulanCount > 0 ? ` · ${sorulanCount} soruldu` : ""}</span>
+                        </div>
+                      </button>
+                      {isOpen && chips.length > 0 && (
+                        <div className="ml-6 flex flex-wrap gap-1.5 pb-2">
+                          {chips.map((chip, i) => {
+                            const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
+                            return (
+                              <button key={i} onClick={() => chipSor(chip)} disabled={soruldu}
+                                className={`rounded-full border px-2.5 py-1.5 text-xs font-medium transition-all ${
+                                  soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
+                                }`}>{chip.etiket}</button>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </div>
           )}
