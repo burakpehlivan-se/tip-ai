@@ -83,8 +83,26 @@ export default function CemicegekSimulator() {
 
       setSiraSayaci(yeniSira);
       setToplamGorulen(yeniToplam);
-      setAktifIndex(yeni.length - 1);
-      bannerGoster(`🧪 Test için gönderildi. ${vaka.hasta.yas} yaş yeni hasta: ${vaka.hasta.anaSikayet}`);
+
+      // Geri dönecek hasta kontrolü
+      let donecekIndex = -1;
+      const donecekler: string[] = [];
+      yeni.forEach((k, i) => {
+        if (!k.testIstendiMi || k.tamamlandiMi) return;
+        if (k.siraNo === gidenSira) return; // kendisi zaten yeni gitti
+        if (yeniToplam - k.siraNo >= GERI_DONUS_ESIK) {
+          donecekler.push(`${k.vaka.hasta.tamAd} (#${k.siraNo})`);
+          if (donecekIndex < 0) donecekIndex = i;
+        }
+      });
+
+      if (donecekIndex >= 0) {
+        setAktifIndex(donecekIndex);
+        bannerGoster(`📋 Daha önce test istediğiniz hasta tekrar geldi. Test sonuçları hazır.`);
+      } else {
+        setAktifIndex(yeni.length - 1);
+        bannerGoster(`🧪 Test için gönderildi. ${vaka.hasta.yas} yaş yeni hasta: ${vaka.hasta.anaSikayet}`);
+      }
 
       return yeni;
     });
