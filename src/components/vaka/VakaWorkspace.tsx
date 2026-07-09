@@ -340,57 +340,42 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
             </div>
           </div>
 
-          {/* Soru Toolbar — kompakt yatay bar */}
-          <div className="border-t border-hairline-soft px-4 py-2 lg:px-8">
-            <div className="mx-auto flex max-w-2xl items-center gap-2">
-              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted">Sorular</span>
-              <div className="flex flex-1 items-center gap-1 overflow-x-auto scrollbar-none">
-                {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
-                  const chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === kat);
-                  const isOpen = faz === "anamnez" && acikKategoriler.has(kat);
-                  return (
-                    <button
-                      key={kat}
-                      onClick={() => {
-                        if (faz !== "anamnez") return;
-                        toggleKategori(kat);
-                      }}
-                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap transition-colors ${
-                        isOpen ? "border-ink/30 bg-ink text-white" : "border-hairline bg-canvas text-steel hover:border-ink/30 hover:text-ink"
-                      }`}
-                    >
-                      {CHIP_KATEGORI_ETIKETLERI[kat]}
-                    </button>
-                  );
-                })}
+          {/* Soru Toolbar — dropdown + sabit layout, scroll yok */}
+          <div className="border-t border-hairline-soft px-3 lg:px-8 py-1.5">
+            <div className="mx-auto max-w-2xl flex items-center justify-between gap-2">
+              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted hidden sm:inline">SORULAR</span>
+              {/* Kategori dropdown */}
+              <div className="relative">
+                <button onClick={() => toggleKategori(acikKategoriler.values().next().value || "anamnez-agri")}
+                  className="flex items-center gap-1 rounded-full border border-hairline bg-canvas px-3 py-1.5 text-xs font-medium text-ink hover:border-ink/30 transition-colors">
+                  {CHIP_KATEGORI_ETIKETLERI[acikKategoriler.values().next().value || "anamnez-agri"]} ▾
+                </button>
               </div>
-              <button
-                onClick={() => setShowSoruDrawer(true)}
-                className="shrink-0 rounded-full border border-hairline bg-canvas px-2 py-0.5 text-[10px] font-medium text-steel hover:border-ink/30 hover:text-ink transition-colors"
-              >
+              <button onClick={() => setShowSoruDrawer(true)}
+                className="rounded-full border border-hairline bg-canvas px-3 py-1.5 text-xs font-medium text-steel hover:border-ink/30 hover:text-ink transition-colors">
                 Tümü ▸
               </button>
             </div>
-            {/* Açık kategorinin önerilen chip'leri (max 2 satır) */}
-            {faz === "anamnez" && (["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
-              if (!acikKategoriler.has(kat)) return null;
-              const chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === kat);
-              const show = chips.slice(0, 6);
-              if (show.length === 0) return null;
+            {/* Aktif kategoriden 2 satır chip */}
+            {faz === "anamnez" && (() => {
+              const aktifKat = acikKategoriler.values().next().value;
+              if (!aktifKat) return null;
+              const chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === aktifKat).slice(0, 8);
+              if (chips.length === 0) return null;
               return (
-                <div key={kat} className="mx-auto max-w-2xl flex flex-wrap gap-1 pt-1.5 px-1 max-h-[4.5em] overflow-hidden">
-                  {show.map((chip, i) => {
+                <div className="mx-auto max-w-2xl flex flex-wrap gap-1 pt-1.5">
+                  {chips.map((chip, i) => {
                     const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
                     return (
                       <button key={i} onClick={() => chipSor(chip)} disabled={soruldu}
-                        className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-all ${
+                        className={`rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-all ${
                           soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
                         }`}>{chip.etiket}</button>
                     );
                   })}
                 </div>
               );
-            })}
+            })()}
           </div>
 
           {/* Soru Drawer (overlay) */}
@@ -399,8 +384,16 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
               <div className="absolute inset-0 bg-black/20" onClick={() => setShowSoruDrawer(false)} />
               <div className="relative w-full max-w-md bg-canvas shadow-xl border-l border-hairline overflow-y-auto">
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline bg-canvas px-4 py-3">
-                  <span className="text-sm font-semibold text-ink">Tüm Sorular</span>
-                  <button onClick={() => setShowSoruDrawer(false)} className="rounded-full p-1 hover:bg-surface text-steel">✕</button>
+                  {/* Kategori seçici */}
+                  <div className="flex flex-wrap gap-1">
+                    {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => (
+                      <button key={kat} onClick={() => { toggleKategori(kat); }}
+                        className={`shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium ${acikKategoriler.has(kat) ? "border-ink/30 bg-ink text-white" : "border-hairline bg-canvas text-steel"}`}>
+                        {CHIP_KATEGORI_ETIKETLERI[kat]}
+                      </button>
+                    ))}
+                  </div>
+                  <button onClick={() => setShowSoruDrawer(false)} className="rounded-full p-1 hover:bg-surface text-steel shrink-0">✕</button>
                 </div>
                 <div className="p-4 space-y-3">
                   <input type="text" value={chipArama} onChange={(e) => setChipArama(e.target.value)}
@@ -441,9 +434,13 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
                   placeholder="Hastaya soru sor…"
                   className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
                 <button onClick={soruSor} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">Sor</button>
-                <button onClick={() => setFaz(faz === "anamnez" ? "test" : "anamnez")}
+                <button onClick={() => {
+                  const sira = (["anamnez","test","tani","tedavi"] as const);
+                  const idx = sira.indexOf(faz);
+                  setFaz(sira[(idx + 1) % sira.length]);
+                }}
                   className="btn-secondary h-11 lg:h-10 shrink-0 text-xs lg:text-sm px-3 lg:px-4">
-                  {faz === "anamnez" ? "Testler" : "← Sorular"}
+                  {faz === "anamnez" ? "Testler ▸" : faz === "test" ? "Tanı ▸" : faz === "tani" ? "Tedavi ▸" : "Anamnez ▸"}
                 </button>
               </div>
             </div>
