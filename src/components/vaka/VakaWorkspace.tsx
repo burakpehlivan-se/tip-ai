@@ -38,6 +38,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
   const [chipArama, setChipArama] = useState("");
   const [acikKategoriler, setAcikKategoriler] = useState<Set<ChipKategorisi>>(new Set<ChipKategorisi>(["anamnez-agri"]));
   const [kaynaklarAcik, setKaynaklarAcik] = useState(false);
+  const [showSoruDrawer, setShowSoruDrawer] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -343,101 +344,94 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
             </div>
           </div>
 
-          {/* Hızlı Sorular — Yatay toolbar (md+) / Accordion (mobile) */}
-          {faz === "anamnez" && vaka.soruChipleri && vaka.soruChipleri.length > 0 && (
-            <div className="border-t border-hairline-soft">
-              {/* Toolbar header */}
-              <div className="px-4 py-2 lg:px-8">
-                <div className="mx-auto flex max-w-2xl items-center gap-3">
-                  <span className="shrink-0 text-xs font-semibold uppercase tracking-wide text-muted hidden sm:inline">
-                    Sorular
-                  </span>
-                  <input
-                    type="text"
-                    value={chipArama}
-                    onChange={(e) => {
-                      setChipArama(e.target.value);
-                      if (e.target.value.trim()) setAcikKategoriler(new Set(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]));
-                    }}
-                    placeholder="Sorularda ara…"
-                    className="flex-1 h-7 rounded-full border border-hairline bg-surface px-3 text-xs text-ink placeholder:text-muted focus:border-brand focus:outline-none"
-                  />
-                  <span className="hidden sm:inline shrink-0 text-[10px] text-steel">{(vaka.soruChipleri as SoruChipi[]).length} soru</span>
-                </div>
-              </div>
-
-              {/* Desktop: yatay kategori bar */}
-              <div className="hidden md:block px-4 pb-2 lg:px-8">
-                <div className="mx-auto max-w-2xl flex gap-1 overflow-x-auto scrollbar-thin">
-                  {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
-                    const chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => (chipArama.trim() ? c.etiket.toLowerCase().includes(chipArama.trim().toLowerCase()) : true) && c.kategori === kat);
-                    const isOpen = acikKategoriler.has(kat);
-                    return (
-                      <button
-                        key={kat}
-                        onClick={() => toggleKategori(kat)}
-                        className={`shrink-0 rounded-full border px-3 py-1 text-xs font-medium whitespace-nowrap transition-colors ${
-                          isOpen ? "border-ink/30 bg-ink text-white" : "border-hairline bg-canvas text-steel hover:border-ink/30 hover:text-ink"
-                        }`}
-                      >
-                        {CHIP_KATEGORI_ETIKETLERI[kat]} ({chips.length})
-                      </button>
-                    );
-                  })}
-                </div>
-                {/* Açık kategorinin chip'leri */}
+          {/* Soru Toolbar — kompakt yatay bar */}
+          <div className="border-t border-hairline-soft px-4 py-2 lg:px-8">
+            <div className="mx-auto flex max-w-2xl items-center gap-2">
+              <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted">Sorular</span>
+              <div className="flex flex-1 items-center gap-1 overflow-x-auto scrollbar-none">
                 {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
-                  if (!acikKategoriler.has(kat)) return null;
-                  const chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => (chipArama.trim() ? c.etiket.toLowerCase().includes(chipArama.trim().toLowerCase()) : true) && c.kategori === kat);
+                  const chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === kat);
+                  const isOpen = faz === "anamnez" && acikKategoriler.has(kat);
                   return (
-                    <div key={kat} className="mx-auto max-w-2xl px-1 pt-1.5 flex flex-wrap gap-1">
-                      {chips.map((chip, i) => {
-                        const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
-                        return (
-                          <button key={i} onClick={() => chipSor(chip)} disabled={soruldu}
-                            className={`rounded-full border px-2 py-1 text-[11px] font-medium transition-all ${
-                              soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
-                            }`}>{chip.etiket}</button>
-                        );
-                      })}
-                    </div>
+                    <button
+                      key={kat}
+                      onClick={() => {
+                        if (faz !== "anamnez") return;
+                        toggleKategori(kat);
+                      }}
+                      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-medium whitespace-nowrap transition-colors ${
+                        isOpen ? "border-ink/30 bg-ink text-white" : "border-hairline bg-canvas text-steel hover:border-ink/30 hover:text-ink"
+                      }`}
+                    >
+                      {CHIP_KATEGORI_ETIKETLERI[kat]}
+                    </button>
                   );
                 })}
               </div>
+              <button
+                onClick={() => setShowSoruDrawer(true)}
+                className="shrink-0 rounded-full border border-hairline bg-canvas px-2 py-0.5 text-[10px] font-medium text-steel hover:border-ink/30 hover:text-ink transition-colors"
+              >
+                Tümü ▸
+              </button>
+            </div>
+            {/* Açık kategorinin önerilen chip'leri (max 2 satır) */}
+            {faz === "anamnez" && (["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
+              if (!acikKategoriler.has(kat)) return null;
+              const chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === kat);
+              const show = chips.slice(0, 6);
+              if (show.length === 0) return null;
+              return (
+                <div key={kat} className="mx-auto max-w-2xl flex flex-wrap gap-1 pt-1.5 px-1 max-h-[4.5em] overflow-hidden">
+                  {show.map((chip, i) => {
+                    const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
+                    return (
+                      <button key={i} onClick={() => chipSor(chip)} disabled={soruldu}
+                        className={`rounded-full border px-1.5 py-0.5 text-[10px] font-medium transition-all ${
+                          soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
+                        }`}>{chip.etiket}</button>
+                    );
+                  })}
+                </div>
+              );
+            })}
+          </div>
 
-              {/* Mobile: accordion */}
-              <div className="md:hidden mx-auto max-w-2xl max-h-[32vh] overflow-y-auto scrollbar-thin px-4 pb-3">
-                {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
-                  let chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === kat);
-                  if (chipArama.trim()) chips = chips.filter((c) => c.etiket.toLowerCase().includes(chipArama.trim().toLowerCase()));
-                  const sorulanCount = chips.filter((c) => sorulanAksiyonlar.includes(c.aksiyon)).length;
-                  const isOpen = acikKategoriler.has(kat);
-                  if (chips.length === 0 && !chipArama.trim()) return null;
-                  return (
-                    <div key={kat}>
-                      <button onClick={() => toggleKategori(kat)} className="flex w-full items-center justify-between rounded-md px-3 py-2.5 text-left hover:bg-surface">
-                        <div className="flex items-center gap-2.5">
-                          <span className={`text-xs transition-transform ${isOpen ? "rotate-90" : ""}`}>▸</span>
-                          <span className="text-xs font-semibold text-ink">{CHIP_KATEGORI_ETIKETLERI[kat]}</span>
-                          <span className="text-[11px] text-muted">{chips.length}{sorulanCount > 0 ? ` · ${sorulanCount} soruldu` : ""}</span>
-                        </div>
-                      </button>
-                      {isOpen && chips.length > 0 && (
-                        <div className="ml-6 flex flex-wrap gap-1.5 pb-2">
+          {/* Soru Drawer (overlay) */}
+          {showSoruDrawer && (
+            <div className="fixed inset-0 z-50 flex justify-end">
+              <div className="absolute inset-0 bg-black/20" onClick={() => setShowSoruDrawer(false)} />
+              <div className="relative w-full max-w-md bg-canvas shadow-xl border-l border-hairline overflow-y-auto">
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline bg-canvas px-4 py-3">
+                  <span className="text-sm font-semibold text-ink">Tüm Sorular</span>
+                  <button onClick={() => setShowSoruDrawer(false)} className="rounded-full p-1 hover:bg-surface text-steel">✕</button>
+                </div>
+                <div className="p-4 space-y-3">
+                  <input type="text" value={chipArama} onChange={(e) => setChipArama(e.target.value)}
+                    placeholder="Sorularda ara…"
+                    className="w-full h-8 rounded-full border border-hairline bg-surface px-3 text-xs text-ink placeholder:text-muted focus:border-brand focus:outline-none" />
+                  {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
+                    let chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === kat);
+                    if (chipArama.trim()) chips = chips.filter((c) => c.etiket.toLowerCase().includes(chipArama.trim().toLowerCase()));
+                    if (chips.length === 0 && !chipArama.trim()) return null;
+                    return (
+                      <div key={kat}>
+                        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">{CHIP_KATEGORI_ETIKETLERI[kat]} ({chips.length})</div>
+                        <div className="flex flex-wrap gap-1.5">
                           {chips.map((chip, i) => {
                             const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
                             return (
-                              <button key={i} onClick={() => chipSor(chip)} disabled={soruldu}
+                              <button key={i} onClick={() => { chipSor(chip); if (!soruldu) setShowSoruDrawer(false); }} disabled={soruldu}
                                 className={`rounded-full border px-2.5 py-1.5 text-xs font-medium transition-all ${
                                   soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
                                 }`}>{chip.etiket}</button>
                             );
                           })}
                         </div>
-                      )}
-                    </div>
-                  );
-                })}
+                      </div>
+                    );
+                  })}
+                </div>
               </div>
             </div>
           )}
@@ -621,8 +615,8 @@ function MesajBalonu({ msg }: { msg: ChatMesaj }) {
           {msg.metin}
         </div>
         {msg.testSonucu && (
-          <div className="mx-auto mt-2 max-w-[85%]">
-            <TestSonucChatKart sonuc={msg.testSonucu} testAdi={msg.testAdi || ""} />
+          <div className="mx-auto mt-2 w-full max-w-[85%]">
+            <ResmiRapor sonuc={msg.testSonucu} hasta={vaka.hasta} hastaneAdi={hastaneAdi} />
           </div>
         )}
       </div>
@@ -649,65 +643,6 @@ function MesajBalonu({ msg }: { msg: ChatMesaj }) {
   );
 }
 
-function TestSonucChatKart({ sonuc, testAdi }: { sonuc: import("@/lib/types").TestSonucu; testAdi: string }) {
-  return (
-    <div className="w-full rounded-lg border-2 border-brand/30 bg-white p-4 shadow-sm">
-      <div className="mb-3 flex items-center gap-2">
-        <span className="rounded-full bg-brand/15 px-2.5 py-0.5 text-xs font-semibold text-brand-deep">SONUÇ</span>
-        <span className="text-sm font-semibold text-ink">{testAdi}</span>
-      </div>
-
-      {sonuc.tip === "numeric" && (
-        <div className="mb-2">
-          <div className="flex items-baseline gap-3">
-            <span className="text-4xl font-bold text-ink">
-              {String((sonuc.sonuc as Record<string,string|number>).deger ?? "—")}
-            </span>
-            <span className="text-base text-steel">
-              {String((sonuc.sonuc as Record<string,string|number>).birim ?? "")}
-            </span>
-          </div>
-          {(sonuc.sonuc as Record<string,string|number>).referansAralik && (
-            <div className="mt-1.5 text-xs text-muted">
-              Referans aralığı: <span className="font-medium text-steel">{String((sonuc.sonuc as Record<string,string|number>).referansAralik)}</span>
-            </div>
-          )}
-        </div>
-      )}
-
-      {sonuc.tip === "json" && (
-        <div className="mb-2 grid grid-cols-2 gap-x-4 gap-y-1.5">
-          {Object.entries(sonuc.sonuc as Record<string,unknown>).map(([k, v]) => (
-            <div key={k} className="flex items-baseline justify-between border-b border-dotted border-hairline pb-1">
-              <span className="text-xs text-steel capitalize">{k}</span>
-              <span className="text-sm font-semibold text-ink">{String(v)}</span>
-            </div>
-          ))}
-        </div>
-      )}
-
-      {sonuc.tip === "text" && (
-        <p className="mb-2 text-sm text-ink" style={{ lineHeight: "1.6" }}>
-          {String(sonuc.sonuc)}
-        </p>
-      )}
-
-      {sonuc.yorum && (
-        <div className="mt-3 rounded-md bg-brand/10 border border-brand/20 px-3 py-2">
-          <span className="text-xs font-semibold text-brand-deep">💬 Klinik Yorum:</span>
-          <p className="mt-0.5 text-sm text-brand-deep" style={{ lineHeight: "1.5" }}>{sonuc.yorum}</p>
-        </div>
-      )}
-
-      {sonuc.referans && (
-        <div className="mt-2 text-[11px] text-muted">
-          Kaynak: {sonuc.referans}
-        </div>
-      )}
-    </div>
-  );
-}
-
 function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi; hasta: import("@/lib/types").Hasta; hastaneAdi?: string }) {
   const { sonuc } = istek;
   const [expanded, setExpanded] = useState(false);
@@ -728,8 +663,8 @@ function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi; hasta
       </button>
 
       {expanded && (
-        <div className="bg-surface-soft p-3">
-          <ResmiRapor sonuc={sonuc} hasta={hasta} hastaneAdi={hastaneAdi} />
+        <div className="bg-surface-soft p-2">
+          <ResmiRapor sonuc={sonuc} hasta={hasta} hastaneAdi={hastaneAdi} compact />
         </div>
       )}
     </div>
