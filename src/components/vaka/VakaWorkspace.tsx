@@ -244,7 +244,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
       {/* 3-Panel Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sol Panel — Hasta */}
-        <div className={`${mobilPanel !== "hasta" ? "hidden" : "flex"} lg:flex w-72 flex-shrink-0 border-r border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}
+        <div className={`${mobilPanel !== "hasta" ? "hidden" : "flex"} lg:flex w-72 flex-shrink-0 border-r border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}>
           <div className="p-6">
             <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted">
               Hasta Kartı
@@ -334,7 +334,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
         </div>
 
         {/* Orta Panel — Sohbet */}
-        <div className={`${mobilPanel !== "sohbet" ? "hidden" : "flex"} lg:flex flex-col flex-1 overflow-hidden`}
+        <div className={`${mobilPanel !== "sohbet" ? "hidden" : "flex"} lg:flex flex-col flex-1 overflow-hidden`}>
           {/* Mesajlar */}
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6 lg:px-8">
             <div className="mx-auto max-w-2xl space-y-4">
@@ -464,7 +464,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
         </div>
 
         {/* Sağ Panel — Testler ve Sonuçlar */}
-        <div className={`${mobilPanel !== "testler" ? "hidden" : "flex"} xl:flex w-80 flex-shrink-0 border-l border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}
+        <div className={`${mobilPanel !== "testler" ? "hidden" : "flex"} xl:flex w-80 flex-shrink-0 border-l border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}>
           <div className="p-6">
             {/* Test İsteme */}
             <div className="mb-6">
