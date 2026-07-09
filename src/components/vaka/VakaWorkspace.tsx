@@ -129,6 +129,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
     };
 
     setTestIstekleri((prev) => [...prev, yeniIstek]);
+    setMobilPanel("sohbet");
 
     const durumMesaji = mod === "cemicegek" && !raporHazir
       ? `🧪 ${statik.testAdi} istendi — rapor hazırlanıyor…`
