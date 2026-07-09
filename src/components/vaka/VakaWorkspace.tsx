@@ -93,16 +93,15 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
 
   const testIstey = (testKey: string) => {
     const statik = vaka.statikTestler[testKey];
-    if (!statik) {
-      setMesajlar((prev) => [
-        ...prev,
-        {
-          id: `${Date.now()}-err`,
-          rol: "sistem",
-          metin: "Bu test şu anda sistemde kayıtlı değil.",
-          zaman: Date.now(),
-        },
-      ]);
+      if (!statik) {
+      setMesajlar((prev) => {
+        const alreadyWarned = prev.some((m) => m.id.endsWith("-err") && m.metin.includes(testKey));
+        if (alreadyWarned) return prev;
+        return [
+          ...prev,
+          { id: `${Date.now()}-err`, rol: "sistem", metin: `⚠ "${testKey}" testi sistemde kayıtlı değil. "Tüm Test Kataloğu" listesinden seçim yapabilirsiniz.`, zaman: Date.now() },
+        ];
+      });
       setShowTestDropdown(false);
       return;
     }
@@ -216,22 +215,25 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
             ← Vakalar
           </Link>
           <span className="text-muted">/</span>
-          <span className="text-sm font-medium text-ink">{vaka.semptom}</span>
+          <span className="text-sm font-medium text-ink">{vaka.alan}</span>
+          <span className="text-[11px] rounded-full bg-surface-soft border border-hairline px-2 py-0.5 text-muted">
+            {vaka.semptom.slice(0, 40)}{vaka.semptom.length > 40 ? "…" : ""}
+          </span>
         </div>
         <div className="flex items-center gap-4">
-          <div className="flex items-center gap-2">
-            <span className={`badge ${faz === "anamnez" ? "bg-brand text-ink" : "badge-steel"}`}>
-              Anamnez
-            </span>
-            <span className={`badge ${faz === "test" ? "bg-brand text-ink" : "badge-steel"}`}>
-              Test
-            </span>
-            <span className={`badge ${faz === "tani" ? "bg-brand text-ink" : "badge-steel"}`}>
-              Tanı
-            </span>
-            <span className={`badge ${faz === "tedavi" ? "bg-brand text-ink" : "badge-steel"}`}>
-              Tedavi
-            </span>
+          <div className="flex items-center gap-1 rounded-lg bg-surface p-0.5">
+            {(["anamnez","test","tani","tedavi"] as const).map((f) => (
+              <span
+                key={f}
+                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
+                  faz === f
+                    ? "bg-ink text-white shadow-sm"
+                    : "text-steel hover:text-ink"
+                }`}
+              >
+                {f === "anamnez" ? "Anamnez" : f === "test" ? "Testler" : f === "tani" ? "Tanı" : "Tedavi"}
+              </span>
+            ))}
           </div>
           <span className="badge badge-blue">{vaka.alan}</span>
         </div>
@@ -466,8 +468,8 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
                   value={testArama}
                   onChange={(e) => setTestArama(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && serbestTestIstey()}
-                  placeholder="Test adı yaz (örn: EKG, troponin)..."
-                  className="input h-9 text-sm"
+                  placeholder="Test adı yaz (örn: EKG, troponin)…"
+                  className="h-9 flex-1 rounded-md border border-hairline bg-surface px-3 text-sm text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none"
                 />
                 <button onClick={serbestTestIstey} className="btn-accent px-3 py-1.5 text-xs">
                   İste
@@ -516,7 +518,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
             </div>
 
             {/* İstenen Testler / Sonuçlar */}
-            <div className="border-t border-hairline pt-4">
+            <div className="mb-4 border-t border-hairline pt-4">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
                 Test Sonuçları ({testIstekleri.length})
               </h3>
@@ -613,21 +615,20 @@ function MesajBalonu({ msg }: { msg: ChatMesaj }) {
 
   const isOgrenci = msg.rol === "ogrenci";
   return (
-    <div className={`flex ${isOgrenci ? "justify-end" : "justify-start"}`}>
+    <div className={`flex items-start gap-1.5 ${isOgrenci ? "justify-end" : "justify-start"}`}>
+      {!isOgrenci && <span className="mt-1 shrink-0 rounded bg-surface-soft border border-hairline px-1.5 py-0.5 text-[10px] font-semibold text-steel">H</span>}
       <div
         className={`max-w-[80%] rounded-2xl px-4 py-3 ${
           isOgrenci
             ? "bg-ink text-white rounded-br-md"
-            : "bg-surface text-ink rounded-bl-md border border-hairline"
+            : "bg-white text-ink rounded-bl-md border border-hairline shadow-sm"
         }`}
       >
-        <div className="mb-1 text-xs font-semibold opacity-60">
-          {isOgrenci ? "Öğrenci" : "Hasta"}
-        </div>
         <div className="text-sm" style={{ lineHeight: "1.5" }}>
           {msg.metin}
         </div>
       </div>
+      {isOgrenci && <span className="mt-1 shrink-0 rounded bg-ink/80 px-1.5 py-0.5 text-[10px] font-semibold text-white/70">Ö</span>}
     </div>
   );
 }
