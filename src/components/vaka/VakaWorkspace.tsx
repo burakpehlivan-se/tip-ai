@@ -39,6 +39,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
   const [acikKategoriler, setAcikKategoriler] = useState<Set<ChipKategorisi>>(new Set<ChipKategorisi>(["anamnez-agri"]));
   const [kaynaklarAcik, setKaynaklarAcik] = useState(false);
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
+  const [mobilPanel, setMobilPanel] = useState<"hasta" | "sohbet" | "testler">("sohbet");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
 
@@ -243,7 +244,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
       {/* 3-Panel Layout */}
       <div className="flex flex-1 overflow-hidden">
         {/* Sol Panel — Hasta */}
-        <div className="hidden w-72 flex-shrink-0 border-r border-hairline bg-surface-soft overflow-y-auto scrollbar-thin lg:flex lg:flex-col">
+        <div className={`${mobilPanel !== "hasta" ? "hidden" : "flex"} lg:flex w-72 flex-shrink-0 border-r border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}
           <div className="p-6">
             <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted">
               Hasta Kartı
@@ -333,7 +334,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
         </div>
 
         {/* Orta Panel — Sohbet */}
-        <div className="flex flex-1 flex-col overflow-hidden">
+        <div className={`${mobilPanel !== "sohbet" ? "hidden" : "flex"} lg:flex flex-col flex-1 overflow-hidden`}
           {/* Mesajlar */}
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6 lg:px-8">
             <div className="mx-auto max-w-2xl space-y-4">
@@ -463,7 +464,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
         </div>
 
         {/* Sağ Panel — Testler ve Sonuçlar */}
-        <div className="hidden w-80 flex-shrink-0 border-l border-hairline bg-surface-soft overflow-y-auto scrollbar-thin xl:flex xl:flex-col">
+        <div className={`${mobilPanel !== "testler" ? "hidden" : "flex"} xl:flex w-80 flex-shrink-0 border-l border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}
           <div className="p-6">
             {/* Test İsteme */}
             <div className="mb-6">
@@ -591,9 +592,18 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
 
       {/* Mobile Bottom Tabs */}
       <div className="flex border-t border-hairline bg-canvas xl:hidden">
-        <MobileTab label="Hasta" icon="👤" />
-        <MobileTab label="Sohbet" icon="💬" active />
-        <MobileTab label="Testler" icon="🧪" />
+        <button onClick={() => setMobilPanel("hasta")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "hasta" ? "text-brand" : "text-steel"}`}>
+          <span className="text-base">👤</span>
+          <span className="text-[10px] font-medium">Hasta</span>
+        </button>
+        <button onClick={() => setMobilPanel("sohbet")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "sohbet" ? "text-brand" : "text-steel"}`}>
+          <span className="text-base">💬</span>
+          <span className="text-[10px] font-medium">Sohbet</span>
+        </button>
+        <button onClick={() => setMobilPanel("testler")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "testler" ? "text-brand" : "text-steel"}`}>
+          <span className="text-base">🧪</span>
+          <span className="text-[10px] font-medium">Testler</span>
+        </button>
       </div>
     </div>
   );
@@ -671,20 +681,6 @@ function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi; hasta
   );
 }
 
-function MobileTab({ label, icon, active }: { label: string; icon: string; active?: boolean }) {
-  return (
-    <button
-      className={`flex flex-1 flex-col items-center gap-1 py-3 ${
-        active ? "text-brand" : "text-steel"
-      }`}
-    >
-      <span className="text-lg">{icon}</span>
-      <span className="text-xs font-medium">{label}</span>
-    </button>
-  );
-}
-
-// Sonuç Ekranı
 function SonucEkrani({ vaka, sonuc }: { vaka: Vaka; sonuc: DegerlendirmeSonuc }) {
   const yuzde = Math.round((sonuc.toplamPuan / sonuc.maxPuan) * 100);
   const renk =
