@@ -211,35 +211,29 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
 
   return (
     <div className="flex h-screen flex-col bg-canvas">
-      {/* Top Bar */}
-      <div className="flex h-14 items-center justify-between border-b border-hairline bg-canvas px-4">
-        <div className="flex items-center gap-3">
-          <Link href="/vakalar" className="text-sm text-steel hover:text-ink transition-colors">
-            ← Vakalar
+      {/* Top Bar — Mobil: basitleştirilmiş */}
+      <div className="flex h-12 lg:h-14 items-center justify-between border-b border-hairline bg-canvas px-3 lg:px-4">
+        <div className="flex items-center gap-1.5 lg:gap-2 min-w-0">
+          <Link href="/vakalar" className="text-steel hover:text-ink transition-colors shrink-0">
+            <svg className="w-5 h-5 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
           </Link>
-          <span className="text-muted">/</span>
-          <span className="text-sm font-medium text-ink">{vaka.alan}</span>
-          <span className="text-[11px] rounded-full bg-surface-soft border border-hairline px-2 py-0.5 text-muted">
-            {vaka.semptom.slice(0, 40)}{vaka.semptom.length > 40 ? "…" : ""}
-          </span>
+          <span className="text-sm lg:text-base font-semibold text-ink truncate">{vaka.alan} · {vaka.hasta.yas} yaş</span>
         </div>
-        <div className="flex items-center gap-4">
-          <div className="flex items-center gap-1 rounded-lg bg-surface p-0.5">
-            {(["anamnez","test","tani","tedavi"] as const).map((f) => (
-              <span
-                key={f}
-                className={`px-3 py-1 rounded-md text-xs font-medium transition-colors ${
-                  faz === f
-                    ? "bg-ink text-white shadow-sm"
-                    : "text-steel hover:text-ink"
-                }`}
-              >
-                {f === "anamnez" ? "Anamnez" : f === "test" ? "Testler" : f === "tani" ? "Tanı" : "Tedavi"}
-              </span>
-            ))}
-          </div>
-          <span className="badge badge-blue">{vaka.alan}</span>
+        <div className="hidden sm:flex items-center gap-1 rounded-lg bg-surface p-0.5">
+          {(["anamnez","test","tani","tedavi"] as const).map((f) => (
+            <button key={f} onClick={() => setFaz(f)} className={`px-2.5 lg:px-3 py-1 rounded-md text-[11px] lg:text-xs font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
+              {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
+            </button>
+          ))}
         </div>
+      </div>
+      {/* Mobil faz sekmeleri (sm altı) */}
+      <div className="flex sm:hidden border-b border-hairline bg-canvas px-1 overflow-x-auto scrollbar-none">
+        {(["anamnez","test","tani","tedavi"] as const).map((f) => (
+          <button key={f} onClick={() => setFaz(f)} className={`shrink-0 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${faz === f ? "border-ink text-ink" : "border-transparent text-steel"}`}>
+            {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
+          </button>
+        ))}
       </div>
 
       {/* 3-Panel Layout */}
@@ -438,26 +432,18 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
             </div>
           )}
 
-          {/* Input */}
-          <div className="border-t border-hairline bg-canvas px-4 py-4 lg:px-8">
+          {/* Input — Mobil: iki satır */}
+          <div className="border-t border-hairline bg-canvas px-3 py-3 lg:px-8 lg:py-4">
             <div className="mx-auto max-w-2xl">
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && soruSor()}
-                  placeholder="Hastaya soru sor... (örn: 'Ağrı yayılıyor mu?' veya 'Aile öyküsü var mı?')"
-                  className="input flex-1"
-                />
-                <button onClick={soruSor} className="btn-primary px-5">
-                  Sor
-                </button>
-                <button
-                  onClick={() => setFaz(faz === "anamnez" ? "test" : "anamnez")}
-                  className="btn-secondary"
-                >
-                  {faz === "anamnez" ? "Testlere Geç →" : "← Sorulara Dön"}
+              {/* Satır 1: Input + Sor (mobil) / tek satır (desktop) */}
+              <div className="flex gap-2">
+                <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && soruSor()}
+                  placeholder="Hastaya soru sor…"
+                  className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
+                <button onClick={soruSor} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">Sor</button>
+                <button onClick={() => setFaz(faz === "anamnez" ? "test" : "anamnez")}
+                  className="btn-secondary h-11 lg:h-10 shrink-0 text-xs lg:text-sm px-3 lg:px-4">
+                  {faz === "anamnez" ? "Testler" : "← Sorular"}
                 </button>
               </div>
             </div>
