@@ -338,7 +338,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6 lg:px-8">
             <div className="mx-auto max-w-2xl space-y-4">
               {mesajlar.map((msg) => (
-                <MesajBalonu key={msg.id} msg={msg} />
+                <MesajBalonu key={msg.id} msg={msg} vaka={vaka} hastaneAdi={hastaneAdi} />
               ))}
               <div ref={chatEndRef} />
             </div>
@@ -599,7 +599,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
   );
 }
 
-function MesajBalonu({ msg }: { msg: ChatMesaj }) {
+function MesajBalonu({ msg, vaka, hastaneAdi }: { msg: ChatMesaj; vaka: Vaka; hastaneAdi: string }) {
   if (msg.rol === "sistem") {
     const isWarning = msg.metin.startsWith("⚠️");
     const isComplete = msg.metin.startsWith("✅");
