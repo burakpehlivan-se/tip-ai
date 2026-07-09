@@ -39,6 +39,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
   const [acikKategoriler, setAcikKategoriler] = useState<Set<ChipKategorisi>>(new Set<ChipKategorisi>(["anamnez-agri"]));
   const [kaynaklarAcik, setKaynaklarAcik] = useState(false);
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
+  const [showKatDropdown, setShowKatDropdown] = useState(false);
   const [mobilPanel, setMobilPanel] = useState<"hasta" | "sohbet" | "testler">("sohbet");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -55,6 +56,15 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [mesajlar]);
+
+  // Faz değişince mobil panel otomatik ayarlansın
+  useEffect(() => {
+    if (faz === "test" || faz === "tani" || faz === "tedavi") {
+      setMobilPanel("testler");
+    } else {
+      setMobilPanel("sohbet");
+    }
+  }, [faz]);
 
   const soruSor = () => {
     if (!input.trim()) return;
@@ -346,10 +356,20 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
               <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted hidden sm:inline">SORULAR</span>
               {/* Kategori dropdown */}
               <div className="relative">
-                <button onClick={() => toggleKategori(acikKategoriler.values().next().value || "anamnez-agri")}
+                <button onClick={() => setShowKatDropdown(!showKatDropdown)}
                   className="flex items-center gap-1 rounded-full border border-hairline bg-canvas px-3 py-1.5 text-xs font-medium text-ink hover:border-ink/30 transition-colors">
-                  {CHIP_KATEGORI_ETIKETLERI[acikKategoriler.values().next().value || "anamnez-agri"]} ▾
+                  {CHIP_KATEGORI_ETIKETLERI[Array.from(acikKategoriler)[0] || "anamnez-agri"]} ▾
                 </button>
+                {showKatDropdown && (
+                  <div className="absolute top-full left-0 mt-1 z-30 w-48 rounded-lg border border-hairline bg-canvas shadow-lg overflow-hidden">
+                    {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => (
+                      <button key={kat} onClick={() => { setAcikKategoriler(new Set([kat])); setShowKatDropdown(false); }}
+                        className={`flex w-full items-center px-3 py-2 text-left text-xs hover:bg-surface transition-colors ${acikKategoriler.has(kat) ? "bg-surface font-semibold text-ink" : "text-steel"}`}>
+                        {CHIP_KATEGORI_ETIKETLERI[kat]}
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
               <button onClick={() => setShowSoruDrawer(true)}
                 className="rounded-full border border-hairline bg-canvas px-3 py-1.5 text-xs font-medium text-steel hover:border-ink/30 hover:text-ink transition-colors">
@@ -358,7 +378,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
             </div>
             {/* Aktif kategoriden 2 satır chip */}
             {faz === "anamnez" && (() => {
-              const aktifKat = acikKategoriler.values().next().value;
+              const aktifKat = Array.from(acikKategoriler)[0];
               if (!aktifKat) return null;
               const chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === aktifKat).slice(0, 8);
               if (chips.length === 0) return null;
@@ -425,21 +445,46 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
             </div>
           )}
 
-          {/* Input — Mobil: iki satır */}
+          {/* Input — faz bazlı */}
           <div className="border-t border-hairline bg-canvas px-3 py-3 lg:px-8 lg:py-4">
             <div className="mx-auto max-w-2xl">
-              {/* Satır 1: Input + Sor (mobil) / tek satır (desktop) */}
-              <div className="flex gap-2">
-                <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && soruSor()}
-                  placeholder="Hastaya soru sor…"
-                  className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
-                <button onClick={soruSor} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">Sor</button>
+              {faz === "anamnez" ? (
+                <div className="flex gap-2">
+                  <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && soruSor()}
+                    placeholder="Hastaya soru sor…"
+                    className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
+                  <button onClick={soruSor} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">Sor</button>
+                </div>
+              ) : faz === "tani" ? (
+                <div className="flex gap-2">
+                  <input type="text" value={taniInput} onChange={(e) => setTaniInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && tamamlama()}
+                    placeholder="Ön tanınızı girin (örn: Akut Koroner Sendrom)…"
+                    className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
+                  <button onClick={tamamlama} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">Tanı →</button>
+                </div>
+              ) : faz === "tedavi" ? (
+                <div className="flex gap-2">
+                  <textarea value={tedaviInput} onChange={(e) => setTedaviInput(e.target.value)}
+                    placeholder="Tedavi planınızı yazın (ilaçlar, dozlar, prosedürler)…"
+                    className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none resize-none" rows={1} />
+                  <button onClick={vakaTamamla} className="btn-accent h-11 lg:h-10 px-5 shrink-0 text-sm">Puanla ✓</button>
+                </div>
+              ) : (
+                <div className="flex items-center justify-between gap-2">
+                  <span className="text-xs text-steel">Test istemek için sağ paneli kullanın</span>
+                  <button onClick={() => setFaz("tani")} className="btn-secondary h-11 lg:h-10 shrink-0 text-xs lg:text-sm px-3 lg:px-4" disabled={testIstekleri.length === 0}>
+                    Tanı ▸
+                  </button>
+                </div>
+              )}
+              {/* Faz geçiş butonu */}
+              <div className="flex justify-center mt-1.5">
                 <button onClick={() => {
                   const sira = (["anamnez","test","tani","tedavi"] as const);
                   const idx = sira.indexOf(faz);
                   setFaz(sira[(idx + 1) % sira.length]);
                 }}
-                  className="btn-secondary h-11 lg:h-10 shrink-0 text-xs lg:text-sm px-3 lg:px-4">
+                  className="text-[10px] text-muted hover:text-ink transition-colors">
                   {faz === "anamnez" ? "Testler ▸" : faz === "test" ? "Tanı ▸" : faz === "tani" ? "Tedavi ▸" : "Anamnez ▸"}
                 </button>
               </div>
@@ -532,7 +577,7 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
               )}
             </div>
 
-            {/* Tanı ve Tedavi Girişi */}
+            {/* Tanı ve Tedavi Girişi — her zaman görünür */}
             {testIstekleri.length > 0 && (
               <div className="mt-6 border-t border-hairline pt-4">
                 {faz === "tani" ? (
