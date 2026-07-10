@@ -33,6 +33,9 @@ interface Props {
   hastaneAdi?: string;
   /** Üst bar / geri link gizle (parent kendi bar’ını kullanıyorsa) */
   embed?: boolean;
+  /** Admin debug: beklenen tanı/red flag/test sonuçları hemen görünür */
+  debugMode?: boolean;
+  onComplete?: (sonuc: DegerlendirmeSonuc) => void;
 }
 
 function defaultMesajlar(vaka: Vaka): ChatMesaj[] {
@@ -69,9 +72,13 @@ export default function VakaWorkspace({
   initialSnapshot = null,
   hastaneAdi = "ÇEMİÇGEZEK DEVLET HASTANESİ",
   embed = false,
+  debugMode = false,
+  onComplete,
 }: Props) {
+  // Debug modda sonuçlar her zaman açık
+  const effectiveRaporHazir = debugMode ? true : raporHazir;
   const baslangicMesaj = initialSnapshot
-    ? raporHazir
+    ? effectiveRaporHazir
       ? mesajlaraSonucEkle(initialSnapshot.mesajlar, initialSnapshot.testIstekleri)
       : initialSnapshot.mesajlar
     : defaultMesajlar(vaka);
@@ -223,7 +230,7 @@ export default function VakaWorkspace({
     setTestIstekleri((prev) => [...prev, yeniIstek]);
     setMobilPanel("sohbet");
 
-    const durumMesaji = mod === "cemicegek" && !raporHazir
+    const durumMesaji = mod === "cemicegek" && !effectiveRaporHazir
       ? `🧪 ${statik.testAdi} istendi — rapor hazırlanıyor…`
       : `🧪 ${statik.testAdi} istendi`;
 
@@ -234,7 +241,7 @@ export default function VakaWorkspace({
         rol: "sistem",
         metin: durumMesaji,
         zaman: Date.now(),
-        testSonucu: (mod === "cemicegek" && !raporHazir) ? undefined : statik,
+        testSonucu: (mod === "cemicegek" && !effectiveRaporHazir) ? undefined : statik,
         testAdi: statik.testAdi,
       },
     ]);
@@ -242,7 +249,7 @@ export default function VakaWorkspace({
     setTestArama("");
 
     // Cemicegek modunda: test istendiğinde parent'a haber ver
-    if (mod === "cemicegek" && !raporHazir) {
+    if (mod === "cemicegek" && !effectiveRaporHazir) {
       setTimeout(() => onTestIstendi?.(testKey), 500);
     }
   };
@@ -281,8 +288,9 @@ export default function VakaWorkspace({
 
   const vakaTamamla = () => {
     const istenenTestKeyleri = testIstekleri.map((t) => t.testKey);
-    const sonuc = degerlendir(vaka, sorulanAksiyonlar, istenenTestKeyleri, taniInput);
-    setSonuc(sonuc);
+    const deg = degerlendir(vaka, sorulanAksiyonlar, istenenTestKeyleri, taniInput);
+    setSonuc(deg);
+    onComplete?.(deg);
   };
 
   const filtreliTestler = birlesikTestKatalogu.filter((t) =>
@@ -303,6 +311,37 @@ export default function VakaWorkspace({
 
   return (
     <div className={`flex flex-col bg-canvas ${embed ? "flex-1 min-h-0" : "h-screen"}`}>
+      {debugMode && (
+        <div className="shrink-0 border-b border-clinical-orange/30 bg-clinical-orange/10 px-3 py-2 text-[11px] text-ink">
+          <div className="font-semibold text-clinical-orange mb-1">🐛 DEBUG MODU — eğitmen görünümü</div>
+          <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
+            <div>
+              <span className="text-muted">Beklenen tanı: </span>
+              {(vaka.beklenenTani || []).join(", ") || "—"}
+            </div>
+            <div>
+              <span className="text-muted">Red flags: </span>
+              {(vaka.rubric?.redFlagler || []).map((r) => r.etiket).join(", ") || "—"}
+            </div>
+            <div>
+              <span className="text-muted">Beklenen testler: </span>
+              {(vaka.rubric?.beklenenTestler || []).map((t) => t.etiket).join(", ") || "—"}
+            </div>
+            <div>
+              <span className="text-muted">Gereksiz testler: </span>
+              {(vaka.rubric?.gereksizTestler || []).map((t) => t.etiket).join(", ") || "—"}
+            </div>
+            <div>
+              <span className="text-muted">Hastalık key: </span>
+              {vaka.hastalik}
+            </div>
+            <div>
+              <span className="text-muted">Test sonucu: </span>
+              anında görünür
+            </div>
+          </div>
+        </div>
+      )}
       {/* Top Bar — embed/cemicegek’te parent bar kullanır */}
       {!embed && (
       <div className="flex h-12 lg:h-14 items-center justify-between border-b border-hairline bg-canvas px-3 lg:px-4">

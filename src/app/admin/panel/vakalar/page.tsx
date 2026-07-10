@@ -8,6 +8,10 @@ interface AdminVakaLite {
   hastalikKey: string;
   hastalikAdi: string;
   seviye: string;
+  durum?: string;
+  etiketler?: string[];
+  uzmanOnayi?: boolean;
+  surum?: number;
   statikTestler: Record<string, unknown>;
 }
 
@@ -183,19 +187,38 @@ export default function AdminVakalarPage() {
                 {g.cases.map((c) => {
                   const testCount = Object.keys(c.statikTestler || {}).length;
                   return (
-                    <Link
+                    <div
                       key={c.id}
-                      href={`/admin/panel/vakalar/${encodeURIComponent(c.id)}`}
-                      className="flex items-center justify-between px-4 py-3 hover:bg-surface-soft transition-colors"
+                      className="flex items-center justify-between gap-2 px-4 py-3 hover:bg-surface-soft transition-colors"
                     >
-                      <div>
+                      <Link
+                        href={`/admin/panel/vakalar/${encodeURIComponent(c.id)}`}
+                        className="min-w-0 flex-1"
+                      >
                         <div className="text-sm font-medium text-ink">{c.hastalikAdi}</div>
                         <div className="text-xs text-muted">
-                          {c.hastalikKey} · {c.seviye} · {testCount} test
+                          {c.hastalikKey} · {c.seviye} · {testCount} test · {c.durum || "aktif"}
+                          {c.uzmanOnayi ? " · ✓" : ""} · v{c.surum ?? 1}
+                          {(c.etiketler || []).length
+                            ? ` · ${(c.etiketler || []).slice(0, 3).join(", ")}`
+                            : ""}
                         </div>
+                      </Link>
+                      <div className="flex shrink-0 gap-2">
+                        <Link
+                          href={`/admin/panel/oyna/${encodeURIComponent(c.id)}`}
+                          className="text-xs font-medium text-brand-deep hover:underline"
+                        >
+                          Oyna
+                        </Link>
+                        <Link
+                          href={`/admin/panel/vakalar/${encodeURIComponent(c.id)}`}
+                          className="text-xs text-steel hover:underline"
+                        >
+                          Edit
+                        </Link>
                       </div>
-                      <span className="text-xs text-steel">Düzenle →</span>
-                    </Link>
+                    </div>
                   );
                 })}
               </div>

@@ -55,6 +55,11 @@ export function seedCasesFromTemplates(): AdminVaka[] {
       }
 
       const id = `${p.key}::${s.hastalikKey}`;
+      const etiketler: string[] = ["Poliklinik"];
+      if (s.seviye === "baslangic") etiketler.push("Düşük seviye");
+      if (s.seviye === "orta") etiketler.push("Orta seviye");
+      if (s.seviye === "ileri") etiketler.push("İleri seviye");
+
       out.push({
         id,
         poliklinikKey: p.key,
@@ -74,6 +79,10 @@ export function seedCasesFromTemplates(): AdminVaka[] {
         hastaYanitlari,
         idealYol: s.idealYol || [],
         egitimNotu: s.egitimNotu || "",
+        durum: "aktif",
+        etiketler,
+        surum: 1,
+        uzmanOnayi: false,
         createdAt: now,
         updatedAt: now,
       });

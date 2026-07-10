@@ -13,18 +13,39 @@ interface TestSonucu {
   yorum?: string;
 }
 
+interface RubrikAksiyon {
+  key: string;
+  etiket: string;
+  aciklama: string;
+}
+
 interface AdminVaka {
   id: string;
+  poliklinikKey: string;
   poliklinikAd: string;
   poliklinikIcon: string;
   hastalikKey: string;
   hastalikAdi: string;
   seviye: string;
+  yasAraligi: [number, number];
+  cinsiyetTercih: string;
   anaSikayet: string;
   ozetBilgiler: string[];
   egitimNotu: string;
   idealYol: string[];
   statikTestler: Record<string, TestSonucu>;
+  durum: string;
+  etiketler: string[];
+  surum: number;
+  uzmanOnayi: boolean;
+  rubric: {
+    beklenenSorular: RubrikAksiyon[];
+    beklenenTestler: RubrikAksiyon[];
+    gereksizTestler: RubrikAksiyon[];
+    redFlagler: RubrikAksiyon[];
+    kabulEdilenTani: string[];
+    puanlama: Record<string, number>;
+  };
   updatedAt: number;
 }
 
@@ -41,7 +62,22 @@ export default function AdminVakaDetailPage() {
   const [vaka, setVaka] = useState<AdminVaka | null>(null);
   const [error, setError] = useState("");
   const [flash, setFlash] = useState("");
-  const [meta, setMeta] = useState({ hastalikAdi: "", anaSikayet: "", egitimNotu: "" });
+  const [meta, setMeta] = useState({
+    hastalikAdi: "",
+    anaSikayet: "",
+    egitimNotu: "",
+    seviye: "orta",
+    durum: "aktif",
+    etiketler: "",
+    yasMin: 30,
+    yasMax: 70,
+    cinsiyetTercih: "herhangi",
+    ozetBilgiler: "",
+    kabulEdilenTani: "",
+    uzmanOnayi: false,
+    surum: 1,
+  });
+  const [rubricJson, setRubricJson] = useState("");
   const [newTest, setNewTest] = useState({
     testKey: "",
     testAdi: "",
@@ -61,7 +97,18 @@ export default function AdminVakaDetailPage() {
           hastalikAdi: d.case.hastalikAdi,
           anaSikayet: d.case.anaSikayet,
           egitimNotu: d.case.egitimNotu || "",
+          seviye: d.case.seviye || "orta",
+          durum: d.case.durum || "aktif",
+          etiketler: (d.case.etiketler || []).join(", "),
+          yasMin: d.case.yasAraligi?.[0] ?? 30,
+          yasMax: d.case.yasAraligi?.[1] ?? 70,
+          cinsiyetTercih: d.case.cinsiyetTercih || "herhangi",
+          ozetBilgiler: (d.case.ozetBilgiler || []).join("\n"),
+          kabulEdilenTani: (d.case.rubric?.kabulEdilenTani || []).join(", "),
+          uzmanOnayi: !!d.case.uzmanOnayi,
+          surum: d.case.surum ?? 1,
         });
+        setRubricJson(JSON.stringify(d.case.rubric || {}, null, 2));
         const drafts: Record<string, string> = {};
         for (const [k, t] of Object.entries(d.case.statikTestler || {}) as [string, TestSonucu][]) {
           drafts[`${k}::sonuc`] = pretty(t.sonuc);
@@ -85,10 +132,47 @@ export default function AdminVakaDetailPage() {
 
   async function saveMeta(e: FormEvent) {
     e.preventDefault();
+    let rubric = vaka?.rubric;
+    try {
+      if (rubricJson.trim()) rubric = JSON.parse(rubricJson);
+    } catch {
+      setError("Rubrik JSON geçersiz.");
+      return;
+    }
+    if (rubric) {
+      rubric = {
+        ...rubric,
+        kabulEdilenTani: meta.kabulEdilenTani
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+      };
+    }
     const res = await fetch(`/api/admin/cases/${encodeURIComponent(id)}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(meta),
+      body: JSON.stringify({
+        hastalikAdi: meta.hastalikAdi,
+        anaSikayet: meta.anaSikayet,
+        egitimNotu: meta.egitimNotu,
+        seviye: meta.seviye,
+        durum: meta.durum,
+        etiketler: meta.etiketler
+          .split(",")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        yasAraligi: [Number(meta.yasMin), Number(meta.yasMax)],
+        cinsiyetTercih: meta.cinsiyetTercih,
+        ozetBilgiler: meta.ozetBilgiler
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean),
+        rubric,
+        uzmanOnayi: meta.uzmanOnayi,
+        uzmanOnaylayan: meta.uzmanOnayi ? "admin" : undefined,
+        uzmanOnayTarihi: meta.uzmanOnayi ? Date.now() : undefined,
+        surum: Number(meta.surum) || 1,
+      }),
     });
     const d = await res.json();
     if (!res.ok) {
@@ -203,16 +287,25 @@ export default function AdminVakaDetailPage() {
 
   return (
     <div className="space-y-8">
-      <div>
-        <Link href="/admin/panel/vakalar" className="text-sm text-steel hover:text-ink">
-          ← Vakalar
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <Link href="/admin/panel/vakalar" className="text-sm text-steel hover:text-ink">
+            ← Vakalar
+          </Link>
+          <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink">
+            {vaka.poliklinikIcon} {vaka.hastalikAdi}
+          </h1>
+          <p className="text-sm text-muted">
+            {vaka.poliklinikAd} · {vaka.id} · {vaka.durum || "aktif"} · v{vaka.surum ?? 1}
+            {vaka.uzmanOnayi ? " · ✓ onaylı" : ""}
+          </p>
+        </div>
+        <Link
+          href={`/admin/panel/oyna/${encodeURIComponent(id)}`}
+          className="btn-accent text-sm"
+        >
+          🎮 Debug ile oyna
         </Link>
-        <h1 className="mt-2 text-2xl font-semibold tracking-tight text-ink">
-          {vaka.poliklinikIcon} {vaka.hastalikAdi}
-        </h1>
-        <p className="text-sm text-muted">
-          {vaka.poliklinikAd} · {vaka.id}
-        </p>
       </div>
 
       {flash && (
@@ -223,13 +316,97 @@ export default function AdminVakaDetailPage() {
       )}
 
       <form onSubmit={saveMeta} className="rounded-xl border border-hairline bg-canvas p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-ink">Vaka bilgileri</h2>
+        <h2 className="text-sm font-semibold text-ink">Vaka editörü</h2>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label className="text-xs text-muted">Hastalık adı</label>
+            <input
+              className="input w-full"
+              value={meta.hastalikAdi}
+              onChange={(e) => setMeta({ ...meta, hastalikAdi: e.target.value })}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted">Durum</label>
+            <select
+              className="input w-full"
+              value={meta.durum}
+              onChange={(e) => setMeta({ ...meta, durum: e.target.value })}
+            >
+              <option value="taslak">Taslak (öğrenciye kapalı)</option>
+              <option value="aktif">Aktif</option>
+              <option value="arsiv">Arşiv</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted">Seviye</label>
+            <select
+              className="input w-full"
+              value={meta.seviye}
+              onChange={(e) => setMeta({ ...meta, seviye: e.target.value })}
+            >
+              <option value="baslangic">Başlangıç</option>
+              <option value="orta">Orta</option>
+              <option value="ileri">İleri</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted">Cinsiyet tercihi</label>
+            <select
+              className="input w-full"
+              value={meta.cinsiyetTercih}
+              onChange={(e) => setMeta({ ...meta, cinsiyetTercih: e.target.value })}
+            >
+              <option value="herhangi">Herhangi</option>
+              <option value="E">Erkek</option>
+              <option value="K">Kadın</option>
+            </select>
+          </div>
+          <div>
+            <label className="text-xs text-muted">Yaş min</label>
+            <input
+              type="number"
+              className="input w-full"
+              value={meta.yasMin}
+              onChange={(e) => setMeta({ ...meta, yasMin: Number(e.target.value) })}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted">Yaş max</label>
+            <input
+              type="number"
+              className="input w-full"
+              value={meta.yasMax}
+              onChange={(e) => setMeta({ ...meta, yasMax: Number(e.target.value) })}
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted">Sürüm</label>
+            <input
+              type="number"
+              min={1}
+              className="input w-full"
+              value={meta.surum}
+              onChange={(e) => setMeta({ ...meta, surum: Number(e.target.value) })}
+            />
+          </div>
+          <div className="flex items-end">
+            <label className="flex items-center gap-2 text-sm pb-2">
+              <input
+                type="checkbox"
+                checked={meta.uzmanOnayi}
+                onChange={(e) => setMeta({ ...meta, uzmanOnayi: e.target.checked })}
+              />
+              Uzman onayı
+            </label>
+          </div>
+        </div>
         <div>
-          <label className="text-xs text-muted">Hastalık adı</label>
+          <label className="text-xs text-muted">Etiketler (virgülle: OSCE, Acil, Poliklinik…)</label>
           <input
             className="input w-full"
-            value={meta.hastalikAdi}
-            onChange={(e) => setMeta({ ...meta, hastalikAdi: e.target.value })}
+            value={meta.etiketler}
+            onChange={(e) => setMeta({ ...meta, etiketler: e.target.value })}
           />
         </div>
         <div>
@@ -241,11 +418,37 @@ export default function AdminVakaDetailPage() {
           />
         </div>
         <div>
+          <label className="text-xs text-muted">Bilinen bilgiler (satır satır)</label>
+          <textarea
+            className="input w-full min-h-[70px]"
+            value={meta.ozetBilgiler}
+            onChange={(e) => setMeta({ ...meta, ozetBilgiler: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted">Kabul edilen tanılar (virgülle)</label>
+          <input
+            className="input w-full"
+            value={meta.kabulEdilenTani}
+            onChange={(e) => setMeta({ ...meta, kabulEdilenTani: e.target.value })}
+          />
+        </div>
+        <div>
           <label className="text-xs text-muted">Eğitim notu</label>
           <textarea
             className="input w-full min-h-[80px]"
             value={meta.egitimNotu}
             onChange={(e) => setMeta({ ...meta, egitimNotu: e.target.value })}
+          />
+        </div>
+        <div>
+          <label className="text-xs text-muted">
+            Rubrik editörü (JSON) — beklenen sorular / testler / red flag / gereksiz
+          </label>
+          <textarea
+            className="input w-full min-h-[180px] font-mono text-xs"
+            value={rubricJson}
+            onChange={(e) => setRubricJson(e.target.value)}
           />
         </div>
         <div className="flex flex-wrap gap-2">

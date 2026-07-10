@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
 import { vakaUret, AdminTestOverrides } from "@/lib/data/case-generator";
 import { fetchAdminTestOverrides } from "@/lib/data/admin-overrides";
@@ -12,8 +12,8 @@ async function uretVaka(overrides?: AdminTestOverrides): Promise<Vaka> {
   return vakaUret(undefined, { adminTests });
 }
 
-/** Kaç yeni hasta görüldükten sonra lab’daki hasta geri döner */
-const GERI_DONUS_ESIK = 2;
+/** Fallback — admin ayarlarından override edilir */
+const DEFAULT_GERI_DONUS = 2;
 
 interface HastaKayit {
   id: string;
@@ -47,10 +47,26 @@ export default function CemicegekSimulator() {
   const [banner, setBanner] = useState<string | null>(null);
   const [toplamGorulen, setToplamGorulen] = useState(0);
   const [gonderiliyor, setGonderiliyor] = useState(false);
+  const [geriDonusEsik, setGeriDonusEsik] = useState(DEFAULT_GERI_DONUS);
+
 
   // Snapshot callback stabil kalsın diye ref
   const aktifIndexRef = useRef(aktifIndex);
   aktifIndexRef.current = aktifIndex;
+
+  useEffect(() => {
+    fetch("/api/admin/settings/public")
+      .then((r) => r.json())
+      .then((d) => {
+        const c = d.cemicegek;
+        if (!c) return;
+        const min = Number(c.geriDonusMin) || DEFAULT_GERI_DONUS;
+        const max = Math.max(min, Number(c.geriDonusMax) || min);
+        const esik = min + Math.floor(Math.random() * (max - min + 1));
+        setGeriDonusEsik(esik);
+      })
+      .catch(() => {});
+  }, []);
 
   const bannerGoster = (msg: string) => {
     setBanner(msg);
@@ -134,7 +150,7 @@ export default function CemicegekSimulator() {
           if (k.siraNo === gidenSira) continue; // az önce giden henüz dönmez
           // Görülen hasta sayısı − bu hastanın siraNo’su ≥ eşik
           // Not: yeni hasta eklenecek → eşik kontrolü yeniToplam ile
-          if (yeniToplam - k.siraNo >= GERI_DONUS_ESIK) {
+          if (yeniToplam - k.siraNo >= geriDonusEsik) {
             donecekIndex = i;
             break;
           }
@@ -189,7 +205,7 @@ export default function CemicegekSimulator() {
     } finally {
       setGonderiliyor(false);
     }
-  }, [aktifIndex, gonderiliyor, kuyruk, siraSayaci, toplamGorulen]);
+  }, [aktifIndex, gonderiliyor, kuyruk, siraSayaci, toplamGorulen, geriDonusEsik]);
 
   // Menü
   if (kuyruk.length === 0) {
@@ -206,7 +222,7 @@ export default function CemicegekSimulator() {
             </li>
             <li>Yeni hasta gelir; kalabalık artar.</li>
             <li>
-              {GERI_DONUS_ESIK} hasta sonra lab’daki hasta <strong className="text-ink">önceki sohbetiyle</strong> ve
+              {geriDonusEsik} hasta sonra lab’daki hasta <strong className="text-ink">önceki sohbetiyle</strong> ve
               sonuçlarıyla geri döner.
             </li>
           </ol>

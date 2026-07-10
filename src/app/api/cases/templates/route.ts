@@ -11,7 +11,10 @@ import { loadCasesStore } from "@/lib/admin/store";
 export async function GET() {
   try {
     const store = loadCasesStore();
-    const templates = store.cases.map((c) => ({
+    // Öğrenciye yalnızca aktif + (isteğe bağlı) onaylı taslak olmayan vakalar
+    const templates = store.cases
+      .filter((c) => (c.durum || "aktif") === "aktif")
+      .map((c) => ({
       id: c.id,
       poliklinikKey: c.poliklinikKey,
       poliklinikAd: c.poliklinikAd,
@@ -28,6 +31,8 @@ export async function GET() {
       hastaYanitlari: c.hastaYanitlari,
       idealYol: c.idealYol,
       egitimNotu: c.egitimNotu,
+      etiketler: c.etiketler || [],
+      durum: c.durum || "aktif",
       updatedAt: c.updatedAt,
     }));
     return NextResponse.json({

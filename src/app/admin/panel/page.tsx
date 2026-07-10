@@ -34,6 +34,7 @@ export default function AdminDashboardPage() {
     { label: "Değişiklik sayacı", value: stats.changeCount, href: "/admin/panel/logs" },
     { label: "Log kaydı", value: stats.logCount, href: "/admin/panel/logs" },
     { label: "Yedek", value: stats.backupCount, href: "/admin/panel/yedekler" },
+    { label: "Analitik", value: "→", href: "/admin/panel/analitik" },
   ];
 
   return (
@@ -59,10 +60,13 @@ export default function AdminDashboardPage() {
       <div className="mt-8 rounded-xl border border-hairline bg-canvas p-5 text-sm text-steel space-y-2">
         <p className="font-medium text-ink">Nasıl çalışır?</p>
         <ul className="list-disc pl-5 space-y-1">
-          <li>Her test alanı değişikliği ayrı log satırı üretir.</li>
-          <li>Loglardan yalnızca seçtiğiniz işlemi geri alabilirsiniz; sonraki işlemler etkilenmez.</li>
-          <li>Her 10 değişiklikte tüm vaka deposunun otomatik yedeği alınır.</li>
-          <li>İstediğiniz zaman yedekten geri yükleyebilirsiniz (önce güvenlik yedeği alınır).</li>
+          <li>
+            <strong>Vakalar → Oyna</strong>: debug modda vaka çöz, sonucu anında gör, vaka özelinde feedback yaz.
+          </li>
+          <li>Vaka editörü: durum (taslak/aktif/arşiv), etiket, demografi, rubrik JSON, test sonuçları.</li>
+          <li>Her test/alan değişikliği loglanır; seçici geri alma ve 10’da bir yedek.</li>
+          <li>Çemiçgezek ayarları: geri dönüş eşiği, kalabalıklık, poliklinik filtresi.</li>
+          <li>Analitik: oturum, ortalama puan, atlanan red flag / gereksiz test.</li>
         </ul>
       </div>
     </div>

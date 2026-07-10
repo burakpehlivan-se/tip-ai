@@ -9,7 +9,7 @@ import {
   loadCasesStore,
   recordMutation,
 } from "@/lib/admin/store";
-import { AdminVaka } from "@/lib/admin/types";
+import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
 import { Seviye } from "@/lib/types";
 
 export async function GET(req: NextRequest) {
@@ -55,7 +55,7 @@ export async function POST(req: NextRequest) {
     // poliklinik meta mevcut vakadan veya body'den
     const existingPoli = store.cases.find((c) => c.poliklinikKey === poliklinikKey);
     const now = Date.now();
-    const vaka: AdminVaka = {
+    const vaka: AdminVaka = normalizeAdminVaka({
       id,
       poliklinikKey,
       poliklinikAd: String(body.poliklinikAd || existingPoli?.poliklinikAd || poliklinikKey),
@@ -90,9 +90,13 @@ export async function POST(req: NextRequest) {
       hastaYanitlari: body.hastaYanitlari || { OZEL: "Anlamadım" },
       idealYol: Array.isArray(body.idealYol) ? body.idealYol : [],
       egitimNotu: String(body.egitimNotu || ""),
+      durum: body.durum || "taslak",
+      etiketler: Array.isArray(body.etiketler) ? body.etiketler : ["Poliklinik"],
+      surum: 1,
+      uzmanOnayi: false,
       createdAt: now,
       updatedAt: now,
-    };
+    });
 
     const result = recordMutation(
       session.username,

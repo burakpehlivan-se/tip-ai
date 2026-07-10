@@ -25,3 +25,15 @@ export function backupsDir(): string {
 export function backupsIndexPath(): string {
   return path.join(backupsDir(), "index.json");
 }
+
+export function feedbackPath(): string {
+  return path.join(adminDataDir(), "feedback.json");
+}
+
+export function settingsPath(): string {
+  return path.join(adminDataDir(), "settings.json");
+}
+
+export function analyticsPath(): string {
+  return path.join(adminDataDir(), "analytics.json");
+}

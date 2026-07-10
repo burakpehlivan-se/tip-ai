@@ -1,4 +1,16 @@
-import { Rubric, Seviye, TestSonucu, Cinsiyet } from "../types";
+import { Rubric, Seviye, TestSonucu } from "../types";
+
+export type VakaDurum = "taslak" | "aktif" | "arsiv";
+
+export type VakaEtiket =
+  | "OSCE"
+  | "Acil"
+  | "Poliklinik"
+  | "Düşük seviye"
+  | "Orta seviye"
+  | "İleri seviye"
+  | "Kardiyoloji"
+  | "Diğer";
 
 /** Admin panelinde düzenlenen kalıcı vaka kaydı */
 export interface AdminVaka {
@@ -20,6 +32,16 @@ export interface AdminVaka {
   hastaYanitlari: Record<string, string>;
   idealYol: string[];
   egitimNotu: string;
+  /** Yayın durumu — taslak öğrenciye açılmaz */
+  durum: VakaDurum;
+  /** Filtre etiketleri */
+  etiketler: string[];
+  /** Sürüm numarası */
+  surum: number;
+  /** Uzman onayı */
+  uzmanOnayi: boolean;
+  uzmanOnaylayan?: string;
+  uzmanOnayTarihi?: number;
   updatedAt: number;
   createdAt: number;
 }
@@ -28,8 +50,84 @@ export interface CasesStore {
   version: number;
   seededAt: number;
   updatedAt: number;
-  changeCount: number; // yedek tetikleyici (her 10)
+  changeCount: number;
   cases: AdminVaka[];
+}
+
+/** Vaka özelinde eğitmen / admin feedback’i (vaka değerleriyle birlikte) */
+export interface VakaFeedback {
+  id: string;
+  caseId: string;
+  hastalikKey: string;
+  poliklinikKey: string;
+  actor: string;
+  /** Serbest metin feedback */
+  metin: string;
+  /** Debug oturumundan otomatik eklenen vaka anlık görüntüsü */
+  vakaSnapshot?: {
+    hastalikAdi?: string;
+    anaSikayet?: string;
+    seviye?: string;
+    testKeys?: string[];
+    beklenenTani?: string[];
+    debugNotlar?: string;
+  };
+  /** İsteğe bağlı puan / debug sonucu */
+  debugPuan?: {
+    toplamPuan?: number;
+    maxPuan?: number;
+    taniGirildi?: string;
+    taniDogru?: boolean;
+  };
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface FeedbackStore {
+  version: number;
+  feedbacks: VakaFeedback[];
+}
+
+/** Çemiçgezek / sistem ayarları */
+export interface CemicegekAyarlari {
+  kalabaliklik: "az" | "orta" | "cok";
+  /** Lab sonrası kaç hasta sonra geri gelsin (sabit veya min-max) */
+  geriDonusMin: number;
+  geriDonusMax: number;
+  /** Boş = tüm poliklinikler */
+  aktifPoliklinikler: string[];
+  /** Boş = tüm aktif vakalar */
+  aktifHastaliklar: string[];
+}
+
+export interface SystemSettings {
+  version: number;
+  updatedAt: number;
+  cemicegek: CemicegekAyarlari;
+}
+
+/** Öğrenci / admin play oturum özeti (analitik) */
+export interface PlaySession {
+  id: string;
+  caseId: string;
+  hastalikKey: string;
+  poliklinikKey: string;
+  actor: string;
+  mode: "ogrenci" | "admin-debug";
+  toplamPuan: number;
+  maxPuan: number;
+  taniDogru: boolean;
+  atlananRedFlagler: string[];
+  gereksizTestler: string[];
+  eksikSorular: string[];
+  eksikTestler: string[];
+  anamnezCoverage?: number;
+  createdAt: number;
+}
+
+export interface AnalyticsStore {
+  version: number;
+  sessions: PlaySession[];
 }
 
 export type AuditAction =
@@ -43,11 +141,13 @@ export type AuditAction =
   | "create_backup"
   | "restore_backup"
   | "undo"
-  | "seed";
+  | "seed"
+  | "add_feedback"
+  | "update_settings"
+  | "play_session";
 
-/** Tek bir alan/patch değişikliği — seçici geri alma için */
 export interface AuditPatch {
-  path: string; // örn. cases[id].statikTestler.TROPONIN.sonuc.deger
+  path: string;
   caseId?: string;
   testKey?: string;
   field?: string;
@@ -63,8 +163,8 @@ export interface AuditLog {
   message: string;
   patches: AuditPatch[];
   undone: boolean;
-  undoOf?: string; // bu log bir undo ise hedef log id
-  undoneBy?: string; // bu log undo edildiyse undo log id
+  undoOf?: string;
+  undoneBy?: string;
 }
 
 export interface LogsStore {
@@ -75,7 +175,7 @@ export interface LogsStore {
 export interface BackupMeta {
   id: string;
   timestamp: number;
-  reason: string; // "auto-every-10" | "manual" | "pre-restore"
+  reason: string;
   changeCountAtBackup: number;
   caseCount: number;
   filename: string;
@@ -89,4 +189,51 @@ export interface BackupsIndex {
 export interface AdminSessionPayload {
   username: string;
   exp: number;
+}
+
+export const DEFAULT_CEMICEGEK: CemicegekAyarlari = {
+  kalabaliklik: "orta",
+  geriDonusMin: 2,
+  geriDonusMax: 3,
+  aktifPoliklinikler: [],
+  aktifHastaliklar: [],
+};
+
+export function normalizeAdminVaka(c: Partial<AdminVaka> & { id: string }): AdminVaka {
+  const now = Date.now();
+  return {
+    id: c.id,
+    poliklinikKey: c.poliklinikKey || "",
+    poliklinikAd: c.poliklinikAd || "",
+    poliklinikIcon: c.poliklinikIcon || "🏥",
+    poliklinikAciklama: c.poliklinikAciklama || "",
+    hastalikKey: c.hastalikKey || "",
+    hastalikAdi: c.hastalikAdi || "",
+    seviye: c.seviye || "orta",
+    yasAraligi: c.yasAraligi || [30, 70],
+    cinsiyetTercih: c.cinsiyetTercih || "herhangi",
+    anaSikayet: c.anaSikayet || "",
+    ozetBilgiler: c.ozetBilgiler || [],
+    semptomSablon: c.semptomSablon || "",
+    rubric: c.rubric || {
+      beklenenSorular: [],
+      beklenenTestler: [],
+      gereksizTestler: [],
+      redFlagler: [],
+      kabulEdilenTani: [],
+      puanlama: {},
+    },
+    statikTestler: c.statikTestler || {},
+    hastaYanitlari: c.hastaYanitlari || {},
+    idealYol: c.idealYol || [],
+    egitimNotu: c.egitimNotu || "",
+    durum: c.durum || "aktif",
+    etiketler: c.etiketler || [],
+    surum: c.surum ?? 1,
+    uzmanOnayi: c.uzmanOnayi ?? false,
+    uzmanOnaylayan: c.uzmanOnaylayan,
+    uzmanOnayTarihi: c.uzmanOnayTarihi,
+    updatedAt: c.updatedAt || now,
+    createdAt: c.createdAt || now,
+  };
 }

@@ -2,18 +2,28 @@ import fs from "fs";
 import path from "path";
 import {
   AdminVaka,
+  AnalyticsStore,
   AuditLog,
   AuditPatch,
   BackupMeta,
   BackupsIndex,
   CasesStore,
+  DEFAULT_CEMICEGEK,
+  FeedbackStore,
   LogsStore,
+  PlaySession,
+  SystemSettings,
+  VakaFeedback,
+  normalizeAdminVaka,
 } from "./types";
 import {
+  analyticsPath,
   backupsDir,
   backupsIndexPath,
   casesPath,
+  feedbackPath,
   logsPath,
+  settingsPath,
 } from "./paths";
 import { seedCasesFromTemplates } from "./seed";
 
@@ -59,6 +69,21 @@ export function loadCasesStore(): CasesStore {
       message: `Vaka deposu şablonlardan seed edildi (${seeded.length} vaka).`,
       patches: [],
     });
+  } else {
+    // Eski kayıtlara yeni alanları ekle
+    let dirty = false;
+    store.cases = store.cases.map((c) => {
+      const n = normalizeAdminVaka(c);
+      if (
+        (c as AdminVaka).durum === undefined ||
+        (c as AdminVaka).etiketler === undefined ||
+        (c as AdminVaka).surum === undefined
+      ) {
+        dirty = true;
+      }
+      return n;
+    });
+    if (dirty) writeJsonAtomic(casesPath(), store);
   }
   return store;
 }
@@ -365,4 +390,197 @@ export function recordMutation(
 /** Deep clone helper */
 export function clone<T>(v: T): T {
   return JSON.parse(JSON.stringify(v)) as T;
+}
+
+// ─── Feedback (vaka + değerlerle birlikte) ───
+
+export function loadFeedbackStore(): FeedbackStore {
+  return readJson<FeedbackStore>(feedbackPath(), { version: 1, feedbacks: [] });
+}
+
+export function saveFeedbackStore(store: FeedbackStore): void {
+  writeJsonAtomic(feedbackPath(), store);
+}
+
+export function listFeedbacks(caseId?: string): VakaFeedback[] {
+  const all = loadFeedbackStore().feedbacks;
+  if (!caseId) return all;
+  return all.filter((f) => f.caseId === caseId);
+}
+
+export function addFeedback(
+  input: Omit<VakaFeedback, "id" | "createdAt" | "updatedAt">,
+  actor: string
+): VakaFeedback {
+  const store = loadFeedbackStore();
+  const now = Date.now();
+  const fb: VakaFeedback = {
+    ...input,
+    id: `fb_${now}_${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: now,
+    updatedAt: now,
+  };
+  store.feedbacks.unshift(fb);
+  if (store.feedbacks.length > 10000) store.feedbacks = store.feedbacks.slice(0, 10000);
+  saveFeedbackStore(store);
+  appendLog({
+    action: "add_feedback",
+    actor,
+    message: `Feedback eklendi · vaka ${input.caseId}: ${input.metin.slice(0, 80)}${input.metin.length > 80 ? "…" : ""}`,
+    patches: [
+      {
+        path: `__feedback__:${fb.id}`,
+        caseId: input.caseId,
+        before: null,
+        after: clone(fb),
+      },
+    ],
+  });
+  return fb;
+}
+
+// ─── Settings ───
+
+export function loadSettings(): SystemSettings {
+  const fallback: SystemSettings = {
+    version: 1,
+    updatedAt: 0,
+    cemicegek: { ...DEFAULT_CEMICEGEK },
+  };
+  const s = readJson<SystemSettings>(settingsPath(), fallback);
+  if (!s.cemicegek) s.cemicegek = { ...DEFAULT_CEMICEGEK };
+  return s;
+}
+
+export function saveSettings(settings: SystemSettings, actor: string): SystemSettings {
+  const before = loadSettings();
+  settings.updatedAt = Date.now();
+  writeJsonAtomic(settingsPath(), settings);
+  appendLog({
+    action: "update_settings",
+    actor,
+    message: "Sistem / Çemiçgezek ayarları güncellendi.",
+    patches: [
+      {
+        path: "__settings__",
+        before: clone(before),
+        after: clone(settings),
+      },
+    ],
+  });
+  return settings;
+}
+
+// ─── Analytics ───
+
+export function loadAnalytics(): AnalyticsStore {
+  return readJson<AnalyticsStore>(analyticsPath(), { version: 1, sessions: [] });
+}
+
+export function saveAnalytics(store: AnalyticsStore): void {
+  writeJsonAtomic(analyticsPath(), store);
+}
+
+export function recordPlaySession(
+  session: Omit<PlaySession, "id" | "createdAt">,
+  actor: string
+): PlaySession {
+  const store = loadAnalytics();
+  const full: PlaySession = {
+    ...session,
+    id: `ps_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+    createdAt: Date.now(),
+  };
+  store.sessions.unshift(full);
+  if (store.sessions.length > 20000) store.sessions = store.sessions.slice(0, 20000);
+  saveAnalytics(store);
+  appendLog({
+    action: "play_session",
+    actor,
+    message: `Oyun oturumu · ${session.mode} · ${session.caseId} · puan ${session.toplamPuan}/${session.maxPuan}`,
+    patches: [],
+  });
+  return full;
+}
+
+export function computeAnalyticsSummary() {
+  const sessions = loadAnalytics().sessions;
+  const cases = loadCasesStore().cases;
+  const byCase = new Map<
+    string,
+    {
+      caseId: string;
+      hastalikKey: string;
+      poliklinikKey: string;
+      ad: string;
+      n: number;
+      avgPuan: number;
+      taniDogruOran: number;
+      redFlags: Record<string, number>;
+      gereksiz: Record<string, number>;
+    }
+  >();
+
+  for (const s of sessions) {
+    if (!byCase.has(s.caseId)) {
+      const c = cases.find((x) => x.id === s.caseId);
+      byCase.set(s.caseId, {
+        caseId: s.caseId,
+        hastalikKey: s.hastalikKey,
+        poliklinikKey: s.poliklinikKey,
+        ad: c?.hastalikAdi || s.hastalikKey,
+        n: 0,
+        avgPuan: 0,
+        taniDogruOran: 0,
+        redFlags: {},
+        gereksiz: {},
+      });
+    }
+    const row = byCase.get(s.caseId)!;
+    row.n += 1;
+    row.avgPuan += s.maxPuan > 0 ? (s.toplamPuan / s.maxPuan) * 100 : 0;
+    if (s.taniDogru) row.taniDogruOran += 1;
+    for (const rf of s.atlananRedFlagler || []) {
+      row.redFlags[rf] = (row.redFlags[rf] || 0) + 1;
+    }
+    for (const g of s.gereksizTestler || []) {
+      row.gereksiz[g] = (row.gereksiz[g] || 0) + 1;
+    }
+  }
+
+  const caseStats = Array.from(byCase.values()).map((r) => ({
+    ...r,
+    avgPuan: r.n ? Math.round(r.avgPuan / r.n) : 0,
+    taniDogruOran: r.n ? Math.round((r.taniDogruOran / r.n) * 100) : 0,
+    topRedFlags: Object.entries(r.redFlags)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([k, v]) => ({ etiket: k, n: v })),
+    topGereksiz: Object.entries(r.gereksiz)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(([k, v]) => ({ etiket: k, n: v })),
+  }));
+
+  const byPoli = new Map<string, { poliklinikKey: string; n: number; avgPuan: number }>();
+  for (const s of sessions) {
+    if (!byPoli.has(s.poliklinikKey)) {
+      byPoli.set(s.poliklinikKey, { poliklinikKey: s.poliklinikKey, n: 0, avgPuan: 0 });
+    }
+    const p = byPoli.get(s.poliklinikKey)!;
+    p.n += 1;
+    p.avgPuan += s.maxPuan > 0 ? (s.toplamPuan / s.maxPuan) * 100 : 0;
+  }
+
+  return {
+    totalSessions: sessions.length,
+    caseStats: caseStats.sort((a, b) => b.n - a.n),
+    poliStats: Array.from(byPoli.values())
+      .map((p) => ({
+        ...p,
+        avgPuan: p.n ? Math.round(p.avgPuan / p.n) : 0,
+      }))
+      .sort((a, b) => b.n - a.n),
+    recent: sessions.slice(0, 20),
+  };
 }

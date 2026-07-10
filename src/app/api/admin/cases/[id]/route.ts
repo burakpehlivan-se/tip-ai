@@ -57,6 +57,13 @@ export async function PATCH(
       "poliklinikAd",
       "poliklinikIcon",
       "poliklinikAciklama",
+      "poliklinikKey",
+      "durum",
+      "etiketler",
+      "surum",
+      "uzmanOnayi",
+      "uzmanOnaylayan",
+      "uzmanOnayTarihi",
     ];
 
     const patches: { path: string; caseId: string; field: string; before: unknown; after: unknown }[] = [];
