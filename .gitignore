@@ -32,10 +32,6 @@ next-env.d.ts
 /reports/
 /soruces/
 
-# large raw / intermediate lab datasets (runtime pool: src/lib/data/lab-pool.json)
+# DB + runtime data (root level only)
 /data/
-
-# admin runtime store (cases, logs, backups, sessions)
-/data/admin/
-data/etl-out/
-data/
+!/src/lib/data/
