@@ -22,6 +22,39 @@ interface Group {
   cases: AdminVakaLite[];
 }
 
+async function downloadExport(opts: {
+  format: "json" | "pdf";
+  poliklinik?: string;
+}): Promise<void> {
+  const params = new URLSearchParams({ format: opts.format });
+  if (opts.poliklinik) params.set("poliklinik", opts.poliklinik);
+  const res = await fetch(`/api/admin/cases/export?${params.toString()}`);
+  if (!res.ok) {
+    let msg = "Export başarısız";
+    try {
+      const d = await res.json();
+      msg = d.error || msg;
+    } catch {
+      /* ignore */
+    }
+    throw new Error(msg);
+  }
+  const blob = await res.blob();
+  const cd = res.headers.get("Content-Disposition") || "";
+  const m = /filename="([^"]+)"/.exec(cd);
+  const filename =
+    m?.[1] ||
+    `tip-ai-vakalar.${opts.format === "pdf" ? "pdf" : "json"}`;
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  URL.revokeObjectURL(url);
+}
+
 export default function AdminVakalarPage() {
   const [grouped, setGrouped] = useState<Group[]>([]);
   const [q, setQ] = useState("");
@@ -35,6 +68,7 @@ export default function AdminVakalarPage() {
   });
   const [msg, setMsg] = useState("");
   const [err, setErr] = useState("");
+  const [exporting, setExporting] = useState<string | null>(null);
 
   function load() {
     fetch("/api/admin/cases")
@@ -54,6 +88,11 @@ export default function AdminVakalarPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  const totalCases = useMemo(
+    () => grouped.reduce((n, g) => n + g.cases.length, 0),
+    [grouped]
+  );
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -91,16 +130,62 @@ export default function AdminVakalarPage() {
     load();
   }
 
+  async function runExport(format: "json" | "pdf", poliklinik?: string) {
+    const key = `${format}:${poliklinik || "all"}`;
+    setExporting(key);
+    setErr("");
+    setMsg("");
+    try {
+      await downloadExport({ format, poliklinik });
+      setMsg(
+        format === "pdf"
+          ? "PDF indirildi (klinik özet — doktora gösterilebilir)."
+          : "JSON indirildi (depodaki tüm alanlar)."
+      );
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Export başarısız");
+    } finally {
+      setExporting(null);
+    }
+  }
+
   return (
     <div>
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Vakalar</h1>
-          <p className="mt-1 text-sm text-steel">Polikliniklere göre gruplanmış vaka şablonları</p>
+          <p className="mt-1 text-sm text-steel">
+            Polikliniklere göre gruplanmış vaka şablonları · {totalCases} vaka
+          </p>
         </div>
-        <button className="btn-primary text-sm" onClick={() => setShowNew((v) => !v)}>
-          {showNew ? "İptal" : "+ Yeni vaka"}
-        </button>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            disabled={!!exporting || totalCases === 0}
+            onClick={() => runExport("pdf")}
+            title="Tüm vakalar — klinik özet PDF"
+          >
+            {exporting === "pdf:all" ? "…" : "📄 Tümü PDF"}
+          </button>
+          <button
+            type="button"
+            className="btn-secondary text-sm"
+            disabled={!!exporting || totalCases === 0}
+            onClick={() => runExport("json")}
+            title="Tüm vakalar — ham JSON (DB)"
+          >
+            {exporting === "json:all" ? "…" : "{ } Tümü JSON"}
+          </button>
+          <button className="btn-primary text-sm" onClick={() => setShowNew((v) => !v)}>
+            {showNew ? "İptal" : "+ Yeni vaka"}
+          </button>
+        </div>
+      </div>
+
+      <div className="mt-3 rounded-lg border border-hairline bg-surface-soft px-3 py-2 text-[11px] text-steel">
+        <strong className="text-ink">Export:</strong> PDF klinisyen dostu özet (teknik anahtarlar yok).
+        JSON depodaki tüm vaka alanlarını içerir. Poliklinik satırından da ayrı export alabilirsiniz.
       </div>
 
       <div className="mt-4">
@@ -172,16 +257,41 @@ export default function AdminVakalarPage() {
       <div className="mt-8 space-y-4">
         {filtered.map((g) => (
           <div key={g.poliklinikKey} className="rounded-xl border border-hairline bg-canvas overflow-hidden">
-            <button
-              className="flex w-full items-center justify-between px-4 py-3 text-left hover:bg-surface-soft"
-              onClick={() => setOpen((o) => ({ ...o, [g.poliklinikKey]: !o[g.poliklinikKey] }))}
-            >
-              <span className="font-semibold text-ink">
-                {g.poliklinikIcon} {g.poliklinikAd}{" "}
-                <span className="text-sm font-normal text-muted">({g.cases.length})</span>
-              </span>
-              <span className="text-muted">{open[g.poliklinikKey] ? "▾" : "▸"}</span>
-            </button>
+            <div className="flex items-center gap-2 border-b border-hairline-soft px-2 py-1.5 sm:px-3">
+              <button
+                type="button"
+                className="flex min-w-0 flex-1 items-center justify-between px-2 py-2 text-left hover:bg-surface-soft rounded-md"
+                onClick={() =>
+                  setOpen((o) => ({ ...o, [g.poliklinikKey]: !o[g.poliklinikKey] }))
+                }
+              >
+                <span className="font-semibold text-ink">
+                  {g.poliklinikIcon} {g.poliklinikAd}{" "}
+                  <span className="text-sm font-normal text-muted">({g.cases.length})</span>
+                </span>
+                <span className="text-muted">{open[g.poliklinikKey] ? "▾" : "▸"}</span>
+              </button>
+              <div className="flex shrink-0 gap-1">
+                <button
+                  type="button"
+                  className="rounded-md border border-hairline bg-canvas px-2 py-1 text-[11px] font-medium text-steel hover:text-ink disabled:opacity-50"
+                  disabled={!!exporting || g.cases.length === 0}
+                  title={`${g.poliklinikAd} — PDF`}
+                  onClick={() => runExport("pdf", g.poliklinikKey)}
+                >
+                  {exporting === `pdf:${g.poliklinikKey}` ? "…" : "PDF"}
+                </button>
+                <button
+                  type="button"
+                  className="rounded-md border border-hairline bg-canvas px-2 py-1 text-[11px] font-medium text-steel hover:text-ink disabled:opacity-50"
+                  disabled={!!exporting || g.cases.length === 0}
+                  title={`${g.poliklinikAd} — JSON`}
+                  onClick={() => runExport("json", g.poliklinikKey)}
+                >
+                  {exporting === `json:${g.poliklinikKey}` ? "…" : "JSON"}
+                </button>
+              </div>
+            </div>
             {open[g.poliklinikKey] && (
               <div className="border-t border-hairline divide-y divide-hairline-soft">
                 {g.cases.map((c) => {

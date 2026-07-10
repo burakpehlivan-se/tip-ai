@@ -1,7 +1,16 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
-import { Vaka, ChatMesaj, TestIstegi, DegerlendirmeSonuc, SoruChipi, ChipKategorisi } from "@/lib/types";
+import { useState, useRef, useEffect, useMemo } from "react";
+import {
+  Vaka,
+  ChatMesaj,
+  TestIstegi,
+  DegerlendirmeSonuc,
+  SoruChipi,
+  ChipKategorisi,
+  TestSonucu,
+  Hasta,
+} from "@/lib/types";
 import { normalizeSoru, normalizeTest } from "@/lib/nlp/normalize";
 import { degerlendir } from "@/lib/scoring/degerlendir";
 import { birlesikTestKatalogu } from "@/lib/data";
@@ -104,6 +113,8 @@ export default function VakaWorkspace({
   const [showKatDropdown, setShowKatDropdown] = useState(false);
   const [mobilPanel, setMobilPanel] = useState<"hasta" | "sohbet" | "testler">("sohbet");
   const [debugDetayAcik, setDebugDetayAcik] = useState(false);
+  const [debugTumSonuclarAcik, setDebugTumSonuclarAcik] = useState(false);
+  const [debugTestFiltre, setDebugTestFiltre] = useState<"hepsi" | "var" | "yok">("hepsi");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const skipFirstSnapshot = useRef(true);
@@ -304,6 +315,52 @@ export default function VakaWorkspace({
     if (!testlerKategoriyeGore[t.kategori]) testlerKategoriyeGore[t.kategori] = [];
     testlerKategoriyeGore[t.kategori].push(t);
   }
+
+  /** Debug: tanı/vaka için sonucu olan + olmayan tüm testler */
+  const debugTestEnvanteri = useMemo(() => {
+    const beklenenKeys = new Set((vaka.rubric?.beklenenTestler || []).map((t) => t.key));
+    const gereksizKeys = new Set((vaka.rubric?.gereksizTestler || []).map((t) => t.key));
+    const keys = new Set<string>();
+    for (const t of birlesikTestKatalogu) keys.add(t.key);
+    for (const k of Object.keys(vaka.statikTestler || {})) keys.add(k);
+    for (const t of vaka.rubric?.beklenenTestler || []) keys.add(t.key);
+    for (const t of vaka.rubric?.gereksizTestler || []) keys.add(t.key);
+
+    const items = Array.from(keys).map((key) => {
+      const kat = birlesikTestKatalogu.find((t) => t.key === key);
+      const sonuc = vaka.statikTestler?.[key];
+      const rubrikEtiket =
+        (vaka.rubric?.beklenenTestler || []).find((t) => t.key === key)?.etiket ||
+        (vaka.rubric?.gereksizTestler || []).find((t) => t.key === key)?.etiket;
+      return {
+        key,
+        ad: sonuc?.testAdi || rubrikEtiket || kat?.ad || key,
+        kategori: kat?.kategori || "Diğer",
+        sonuc: sonuc as TestSonucu | undefined,
+        hasSonuc: !!sonuc,
+        beklenen: beklenenKeys.has(key),
+        gereksiz: gereksizKeys.has(key),
+        source: sonuc?.source,
+      };
+    });
+
+    items.sort((a, b) => {
+      // Önce sonucu olan, sonra beklenen, sonra ada göre
+      if (a.hasSonuc !== b.hasSonuc) return a.hasSonuc ? -1 : 1;
+      if (a.beklenen !== b.beklenen) return a.beklenen ? -1 : 1;
+      return a.ad.localeCompare(b.ad, "tr");
+    });
+
+    const sonucuVar = items.filter((i) => i.hasSonuc).length;
+    const sonucuYok = items.length - sonucuVar;
+    return { items, sonucuVar, sonucuYok };
+  }, [vaka.statikTestler, vaka.rubric]);
+
+  const debugGosterilenTestler = useMemo(() => {
+    if (debugTestFiltre === "var") return debugTestEnvanteri.items.filter((i) => i.hasSonuc);
+    if (debugTestFiltre === "yok") return debugTestEnvanteri.items.filter((i) => !i.hasSonuc);
+    return debugTestEnvanteri.items;
+  }, [debugTestEnvanteri, debugTestFiltre]);
 
   // Sonuç ekranı gösteriliyorsa
   if (sonuc) {
@@ -704,6 +761,7 @@ export default function VakaWorkspace({
                         </div>
                         {testler.map((test) => {
                           const istendi = testIstekleri.some((t) => t.testKey === test.key);
+                          const hasSonuc = !!vaka.statikTestler?.[test.key];
                           return (
                             <button
                               key={test.key}
@@ -713,9 +771,24 @@ export default function VakaWorkspace({
                                 istendi ? "opacity-40 cursor-not-allowed" : "text-ink"
                               }`}
                             >
-                              <div>
+                              <div className="min-w-0">
                                 <div className="font-medium">{test.ad}</div>
-                                {istendi && <div className="text-[10px] text-brand">✓ İstendi</div>}
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                                  {istendi && (
+                                    <span className="text-[10px] text-brand">✓ İstendi</span>
+                                  )}
+                                  {debugMode && (
+                                    <span
+                                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                        hasSonuc
+                                          ? "bg-brand/15 text-brand-deep"
+                                          : "bg-clinical-orange/15 text-clinical-orange"
+                                      }`}
+                                    >
+                                      {hasSonuc ? "sonuç var" : "sonuç yok"}
+                                    </span>
+                                  )}
+                                </div>
                               </div>
                               {!istendi && <span className="text-brand">+</span>}
                             </button>
@@ -728,10 +801,80 @@ export default function VakaWorkspace({
               </div>
             </div>
 
+            {/* Debug: tanı için tüm test envanteri (sonuçlu + sonuçsuz) */}
+            {debugMode && (
+              <div className="mb-4 border-t border-clinical-orange/30 pt-4">
+                <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-clinical-orange">
+                  Debug · vaka testleri
+                </h3>
+                <p className="mb-2 text-[11px] text-muted">
+                  Bu tanı/vaka için sonucu olan ve olmayan tüm testler.
+                  {" "}
+                  <span className="text-steel">
+                    {debugTestEnvanteri.sonucuVar} sonuçlu · {debugTestEnvanteri.sonucuYok} sonuçsuz
+                  </span>
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setDebugTumSonuclarAcik((v) => !v);
+                    if (!debugTumSonuclarAcik) setMobilPanel("testler");
+                  }}
+                  className="btn-secondary w-full justify-center text-xs"
+                >
+                  {debugTumSonuclarAcik
+                    ? "Test sonuçlarını gizle"
+                    : "Test sonuçlarını göster"}
+                </button>
+
+                {debugTumSonuclarAcik && (
+                  <div className="mt-3 space-y-2">
+                    <div className="flex flex-wrap gap-1">
+                      {(
+                        [
+                          { id: "hepsi" as const, label: `Tümü (${debugTestEnvanteri.items.length})` },
+                          { id: "var" as const, label: `Sonuçlu (${debugTestEnvanteri.sonucuVar})` },
+                          { id: "yok" as const, label: `Sonuçsuz (${debugTestEnvanteri.sonucuYok})` },
+                        ] as const
+                      ).map((f) => (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setDebugTestFiltre(f.id)}
+                          className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition-colors ${
+                            debugTestFiltre === f.id
+                              ? "bg-ink text-white"
+                              : "border border-hairline bg-canvas text-steel hover:text-ink"
+                          }`}
+                        >
+                          {f.label}
+                        </button>
+                      ))}
+                    </div>
+
+                    <div className="max-h-[55vh] space-y-2 overflow-y-auto scrollbar-thin pr-0.5">
+                      {debugGosterilenTestler.map((item) => (
+                        <DebugTestKarti
+                          key={item.key}
+                          item={item}
+                          hasta={vaka.hasta}
+                          hastaneAdi={hastaneAdi}
+                          defaultOpen={item.hasSonuc && debugTestFiltre !== "hepsi"}
+                        />
+                      ))}
+                      {debugGosterilenTestler.length === 0 && (
+                        <p className="py-4 text-center text-xs text-muted">Bu filtrede test yok.</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* İstenen Testler / Sonuçlar */}
             <div className="mb-4 border-t border-hairline pt-4">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-                Test Sonuçları ({testIstekleri.length})
+                İstenen Test Sonuçları ({testIstekleri.length})
               </h3>
               {testIstekleri.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-hairline p-6 text-center text-sm text-muted">
@@ -877,7 +1020,7 @@ function KaynakMetni({ metin }: { metin: string }) {
   );
 }
 
-function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi; hasta: import("@/lib/types").Hasta; hastaneAdi?: string }) {
+function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi; hasta: Hasta; hastaneAdi?: string }) {
   const { sonuc } = istek;
   const [expanded, setExpanded] = useState(false);
 
@@ -916,6 +1059,105 @@ function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi; hasta
       {expanded && (
         <div className="bg-surface-soft p-2">
           <ResmiRapor sonuc={sonuc} hasta={hasta} hastaneAdi={hastaneAdi} compact />
+        </div>
+      )}
+    </div>
+  );
+}
+
+type DebugTestItem = {
+  key: string;
+  ad: string;
+  kategori: string;
+  sonuc?: TestSonucu;
+  hasSonuc: boolean;
+  beklenen: boolean;
+  gereksiz: boolean;
+  source?: string;
+};
+
+function DebugTestKarti({
+  item,
+  hasta,
+  hastaneAdi,
+  defaultOpen = false,
+}: {
+  item: DebugTestItem;
+  hasta: Hasta;
+  hastaneAdi?: string;
+  defaultOpen?: boolean;
+}) {
+  const [expanded, setExpanded] = useState(defaultOpen);
+
+  return (
+    <div
+      className={`overflow-hidden rounded-lg border ${
+        item.hasSonuc
+          ? "border-hairline bg-canvas"
+          : "border-dashed border-clinical-orange/40 bg-clinical-orange/5"
+      }`}
+    >
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="flex w-full items-start justify-between gap-2 px-3 py-2.5 text-left hover:bg-surface-soft/80 transition-colors"
+      >
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <span className="text-sm font-semibold text-ink">{item.ad}</span>
+            {item.hasSonuc ? (
+              <span className="rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-medium text-brand-deep">
+                sonuç var
+              </span>
+            ) : (
+              <span className="rounded-full bg-clinical-orange/20 px-1.5 py-0.5 text-[10px] font-medium text-clinical-orange">
+                sonuç yok
+              </span>
+            )}
+            {item.beklenen && (
+              <span className="rounded-full bg-ink/10 px-1.5 py-0.5 text-[10px] font-medium text-ink">
+                beklenen
+              </span>
+            )}
+            {item.gereksiz && (
+              <span className="rounded-full bg-clinical-red/10 px-1.5 py-0.5 text-[10px] font-medium text-clinical-red">
+                gereksiz
+              </span>
+            )}
+            {item.source === "original" && (
+              <span className="rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-medium text-brand-deep">
+                patoloji
+              </span>
+            )}
+            {item.source === "dataset" && (
+              <span className="rounded-full bg-surface px-1.5 py-0.5 text-[10px] font-medium text-steel">
+                dataset
+              </span>
+            )}
+          </div>
+          <div className="mt-0.5 text-[11px] text-muted">
+            {item.kategori} · <span className="font-mono">{item.key}</span>
+            {item.hasSonuc
+              ? ` · ${expanded ? "raporu gizle" : "raporu gör"}`
+              : " · bu vakada sonuç tanımlı değil"}
+          </div>
+        </div>
+        <span className="shrink-0 text-steel">{expanded ? "▾" : "▸"}</span>
+      </button>
+
+      {expanded && (
+        <div className="border-t border-hairline-soft bg-surface-soft p-2">
+          {item.hasSonuc && item.sonuc ? (
+            <ResmiRapor sonuc={item.sonuc} hasta={hasta} hastaneAdi={hastaneAdi} compact />
+          ) : (
+            <div className="rounded-md border border-dashed border-clinical-orange/30 bg-canvas px-3 py-3 text-xs text-steel">
+              <div className="font-medium text-clinical-orange">Sonuç yok</div>
+              <p className="mt-1 leading-relaxed">
+                Bu test katalogda/rubrikte yer alıyor ancak vaka şablonunda veya lab
+                havuzunda sonuç üretilmemiş. Admin editöründen sonuç ekleyebilirsiniz.
+              </p>
+            </div>
+          )}
         </div>
       )}
     </div>
