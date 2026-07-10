@@ -218,4 +218,18 @@ export function gercekciTestDegeri(
   { testKey: "KREATININ_KINAZ", testAdi: "Kreatinin Kinaz", birim: "U/L", normalAlt: 30, normalUst: 200, kategori: "Kardiyak" },
   { testKey: "KARACIGER_ENZIM", testAdi: "Karaciğer Enzimleri", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "Karaciğer" },
 ];
+
+  { testKey: "ABG", testAdi: "Arteriyel Kan Gazı", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "ABG" },
+  { testKey: "AKCIGER_GRAFISI", testAdi: "PA Akciğer Grafisi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "BIYOPSI", testAdi: "Biyopsi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Patoloji" },
+  { testKey: "BT_TORAKS", testAdi: "Toraks BT", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "DEMIR", testAdi: "Serum Demir", birim: "mcg/dL", normalAlt: 60, normalUst: 170, kategori: "Hematoloji" },
+  { testKey: "EKG", testAdi: "EKG (12 Derivasyon)", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Kardiyak" },
+  { testKey: "ELEKTROLIT", testAdi: "Elektrolit Paneli", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "Elektrolit" },
+  { testKey: "IDRAR", testAdi: "Tam İdrar Tetkiki", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "İdrar" },
+  { testKey: "KOLESTEROL", testAdi: "Lipid Paneli", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "Lipid" },
+  { testKey: "MAMOGRAFI", testAdi: "Mamografi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "MEME_USG", testAdi: "Meme Ultrasonografisi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "T4", testAdi: "Serbest T4", birim: "ng/dL", normalAlt: 0.8, normalUst: 1.8, kategori: "Tiroid" },
+  { testKey: "URE", testAdi: "Üre (BUN)", birim: "mg/dL", normalAlt: 7, normalUst: 20, kritikUst: 80, kategori: "Böbrek" },
 ];
