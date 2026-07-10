@@ -198,21 +198,6 @@ export function adminVakaToCdm(av: AdminVaka): TipAiCdmDocument {
       flag: "unknown",
     };
   }
-  // Pipeline tarafından üretilen (generatedTests) sonuçlar
-  for (const [k, t] of Object.entries(av.generatedTests || {})) {
-    const canon = canonicalizeTestKey(k);
-    if (labs[canon]) continue; // statik kazanır
-    labs[canon] = {
-      testKey: t.testKey || canon,
-      testAdi: t.testAdi,
-      tip: t.tip,
-      sonuc: t.sonuc,
-      referans: t.referans,
-      yorum: t.yorum,
-      source: t.source || "synthetic",
-      flag: "unknown",
-    };
-  }
 
   return {
     cdmVersion: TIP_AI_CDM_VERSION,
