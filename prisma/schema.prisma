@@ -37,3 +37,37 @@ model StudentProgress {
   feedback  String   @default("")
   createdAt DateTime @default(now())
 }
+
+model AdminUser {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  password  String   // bcrypt hash
+  role      String   @default("admin") // admin | editor | viewer
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  userId    String   @default("system")
+  action    String   // login | create_case | edit_case | delete | export
+  detail    String   @default("")
+  ip        String   @default("")
+  createdAt DateTime @default(now())
+}
+
+model AdminOverride {
+  id        String   @id @default(uuid())
+  caseKey   String   // hangi vaka için
+  field     String   // hangi alan
+  value     String   // yeni değer (JSON)
+  createdBy String   @default("admin")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Settings {
+  key       String   @id
+  value     String   @default("")
+  updatedAt DateTime @updatedAt
+}
