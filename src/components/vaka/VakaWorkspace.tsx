@@ -103,6 +103,7 @@ export default function VakaWorkspace({
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
   const [showKatDropdown, setShowKatDropdown] = useState(false);
   const [mobilPanel, setMobilPanel] = useState<"hasta" | "sohbet" | "testler">("sohbet");
+  const [debugDetayAcik, setDebugDetayAcik] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const skipFirstSnapshot = useRef(true);
@@ -306,40 +307,63 @@ export default function VakaWorkspace({
 
   // Sonuç ekranı gösteriliyorsa
   if (sonuc) {
-    return <SonucEkrani vaka={vaka} sonuc={sonuc} />;
+    return <SonucEkrani vaka={vaka} sonuc={sonuc} embed={embed} />;
   }
 
   return (
-    <div className={`flex flex-col bg-canvas ${embed ? "flex-1 min-h-0" : "h-screen"}`}>
+    <div
+      className={`flex min-h-0 flex-col bg-canvas ${
+        embed ? "h-full flex-1 overflow-hidden" : "h-screen"
+      }`}
+    >
       {debugMode && (
-        <div className="shrink-0 border-b border-clinical-orange/30 bg-clinical-orange/10 px-3 py-2 text-[11px] text-ink">
-          <div className="font-semibold text-clinical-orange mb-1">🐛 DEBUG MODU — eğitmen görünümü</div>
-          <div className="grid gap-1 sm:grid-cols-2 lg:grid-cols-3">
-            <div>
-              <span className="text-muted">Beklenen tanı: </span>
-              {(vaka.beklenenTani || []).join(", ") || "—"}
+        <div className="shrink-0 border-b border-clinical-orange/30 bg-clinical-orange/10 text-[11px] text-ink">
+          <button
+            type="button"
+            onClick={() => setDebugDetayAcik((v) => !v)}
+            className="flex w-full items-center gap-2 px-3 py-1 text-left hover:bg-clinical-orange/10"
+          >
+            <span className="shrink-0 font-semibold text-clinical-orange">🐛 Debug</span>
+            <span className="min-w-0 flex-1 truncate text-steel">
+              <span className="text-muted">Tanı:</span>{" "}
+              {(vaka.beklenenTani || []).slice(0, 2).join(", ") || "—"}
+              {(vaka.beklenenTani || []).length > 2 ? "…" : ""}
+              <span className="mx-1.5 text-hairline">·</span>
+              <span className="text-muted">RF:</span>{" "}
+              {(vaka.rubric?.redFlagler || []).length} ·{" "}
+              <span className="text-muted">Test:</span>{" "}
+              {(vaka.rubric?.beklenenTestler || []).length} beklenen · sonuç anında
+            </span>
+            <span className="shrink-0 text-muted">{debugDetayAcik ? "▴" : "▾"}</span>
+          </button>
+          {debugDetayAcik && (
+            <div className="grid max-h-28 gap-x-3 gap-y-0.5 overflow-y-auto border-t border-clinical-orange/20 px-3 py-1.5 sm:grid-cols-2 lg:grid-cols-3 scrollbar-thin">
+              <div>
+                <span className="text-muted">Beklenen tanı: </span>
+                {(vaka.beklenenTani || []).join(", ") || "—"}
+              </div>
+              <div>
+                <span className="text-muted">Red flags: </span>
+                {(vaka.rubric?.redFlagler || []).map((r) => r.etiket).join(", ") || "—"}
+              </div>
+              <div>
+                <span className="text-muted">Beklenen testler: </span>
+                {(vaka.rubric?.beklenenTestler || []).map((t) => t.etiket).join(", ") || "—"}
+              </div>
+              <div>
+                <span className="text-muted">Gereksiz testler: </span>
+                {(vaka.rubric?.gereksizTestler || []).map((t) => t.etiket).join(", ") || "—"}
+              </div>
+              <div>
+                <span className="text-muted">Hastalık key: </span>
+                {vaka.hastalik}
+              </div>
+              <div>
+                <span className="text-muted">Test sonucu: </span>
+                anında görünür
+              </div>
             </div>
-            <div>
-              <span className="text-muted">Red flags: </span>
-              {(vaka.rubric?.redFlagler || []).map((r) => r.etiket).join(", ") || "—"}
-            </div>
-            <div>
-              <span className="text-muted">Beklenen testler: </span>
-              {(vaka.rubric?.beklenenTestler || []).map((t) => t.etiket).join(", ") || "—"}
-            </div>
-            <div>
-              <span className="text-muted">Gereksiz testler: </span>
-              {(vaka.rubric?.gereksizTestler || []).map((t) => t.etiket).join(", ") || "—"}
-            </div>
-            <div>
-              <span className="text-muted">Hastalık key: </span>
-              {vaka.hastalik}
-            </div>
-            <div>
-              <span className="text-muted">Test sonucu: </span>
-              anında görünür
-            </div>
-          </div>
+          )}
         </div>
       )}
       {/* Top Bar — embed/cemicegek’te parent bar kullanır */}
@@ -360,15 +384,15 @@ export default function VakaWorkspace({
         </div>
       </div>
       )}
-      {/* Cemicegek embed: faz sekmeleri yine görünsün */}
+      {/* Cemicegek / admin embed: faz sekmeleri yine görünsün */}
       {embed && (
-      <div className="flex h-10 items-center justify-between border-b border-hairline bg-canvas px-3">
+      <div className="flex h-9 shrink-0 items-center justify-between border-b border-hairline bg-canvas px-3">
         <span className="text-xs text-steel truncate">
           {vaka.hasta.tamAd || vaka.hasta.ad} · {vaka.hasta.yas} yaş · {vaka.alan}
         </span>
-        <div className="flex items-center gap-1 rounded-lg bg-surface p-0.5">
+        <div className="hidden sm:flex items-center gap-1 rounded-lg bg-surface p-0.5">
           {(["anamnez","test","tani","tedavi"] as const).map((f) => (
-            <button key={f} onClick={() => setFaz(f)} className={`px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
+            <button key={f} onClick={() => setFaz(f)} className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
               {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
             </button>
           ))}
@@ -376,16 +400,16 @@ export default function VakaWorkspace({
       </div>
       )}
       {/* Mobil faz sekmeleri (sm altı) */}
-      <div className="flex sm:hidden border-b border-hairline bg-canvas px-1 overflow-x-auto scrollbar-none">
+      <div className="flex sm:hidden shrink-0 border-b border-hairline bg-canvas px-1 overflow-x-auto scrollbar-none">
         {(["anamnez","test","tani","tedavi"] as const).map((f) => (
-          <button key={f} onClick={() => setFaz(f)} className={`shrink-0 px-3 py-2 text-xs font-medium border-b-2 transition-colors ${faz === f ? "border-ink text-ink" : "border-transparent text-steel"}`}>
+          <button key={f} onClick={() => setFaz(f)} className={`shrink-0 px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${faz === f ? "border-ink text-ink" : "border-transparent text-steel"}`}>
             {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
           </button>
         ))}
       </div>
 
       {/* 3-Panel Layout */}
-      <div className="flex flex-1 overflow-hidden">
+      <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Sol Panel — Hasta */}
         <div className={`${mobilPanel !== "hasta" ? "hidden" : "flex"} lg:flex w-72 flex-shrink-0 border-r border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}>
           <div className="p-6">
@@ -898,23 +922,52 @@ function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi; hasta
   );
 }
 
-function SonucEkrani({ vaka, sonuc }: { vaka: Vaka; sonuc: DegerlendirmeSonuc }) {
+function SonucEkrani({
+  vaka,
+  sonuc,
+  embed = false,
+}: {
+  vaka: Vaka;
+  sonuc: DegerlendirmeSonuc;
+  embed?: boolean;
+}) {
   const yuzde = Math.round((sonuc.toplamPuan / sonuc.maxPuan) * 100);
   const renk =
     yuzde >= 80 ? "text-brand-deep" : yuzde >= 60 ? "text-clinical-orange" : "text-clinical-red";
 
   return (
-    <div className="min-h-screen bg-canvas">
-      <nav className="border-b border-hairline-soft bg-canvas">
-        <div className="mx-auto flex h-16 max-w-4xl items-center justify-between px-6">
-          <Link href="/vakalar" className="text-sm font-medium text-steel hover:text-ink transition-colors">
-            ← Vakalar
-          </Link>
-          <span className="text-sm font-medium text-ink">Değerlendirme</span>
+    <div
+      className={`bg-canvas ${
+        embed ? "flex h-full min-h-0 flex-col overflow-hidden" : "min-h-screen"
+      }`}
+    >
+      <nav className="shrink-0 border-b border-hairline-soft bg-canvas">
+        <div
+          className={`flex items-center justify-between px-4 ${
+            embed ? "h-10 max-w-none" : "mx-auto h-16 max-w-4xl px-6"
+          }`}
+        >
+          {!embed ? (
+            <Link
+              href="/vakalar"
+              className="text-sm font-medium text-steel transition-colors hover:text-ink"
+            >
+              ← Vakalar
+            </Link>
+          ) : (
+            <span className="text-xs font-medium text-steel">Admin debug · değerlendirme</span>
+          )}
+          <span className={`font-medium text-ink ${embed ? "text-xs" : "text-sm"}`}>
+            Değerlendirme
+          </span>
         </div>
       </nav>
 
-      <div className="mx-auto max-w-4xl px-6 py-12">
+      <div
+        className={`mx-auto max-w-4xl px-4 ${
+          embed ? "min-h-0 flex-1 overflow-y-auto py-6 scrollbar-thin lg:px-6" : "px-6 py-12"
+        }`}
+      >
         {/* Puan */}
         <div className="mb-12 text-center">
           <div className="mb-2 text-sm font-medium uppercase tracking-wide text-muted">
