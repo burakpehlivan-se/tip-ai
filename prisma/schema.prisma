@@ -1,0 +1,39 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Session {
+  id        String           @id @default(uuid())
+  studentId String           @default("")
+  vakaId    String
+  vakaData  String           @default("")
+  durum     String           @default("aktif")
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  actions   SessionAction[]
+}
+
+model SessionAction {
+  id        String   @id @default(uuid())
+  sessionId String
+  action    String
+  rawText   String   @default("")
+  phase     String   @default("anamnez")
+  createdAt DateTime @default(now())
+  session   Session  @relation(fields: [sessionId], references: [id])
+}
+
+model StudentProgress {
+  id        String   @id @default(uuid())
+  studentId String
+  vakaId    String
+  score     Int      @default(0)
+  maxScore  Int      @default(0)
+  feedback  String   @default("")
+  createdAt DateTime @default(now())
+}

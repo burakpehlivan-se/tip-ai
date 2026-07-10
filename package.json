@@ -9,15 +9,21 @@
     "lint": "next lint",
     "validate:vakalar": "npx tsx scripts/validate-vakalar.ts",
     "validate:vakalar:json": "npx tsx scripts/validate-vakalar.ts --json",
-    "etl:mimic-demo": "npx tsx scripts/etl-mimic-demo.ts"
+    "etl:mimic-demo": "npx tsx scripts/etl-mimic-demo.ts",
+    "postinstall": "prisma generate",
+    "db:push": "prisma db push"
   },
   "dependencies": {
+    "@prisma/client": "^5.22.0",
+    "better-sqlite3": "^12.11.1",
     "next": "14.2.15",
     "pdfkit": "^0.19.1",
+    "prisma": "^5.22.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
   "devDependencies": {
+    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
     "@types/pdfkit": "^0.17.6",
     "@types/react": "^18",
