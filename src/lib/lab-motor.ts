@@ -103,6 +103,34 @@ export function getLabResult(
   const def = LAB_CATALOGUE[testKey];
   if (!def) return null;
 
+  // Panel/rapor tipi testler — text sonuç döner
+  if (def.unit === "panel" || def.unit === "rapor") {
+    const panelDescriptions: Record<string, string> = {
+      ABG: "pH:7.38, pCO2:42, pO2:88, HCO3:24 — normal kan gazı",
+      ELEKTROLIT: "Na:140, K:4.2, Cl:103, Ca:9.5, Mg:2.0 — normal",
+      IDRAR: "Dansite:1020, pH:6.0, protein:negatif, glukoz:negatif — normal",
+      KOLESTEROL: "Total:195, LDL:120, HDL:50, TG:140 mg/dL — normal",
+      EKG: "Sinüs ritmi, HR:78, normal aks, ST/T normal",
+      AKCIGER_GRAFISI: "PA Akciğer: normal, infiltrasyon yok",
+      MAMOGRAFI: "Bilateral mamografi: normal, BIRADS 1",
+      MEME_USG: "Meme USG: normal, kitle yok",
+      BT_TORAKS: "Toraks BT: normal, mediasten normal",
+      BIYOPSI: "Biyopsi: yetersiz materyal",
+      BT_ABDOMEN: "BT Abdomen: normal, organomegali yok",
+      BT_KRANIYAL: "BT Kraniyal: normal, kanama yok",
+      USG_ABDOMEN: "USG Abdomen: normal, safra kesesi normal",
+      PELVIK_USG: "Pelvik USG: normal, uterus ve overler normal",
+      KARACIGER_ENZIM: "ALT:28, AST:32, ALP:85, GGT:35, TBil:0.8 — normal",
+    };
+    const desc = panelDescriptions[testKey] || `${def.name} — normal bulgular`;
+    return {
+      testKey, testAdi: def.name, tip: "text" as const,
+      sonuc: desc,
+      referans: "TIP-AI Lab Motoru",
+      yorum: `${def.name} normal sınırlarda.`,
+    };
+  }
+
   const tendency = profileTendency(testKey, profile);
   const value = sampleFromRange(def.refLow, def.refHigh, tendency);
 

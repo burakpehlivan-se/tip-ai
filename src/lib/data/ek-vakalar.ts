@@ -285,6 +285,20 @@ export const ekTestSynonymleri: SynonymSozluk = {
   "amonyak": "AMMONIA", "nh3": "AMMONIA",
   "ft3": "FT3", "serbest t3": "FT3",
 
+
+  "amilaz": "AMILAZ",
+  "bun": "BUN", "blood urea nitrogen": "BUN",
+  "chol": "CHOL", "total kolesterol": "CHOL",
+  "ft4": "FT4",
+  "usg": "USG_ABDOMEN", "ultrason": "USG_ABDOMEN",
+  "bt batın": "BT_ABDOMEN", "bt karın": "BT_ABDOMEN",
+  "bt kafa": "BT_KRANIYAL", "bt beyin": "BT_KRANIYAL",
+  "pelvik": "PELVIK_USG",
+  "beta hcg": "BHCG", "bhcg": "BHCG", "gebelik testi": "BHCG",
+  "ck": "KREATININ_KINAZ", "cpk": "KREATININ_KINAZ",
+  "kc enzim": "KARACIGER_ENZIM", "karaciğer enzim": "KARACIGER_ENZIM",
+  "bt anjio": "BT_ABDOMEN",
+
   "ferritin": "FERITIN",
   "feritin": "FERITIN",
   "demir depo": "FERITIN",
@@ -362,4 +376,16 @@ export const ekTestKatalogu: { key: string; ad: string; kategori: string }[] = [
   { key: "U_SG", ad: "İdrar Dansite", kategori: "İdrar" },
   { key: "U_PROTEIN", ad: "İdrar Protein", kategori: "İdrar" },
   { key: "U_GLUKOZ", ad: "İdrar Glukoz", kategori: "İdrar" },
+
+  { key: "AMILAZ", ad: "Amilaz", kategori: "Pankreas" },
+  { key: "BUN", ad: "BUN (Kan Üre Azotu)", kategori: "Böbrek" },
+  { key: "CHOL", ad: "Total Kolesterol", kategori: "Lipid" },
+  { key: "FT4", ad: "Serbest T4 (FT4)", kategori: "Tiroid" },
+  { key: "USG_ABDOMEN", ad: "USG Abdomen", kategori: "Radyoloji" },
+  { key: "BT_ABDOMEN", ad: "BT Abdomen", kategori: "Radyoloji" },
+  { key: "BT_KRANIYAL", ad: "BT Kraniyal", kategori: "Radyoloji" },
+  { key: "PELVIK_USG", ad: "Pelvik USG", kategori: "Radyoloji" },
+  { key: "BHCG", ad: "Beta-HCG", kategori: "Endokrin" },
+  { key: "KREATININ_KINAZ", ad: "Kreatinin Kinaz (CK)", kategori: "Kardiyak" },
+  { key: "KARACIGER_ENZIM", ad: "Karaciğer Enzimleri", kategori: "Karaciğer" },
 ];
