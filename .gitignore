@@ -34,3 +34,6 @@ next-env.d.ts
 
 # large raw / intermediate lab datasets (runtime pool: src/lib/data/lab-pool.json)
 /data/
+
+# admin runtime store (cases, logs, backups, sessions)
+/data/admin/

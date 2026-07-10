@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { vakaUret, poliklinikGetir } from "@/lib/data/case-generator";
+import { vakaUret, poliklinikGetir, AdminTestOverrides } from "@/lib/data/case-generator";
+import { fetchAdminTestOverrides } from "@/lib/data/admin-overrides";
 import VakaWorkspace from "@/components/vaka/VakaWorkspace";
 import { Vaka } from "@/lib/types";
 
@@ -12,22 +13,43 @@ export default function PoliklinikPage() {
   const poliklinikKey = params.key as string;
   const [vaka, setVaka] = useState<Vaka | null>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
+  const [adminTests, setAdminTests] = useState<AdminTestOverrides>({});
 
   const poliklinik = poliklinikGetir(poliklinikKey);
 
+  const uret = useCallback(
+    async (forceRefresh = false) => {
+      const overrides = forceRefresh
+        ? await fetchAdminTestOverrides(true)
+        : adminTests && Object.keys(adminTests).length
+          ? adminTests
+          : await fetchAdminTestOverrides();
+      if (forceRefresh || !Object.keys(adminTests).length) setAdminTests(overrides);
+      return vakaUret(poliklinikKey, { adminTests: overrides });
+    },
+    [poliklinikKey, adminTests]
+  );
+
   useEffect(() => {
-    const yeniVaka = vakaUret(poliklinikKey);
-    setVaka(yeniVaka);
-    setYukleniyor(false);
-  }, [poliklinikKey]);
+    let cancelled = false;
+    setYukleniyor(true);
+    uret(true).then((yeniVaka) => {
+      if (!cancelled) {
+        setVaka(yeniVaka);
+        setYukleniyor(false);
+      }
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [poliklinikKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const yeniVakaAl = () => {
     setYukleniyor(true);
-    setTimeout(() => {
-      const yeni = vakaUret(poliklinikKey);
+    uret(true).then((yeni) => {
       setVaka(yeni);
       setYukleniyor(false);
-    }, 200);
+    });
   };
 
   if (!poliklinik) {

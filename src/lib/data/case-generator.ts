@@ -1703,7 +1703,13 @@ function rastgeleCinsiyet(tercih: "E" | "K" | "herhangi"): "E" | "K" {
   return tercih;
 }
 
-export function vakaUret(poliklinikKey?: string): Vaka {
+/** Admin deposundan gelen test override haritası: hastalikKey → tests */
+export type AdminTestOverrides = Record<string, Record<string, TestSonucu>>;
+
+export function vakaUret(
+  poliklinikKey?: string,
+  options?: { adminTests?: AdminTestOverrides }
+): Vaka {
   let poliklinik: PoliklinikSablonu;
   if (poliklinikKey) {
     poliklinik = poliklinikler.find((p) => p.key === poliklinikKey) || poliklinikler[0];
@@ -1915,7 +1921,12 @@ export function vakaUret(poliklinikKey?: string): Vaka {
     poliklinikKey: poliklinik.key,
   });
 
-  const originalTestler = sablon.statikTestler();
+  // Admin paneli testleri: varsa şablon testlerinin yerine geçer (tam yetki)
+  const adminOverride = options?.adminTests?.[sablon.hastalikKey];
+  const originalTestler =
+    adminOverride && Object.keys(adminOverride).length > 0
+      ? adminOverride
+      : sablon.statikTestler();
   const statikTestler = birlestirTestler(originalTestler, profile, {
     patientId: tc,
     episodeId: vakaId,

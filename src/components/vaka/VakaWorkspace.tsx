@@ -9,29 +9,84 @@ import { aksiyonRelevantMi, CHIP_KATEGORI_ETIKETLERI } from "@/lib/data/case-gen
 import ResmiRapor from "./ResmiRapor";
 import Link from "next/link";
 
+export type WorkspaceFaz = "anamnez" | "test" | "tani" | "tedavi";
+
+/** Çemiçgezek kuyruğu için sohbet/test durumu anlık görüntüsü */
+export interface WorkspaceSnapshot {
+  mesajlar: ChatMesaj[];
+  testIstekleri: TestIstegi[];
+  sorulanAksiyonlar: string[];
+  faz: WorkspaceFaz;
+  taniInput: string;
+  tedaviInput: string;
+}
+
 interface Props {
   vaka: Vaka;
   mod?: "normal" | "cemicegek";
   raporHazir?: boolean;
   onTestIstendi?: (testKey: string) => void;
+  /** Her anlamlı state değişiminde parent’a snapshot (kuyruk kaydı için) */
+  onSnapshotChange?: (snap: WorkspaceSnapshot) => void;
+  /** Hasta geri döndüğünde önceki sohbet/test durumu */
+  initialSnapshot?: WorkspaceSnapshot | null;
   hastaneAdi?: string;
+  /** Üst bar / geri link gizle (parent kendi bar’ını kullanıyorsa) */
+  embed?: boolean;
 }
 
-export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true, onTestIstendi, hastaneAdi = "ÇEMİÇGEZEK DEVLET HASTANESİ" }: Props) {
-  const [mesajlar, setMesajlar] = useState<ChatMesaj[]>([
+function defaultMesajlar(vaka: Vaka): ChatMesaj[] {
+  return [
     {
       id: "0",
       rol: "sistem",
       metin: `Vaka başladı. Hasta: ${vaka.hasta.yas} yaş, ${vaka.hasta.cinsiyet === "E" ? "Erkek" : "Kadın"} — ${vaka.hasta.anaSikayet}. Anamnez sorularınızı bekliyorum.`,
       zaman: Date.now(),
     },
-  ]);
+  ];
+}
+
+/** Lab’dan dönüşte “rapor hazırlanıyor” mesajlarına sonuç ekle */
+function mesajlaraSonucEkle(mesajlar: ChatMesaj[], testler: TestIstegi[]): ChatMesaj[] {
+  return mesajlar.map((m) => {
+    if (m.rol !== "sistem" || !m.testAdi || m.testSonucu) return m;
+    const eslesen = testler.find((t) => t.testAdi === m.testAdi || m.metin.includes(t.testAdi));
+    if (!eslesen) return m;
+    return {
+      ...m,
+      metin: `🧪 ${eslesen.testAdi} — rapor hazır`,
+      testSonucu: eslesen.sonuc,
+    };
+  });
+}
+
+export default function VakaWorkspace({
+  vaka,
+  mod = "normal",
+  raporHazir = true,
+  onTestIstendi,
+  onSnapshotChange,
+  initialSnapshot = null,
+  hastaneAdi = "ÇEMİÇGEZEK DEVLET HASTANESİ",
+  embed = false,
+}: Props) {
+  const baslangicMesaj = initialSnapshot
+    ? raporHazir
+      ? mesajlaraSonucEkle(initialSnapshot.mesajlar, initialSnapshot.testIstekleri)
+      : initialSnapshot.mesajlar
+    : defaultMesajlar(vaka);
+
+  const [mesajlar, setMesajlar] = useState<ChatMesaj[]>(baslangicMesaj);
   const [input, setInput] = useState("");
-  const [testIstekleri, setTestIstekleri] = useState<TestIstegi[]>([]);
-  const [sorulanAksiyonlar, setSorulanAksiyonlar] = useState<string[]>([]);
-  const [faz, setFaz] = useState<"anamnez" | "test" | "tani" | "tedavi">("anamnez");
-  const [taniInput, setTaniInput] = useState("");
-  const [tedaviInput, setTedaviInput] = useState("");
+  const [testIstekleri, setTestIstekleri] = useState<TestIstegi[]>(
+    initialSnapshot?.testIstekleri || []
+  );
+  const [sorulanAksiyonlar, setSorulanAksiyonlar] = useState<string[]>(
+    initialSnapshot?.sorulanAksiyonlar || []
+  );
+  const [faz, setFaz] = useState<WorkspaceFaz>(initialSnapshot?.faz || "anamnez");
+  const [taniInput, setTaniInput] = useState(initialSnapshot?.taniInput || "");
+  const [tedaviInput, setTedaviInput] = useState(initialSnapshot?.tedaviInput || "");
   const [showTestDropdown, setShowTestDropdown] = useState(false);
   const [sonuc, setSonuc] = useState<DegerlendirmeSonuc | null>(null);
   const [testArama, setTestArama] = useState("");
@@ -43,6 +98,33 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
   const [mobilPanel, setMobilPanel] = useState<"hasta" | "sohbet" | "testler">("sohbet");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const skipFirstSnapshot = useRef(true);
+
+  // Parent’a snapshot
+  useEffect(() => {
+    if (!onSnapshotChange) return;
+    if (skipFirstSnapshot.current) {
+      skipFirstSnapshot.current = false;
+      // İlk mount’ta da parent senkron kalsın (restore sonrası)
+      onSnapshotChange({
+        mesajlar,
+        testIstekleri,
+        sorulanAksiyonlar,
+        faz,
+        taniInput,
+        tedaviInput,
+      });
+      return;
+    }
+    onSnapshotChange({
+      mesajlar,
+      testIstekleri,
+      sorulanAksiyonlar,
+      faz,
+      taniInput,
+      tedaviInput,
+    });
+  }, [mesajlar, testIstekleri, sorulanAksiyonlar, faz, taniInput, tedaviInput, onSnapshotChange]);
 
   const toggleKategori = (kat: ChipKategorisi) => {
     setAcikKategoriler((prev) => {
@@ -220,8 +302,9 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
   }
 
   return (
-    <div className="flex h-screen flex-col bg-canvas">
-      {/* Top Bar — Mobil: basitleştirilmiş */}
+    <div className={`flex flex-col bg-canvas ${embed ? "flex-1 min-h-0" : "h-screen"}`}>
+      {/* Top Bar — embed/cemicegek’te parent bar kullanır */}
+      {!embed && (
       <div className="flex h-12 lg:h-14 items-center justify-between border-b border-hairline bg-canvas px-3 lg:px-4">
         <div className="flex items-center gap-1.5 lg:gap-2 min-w-0">
           <Link href="/vakalar" className="text-steel hover:text-ink transition-colors shrink-0">
@@ -237,6 +320,22 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
           ))}
         </div>
       </div>
+      )}
+      {/* Cemicegek embed: faz sekmeleri yine görünsün */}
+      {embed && (
+      <div className="flex h-10 items-center justify-between border-b border-hairline bg-canvas px-3">
+        <span className="text-xs text-steel truncate">
+          {vaka.hasta.tamAd || vaka.hasta.ad} · {vaka.hasta.yas} yaş · {vaka.alan}
+        </span>
+        <div className="flex items-center gap-1 rounded-lg bg-surface p-0.5">
+          {(["anamnez","test","tani","tedavi"] as const).map((f) => (
+            <button key={f} onClick={() => setFaz(f)} className={`px-2 py-1 rounded-md text-[11px] font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
+              {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
+            </button>
+          ))}
+        </div>
+      </div>
+      )}
       {/* Mobil faz sekmeleri (sm altı) */}
       <div className="flex sm:hidden border-b border-hairline bg-canvas px-1 overflow-x-auto scrollbar-none">
         {(["anamnez","test","tani","tedavi"] as const).map((f) => (
