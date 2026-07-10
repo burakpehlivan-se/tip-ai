@@ -3,6 +3,46 @@ export type Faz = "anamnez" | "fizik" | "test" | "tani" | "tamamlandi";
 
 export type Cinsiyet = "E" | "K";
 
+/**
+ * Test sonucu kaynağı — data fusion izlenebilirliği
+ * - original: vaka şablonundan (patoloji)
+ * - dataset: import edilmiş lab havuzundan örneklenen satır (Synthea vb.)
+ * - synthetic: (kullanımdan kaldırıldı; geriye dönük tip uyumu)
+ */
+export type TestKaynak = "original" | "dataset" | "synthetic";
+
+/**
+ * Ortak klinik profil — hasta (dataset 1) ile lab knowledge base (dataset 2)
+ * arasında join anahtarı. OMOP-benzeri “common person + condition” yaklaşımı.
+ */
+export interface ClinicalProfile {
+  age: number;
+  sex: "F" | "M";
+  diagnoses: string[];
+  bmi?: number;
+  comorbidities?: string[];
+  /** Sistem içi hastalık anahtarı (örn. "tip-2-diyabet", "stemi") */
+  hastalikKey?: string;
+  poliklinikKey?: string;
+}
+
+/** Lab knowledge base satırı — referans aralıkları “gerçeklik sınırı” */
+export interface LabTestDefinition {
+  code: string;
+  name: string;
+  unit: string;
+  kategori: string;
+  refRangeMale: [number, number];
+  refRangeFemale: [number, number];
+  /** Profil bazlı daraltılmış aralık (opsiyonel) */
+  refRangeDiabetes?: [number, number];
+  tip: "numeric" | "json" | "text";
+  /** json/text sonuçlar için şablon üretici anahtarı */
+  sonucSablonu?: "cbc" | "elektrolit" | "lipid" | "idrar" | "abg" | "text-normal";
+  /** Bu test hangi tanılarda “normal üretilmemeli” (patoloji override) */
+  pathologyDiagnoses?: string[];
+}
+
 export interface Hasta {
   ad: string;
   tamAd: string;
@@ -20,6 +60,10 @@ export interface Vaka {
   alan: string;
   seviye: Seviye;
   hasta: Hasta;
+  /** Ortak klinik profil — lab enrichment bu profile göre yapılır */
+  profile?: ClinicalProfile;
+  /** Vaka / episode zaman damgası — tüm testler aynı episode’a bağlanır */
+  episodeZamani?: number;
   beklenenTani: string[];
   rubric: Rubric;
   statikTestler: Record<string, TestSonucu>;
@@ -86,6 +130,12 @@ export interface TestSonucu {
   sonuc: Record<string, unknown> | string;
   referans?: string;
   yorum?: string;
+  /** original = şablondan (patoloji), synthetic = lab KB’den normal enrichment */
+  source?: TestKaynak;
+  /** Aynı episode / hasta bağlantısı */
+  patientId?: string;
+  episodeId?: string;
+  measuredAt?: number;
 }
 
 export interface ChatMesaj {

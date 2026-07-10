@@ -1,4 +1,6 @@
 import { Vaka, Seviye, Hasta, Rubric, TestSonucu, SoruChipi, ChipKategorisi, Cinsiyet, TedaviPlani } from "../types";
+import { birlestirTestler, buildClinicalProfile } from "./lab-katalog";
+import { labKaynakSatirlari } from "./lab-kaynaklari";
 
 export interface PoliklinikSablonu {
   key: string;
@@ -1900,6 +1902,29 @@ export function vakaUret(poliklinikKey?: string): Vaka {
     ...herZamanRelevant,
   ];
 
+  // ─── Data fusion: şablon patoloji testleri + profil uyumlu normal panel ───
+  // Dataset 1 = sablon.statikTestler (original)
+  // Dataset 2 = Lab KB generateNormalLabs (synthetic)
+  // Join anahtarı = ClinicalProfile + aynı patientId/episodeId
+  const episodeZamani = Date.now();
+  const profile = buildClinicalProfile({
+    yas,
+    cinsiyet,
+    hastalikKey: sablon.hastalikKey,
+    taniListesi: sablon.rubric.kabulEdilenTani,
+    poliklinikKey: poliklinik.key,
+  });
+
+  const originalTestler = sablon.statikTestler();
+  const statikTestler = birlestirTestler(originalTestler, profile, {
+    patientId: tc,
+    episodeId: vakaId,
+    measuredAt: episodeZamani,
+  });
+
+  const originalSayisi = Object.keys(originalTestler).length;
+  const datasetSayisi = Object.values(statikTestler).filter((t) => t.source === "dataset").length;
+
   return {
     id: vakaId,
     semptom: sablon.semptomSablonu(hasta),
@@ -1907,9 +1932,11 @@ export function vakaUret(poliklinikKey?: string): Vaka {
     alan: poliklinik.ad,
     seviye: sablon.seviye,
     hasta,
+    profile,
+    episodeZamani,
     beklenenTani: sablon.rubric.kabulEdilenTani,
     rubric: sablon.rubric,
-    statikTestler: sablon.statikTestler(),
+    statikTestler,
     hastaYanitlari: birlesikYanitlar,
     soruChipleri,
     relevantAksiyonlar,
@@ -1919,6 +1946,8 @@ export function vakaUret(poliklinikKey?: string): Vaka {
     kaynaklar: [
       `🆔 Vaka ID · ${vakaId} → bu vakaya sistem içinde bu ID ile erişilir`,
       `📊 Veri Noktası · ${sablon.hastalikAdi} şablonu → yaş=${yas}, cinsiyet=${cinsiyet}, ${hasta.anaSikayet}`,
+      `🧬 Klinik Profil · age=${profile.age}, sex=${profile.sex}, dx=[${profile.diagnoses.slice(0, 2).join("; ")}]`,
+      ...labKaynakSatirlari({ originalSayisi, datasetSayisi }),
       ...(KAYNAKLAR_SABLONLARI[sablon.hastalikKey] || []),
     ],
   };

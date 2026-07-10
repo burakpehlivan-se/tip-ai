@@ -11,10 +11,13 @@ interface Props {
 }
 
 export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK DEVLET HASTANESİ", tarih, compact }: Props) {
-  const tarihStr = tarih || new Date().toLocaleDateString("tr-TR", {
-    year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit",
-  });
-  const raporNo = `RPT-${Date.now().toString().slice(-8)}`;
+  const measured = sonuc.measuredAt ? new Date(sonuc.measuredAt) : null;
+  const tarihStr = tarih || (measured
+    ? measured.toLocaleDateString("tr-TR", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
+    : new Date().toLocaleDateString("tr-TR", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }));
+  const raporNo = sonuc.episodeId
+    ? `RPT-${sonuc.episodeId.slice(-8).toUpperCase()}`
+    : `RPT-${Date.now().toString().slice(-8)}`;
 
   const rapText = sonuc.testAdi.includes("Mamografi") || sonuc.testAdi.includes("USG") || sonuc.testAdi.includes("Grafisi") || sonuc.testAdi.includes("BT")
     ? "RADYOLOJİ RAPORU" : sonuc.testAdi.includes("Biyopsi") ? "PATOLOJİ RAPORU" : "LABORATUVAR SONUÇ RAPORU";
@@ -102,6 +105,17 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
 
         {sonuc.referans && (
           <div className={`mt-1 text-muted`}>Kaynak: {sonuc.referans}</div>
+        )}
+        {sonuc.source && (
+          <div className={`mt-0.5 text-muted`}>
+            Veri:{" "}
+            {sonuc.source === "original"
+              ? "vaka şablonu (patoloji)"
+              : sonuc.source === "dataset"
+                ? "Synthea lab-pool (profil eşleşmeli)"
+                : "sentetik (eski)"}
+            {sonuc.patientId ? ` · hasta ${sonuc.patientId.slice(0, 3)}***` : ""}
+          </div>
         )}
       </div>
 

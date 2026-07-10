@@ -31,3 +31,6 @@ next-env.d.ts
 /.opencode/
 /reports/
 /soruces/
+
+# large raw / intermediate lab datasets (runtime pool: src/lib/data/lab-pool.json)
+/data/

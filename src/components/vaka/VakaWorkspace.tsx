@@ -323,13 +323,13 @@ export default function VakaWorkspace({ vaka, mod = "normal", raporHazir = true,
                     {vaka.kaynaklar.map((k, i) => (
                       <div
                         key={i}
-                        className="rounded-md border border-hairline bg-canvas px-3 py-2.5 text-[11px] text-steel leading-relaxed"
+                        className="rounded-md border border-hairline bg-canvas px-3 py-2.5 text-[11px] text-steel leading-relaxed break-words"
                       >
-                        {k}
+                        <KaynakMetni metin={k} />
                       </div>
                     ))}
                     <div className="rounded-md bg-ink/5 px-3 py-2 text-[10px] text-muted italic">
-                      ⚠️ Tüm vakalar sentetiktir. Gerçek hasta verisi içermez. Eğitim amaçlıdır.
+                      ⚠️ Tüm vakalar eğitim amaçlıdır. Lab bazal paneli Synthea sentetik EHR satırlarından örneklenir; gerçek MIMIC erişimi planlanmaktadır. KVKK özel nitelikli kişisel veri işlenmez.
                     </div>
                   </div>
                 )}
@@ -682,6 +682,30 @@ function MesajBalonu({ msg, vaka, hastaneAdi }: { msg: ChatMesaj; vaka: Vaka; ha
   );
 }
 
+/** Kaynak satırındaki URL’leri tıklanabilir link yap */
+function KaynakMetni({ metin }: { metin: string }) {
+  const parts = metin.split(/(https?:\/\/[^\s]+)/g);
+  return (
+    <>
+      {parts.map((p, i) =>
+        p.startsWith("http") ? (
+          <a
+            key={i}
+            href={p.replace(/[.,;)]+$/, "")}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-clinical-blue underline break-all hover:text-ink"
+          >
+            {p.replace(/[.,;)]+$/, "")}
+          </a>
+        ) : (
+          <span key={i}>{p}</span>
+        )
+      )}
+    </>
+  );
+}
+
 function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi; hasta: import("@/lib/types").Hasta; hastaneAdi?: string }) {
   const { sonuc } = istek;
   const [expanded, setExpanded] = useState(false);
@@ -693,7 +717,24 @@ function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi; hasta
         className="flex w-full items-center justify-between border-b border-hairline-soft px-4 py-3 text-left hover:bg-surface-soft transition-colors"
       >
         <div>
-          <div className="text-sm font-semibold text-ink">{sonuc.testAdi}</div>
+          <div className="flex items-center gap-2">
+            <div className="text-sm font-semibold text-ink">{sonuc.testAdi}</div>
+            {sonuc.source === "dataset" && (
+              <span className="rounded-full bg-surface px-1.5 py-0.5 text-[10px] font-medium text-steel" title="Synthea lab-pool — profil eşleşmeli satır">
+                dataset
+              </span>
+            )}
+            {sonuc.source === "synthetic" && (
+              <span className="rounded-full bg-surface px-1.5 py-0.5 text-[10px] font-medium text-steel" title="Eski sentetik (kullanımdan kalktı)">
+                sentetik
+              </span>
+            )}
+            {sonuc.source === "original" && (
+              <span className="rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-medium text-brand-deep" title="Vaka şablonu — patoloji">
+                patoloji
+              </span>
+            )}
+          </div>
           <div className="text-xs text-muted">
             {sonuc.tip === "numeric" ? "Sayısal" : sonuc.tip === "json" ? "Detaylı" : sonuc.tip === "image" ? "Radyoloji" : "Rapor"} — raporu {expanded ? "gizle" : "gör"}
           </div>
