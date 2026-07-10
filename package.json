@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "validate:vakalar": "npx tsx scripts/validate-vakalar.ts",
+    "validate:vakalar:json": "npx tsx scripts/validate-vakalar.ts --json"
   },
   "dependencies": {
     "next": "14.2.15",

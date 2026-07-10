@@ -64,6 +64,12 @@ export async function PATCH(
       "uzmanOnayi",
       "uzmanOnaylayan",
       "uzmanOnayTarihi",
+      // TIP-AI CDM v1
+      "cdmVersion",
+      "patientProfil",
+      "vitals",
+      "conditions",
+      "tedavi",
     ];
 
     const patches: { path: string; caseId: string; field: string; before: unknown; after: unknown }[] = [];

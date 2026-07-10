@@ -12,6 +12,42 @@ export type VakaEtiket =
   | "Kardiyoloji"
   | "Diğer";
 
+/** OMOP condition_occurrence benzeri (TIP-AI CDM v1) */
+export interface AdminCondition {
+  code: string;
+  ad: string;
+  system?: "local" | "icd10" | "snomed" | "atc" | "loinc";
+  primary?: boolean;
+}
+
+/** Hasta profil uzantısı */
+export interface AdminPatientProfil {
+  bmi?: number;
+  sigara?: string;
+  komorbiditeler?: string[];
+}
+
+export interface AdminVitals {
+  tansiyon?: string;
+  nabiz?: number;
+  ates?: number;
+  spo2?: number;
+  solunum?: number;
+}
+
+export interface AdminTedavi {
+  ilaclar?: Array<{
+    code?: string;
+    ad: string;
+    doz: string;
+    yol: string;
+    endikasyon: string;
+  }>;
+  prosedurler?: string[];
+  onemliNotlar?: string[];
+  aciklama?: string;
+}
+
 /** Admin panelinde düzenlenen kalıcı vaka kaydı */
 export interface AdminVaka {
   id: string; // `${poliklinikKey}::${hastalikKey}`
@@ -44,6 +80,14 @@ export interface AdminVaka {
   uzmanOnayTarihi?: number;
   updatedAt: number;
   createdAt: number;
+
+  // ── TIP-AI CDM v1 uzantıları (OMOP + OSCE) ──
+  /** Belge CDM şemasından geldiyse: tip-ai-cdm-v1 */
+  cdmVersion?: string;
+  patientProfil?: AdminPatientProfil;
+  vitals?: AdminVitals;
+  conditions?: AdminCondition[];
+  tedavi?: AdminTedavi;
 }
 
 export interface CasesStore {
@@ -144,7 +188,8 @@ export type AuditAction =
   | "seed"
   | "add_feedback"
   | "update_settings"
-  | "play_session";
+  | "play_session"
+  | "import_cdm";
 
 export interface AuditPatch {
   path: string;
@@ -235,5 +280,10 @@ export function normalizeAdminVaka(c: Partial<AdminVaka> & { id: string }): Admi
     uzmanOnayTarihi: c.uzmanOnayTarihi,
     updatedAt: c.updatedAt || now,
     createdAt: c.createdAt || now,
+    cdmVersion: c.cdmVersion,
+    patientProfil: c.patientProfil,
+    vitals: c.vitals,
+    conditions: c.conditions,
+    tedavi: c.tedavi,
   };
 }

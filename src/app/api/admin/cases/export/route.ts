@@ -11,10 +11,13 @@ import {
   filterCasesForExport,
   ExportFormat,
 } from "@/lib/admin/export-cases";
+import { adminCasesToCdmBundle } from "@/lib/cdm";
 
 /**
- * GET /api/admin/cases/export?format=json|pdf&poliklinik=<key>
- * poliklinik yoksa tüm vakalar.
+ * GET /api/admin/cases/export?format=json|pdf|cdm&poliklinik=<key>
+ * - json: depodaki düz AdminVaka dump
+ * - cdm: TIP-AI CDM v1 bundle (standart yazar şeması)
+ * - pdf: klinisyen özeti
  */
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
@@ -23,9 +26,9 @@ export async function GET(req: NextRequest) {
   }
 
   const format = (req.nextUrl.searchParams.get("format") || "json").toLowerCase() as ExportFormat;
-  if (format !== "json" && format !== "pdf") {
+  if (format !== "json" && format !== "pdf" && format !== "cdm") {
     return NextResponse.json(
-      { error: "format=json veya format=pdf olmalı." },
+      { error: "format=json | pdf | cdm olmalı." },
       { status: 400 }
     );
   }
@@ -56,6 +59,19 @@ export async function GET(req: NextRequest) {
     if (format === "json") {
       const payload = buildCasesJsonExport(store, cases, { poliklinikKey });
       const body = JSON.stringify(payload, null, 2);
+      return new NextResponse(body, {
+        status: 200,
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Cache-Control": "no-store",
+        },
+      });
+    }
+
+    if (format === "cdm") {
+      const bundle = adminCasesToCdmBundle(cases);
+      const body = JSON.stringify(bundle, null, 2);
       return new NextResponse(body, {
         status: 200,
         headers: {

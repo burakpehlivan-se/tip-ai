@@ -7,7 +7,7 @@ import { TestSonucu } from "../types";
 const FONT_REG = path.join(process.cwd(), "assets/fonts/DejaVuSans.ttf");
 const FONT_BOLD = path.join(process.cwd(), "assets/fonts/DejaVuSans-Bold.ttf");
 
-export type ExportFormat = "json" | "pdf";
+export type ExportFormat = "json" | "pdf" | "cdm";
 
 const SEVIYE_ETIKET: Record<string, string> = {
   baslangic: "Başlangıç",
@@ -107,7 +107,10 @@ export function exportFilename(
   const scope = opts.poliklinikKey
     ? slugFilePart(opts.poliklinikAd || opts.poliklinikKey)
     : "tum-vakalar";
-  return `tip-ai-vakalar-${scope}-${day}.${format}`;
+  if (format === "cdm") {
+    return `tip-ai-cdm-v1-${scope}-${day}.json`;
+  }
+  return `tip-ai-vakalar-${scope}-${day}.${format === "pdf" ? "pdf" : "json"}`;
 }
 
 type PdfCtx = {

@@ -26,6 +26,7 @@ import {
   settingsPath,
 } from "./paths";
 import { seedCasesFromTemplates } from "./seed";
+import { upgradeAllCasesToCdm } from "../cdm/migrate";
 
 function readJson<T>(file: string, fallback: T): T {
   try {
@@ -54,7 +55,8 @@ export function loadCasesStore(): CasesStore {
   };
   let store = readJson<CasesStore>(casesPath(), empty);
   if (!store.cases || store.cases.length === 0) {
-    const seeded = seedCasesFromTemplates();
+    const seededRaw = seedCasesFromTemplates().map((c) => normalizeAdminVaka(c));
+    const { cases: seeded } = upgradeAllCasesToCdm(seededRaw);
     store = {
       version: 1,
       seededAt: Date.now(),
@@ -66,24 +68,38 @@ export function loadCasesStore(): CasesStore {
     appendLog({
       action: "seed",
       actor: "system",
-      message: `Vaka deposu şablonlardan seed edildi (${seeded.length} vaka).`,
+      message: `Vaka deposu şablonlardan seed edildi (${seeded.length} vaka, CDM v1).`,
       patches: [],
     });
   } else {
-    // Eski kayıtlara yeni alanları ekle
+    // Eski kayıtlara yeni alanları ekle + TIP-AI CDM v1 yükseltmesi
     let dirty = false;
-    store.cases = store.cases.map((c) => {
+    const normalized = store.cases.map((c) => {
       const n = normalizeAdminVaka(c);
       if (
         (c as AdminVaka).durum === undefined ||
         (c as AdminVaka).etiketler === undefined ||
-        (c as AdminVaka).surum === undefined
+        (c as AdminVaka).surum === undefined ||
+        (c as AdminVaka).cdmVersion === undefined
       ) {
         dirty = true;
       }
       return n;
     });
-    if (dirty) writeJsonAtomic(casesPath(), store);
+    const { cases: upgraded, upgradedCount, upgradedIds } = upgradeAllCasesToCdm(normalized);
+    store.cases = upgraded;
+    if (dirty || upgradedCount > 0) {
+      store.updatedAt = Date.now();
+      writeJsonAtomic(casesPath(), store);
+      if (upgradedCount > 0) {
+        appendLog({
+          action: "seed",
+          actor: "system",
+          message: `CDM v1 yükseltmesi: ${upgradedCount} vaka güncellendi (${upgradedIds.slice(0, 8).join(", ")}${upgradedIds.length > 8 ? "…" : ""}).`,
+          patches: [],
+        });
+      }
+    }
   }
   return store;
 }

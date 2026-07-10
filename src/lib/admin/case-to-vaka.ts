@@ -38,13 +38,21 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {
     ozetBilgiler: av.ozetBilgiler || [],
   };
 
+  const taniListesi = [
+    ...(av.rubric?.kabulEdilenTani || []),
+    ...(av.conditions || []).map((c) => c.ad),
+  ];
   const profile = buildClinicalProfile({
     yas,
     cinsiyet,
     hastalikKey: av.hastalikKey,
-    taniListesi: av.rubric?.kabulEdilenTani || [],
+    taniListesi,
     poliklinikKey: av.poliklinikKey,
+    comorbidities: av.patientProfil?.komorbiditeler,
   });
+  if (av.patientProfil?.bmi != null) {
+    profile.bmi = av.patientProfil.bmi;
+  }
 
   const original = av.statikTestler || {};
   const statikTestler = birlestirTestler(original, profile, {
@@ -58,6 +66,32 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {
     ...(av.rubric?.redFlagler || []).map((r) => r.key),
     ...(av.rubric?.beklenenTestler || []).map((t) => t.key),
   ];
+
+  // CDM vitals → ozetBilgiler / yanıt zenginleştirme
+  const ozet = [...(av.ozetBilgiler || [])];
+  if (av.vitals?.tansiyon && !ozet.some((x) => /tansiyon|kb/i.test(x))) {
+    ozet.push(`KB: ${av.vitals.tansiyon}`);
+  }
+  if (av.patientProfil?.komorbiditeler?.length) {
+    const kom = `Komorbidite: ${av.patientProfil.komorbiditeler.join(", ")}`;
+    if (!ozet.includes(kom)) ozet.push(kom);
+  }
+  hasta.ozetBilgiler = ozet;
+
+  const tedavi = av.tedavi
+    ? {
+        aciklama: av.tedavi.aciklama || av.egitimNotu || "",
+        ilaclar: (av.tedavi.ilaclar || []).map((i) => ({
+          ad: i.ad,
+          doz: i.doz,
+          yol: i.yol,
+          endikasyon: i.endikasyon,
+        })),
+        prosedurler: av.tedavi.prosedurler || [],
+        notlar: av.tedavi.onemliNotlar || [],
+        kaynak: av.cdmVersion || "admin",
+      }
+    : undefined;
 
   return {
     id: vakaId,
@@ -80,9 +114,11 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {
     relevantAksiyonlar,
     idealYol: av.idealYol,
     egitimNotu: av.egitimNotu,
+    tedavi,
     kaynaklar: [
       `Admin play · ${av.id}`,
       `Durum: ${av.durum} · Sürüm: v${av.surum}`,
+      av.cdmVersion ? `CDM: ${av.cdmVersion}` : "CDM: legacy-flat",
     ],
   };
 }
