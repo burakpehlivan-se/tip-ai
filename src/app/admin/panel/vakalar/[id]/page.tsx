@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { birlesikTestKatalogu } from "@/lib/data";
+import { humanizeKey } from "@/lib/types";
 
 type TabId =
   | "meta"
@@ -487,14 +488,20 @@ export default function AdminVakaDetailPage() {
     if (vitals.ates) hastaYanitlari.VITAL_ATES = vitals.ates;
     if (vitals.spo2) hastaYanitlari.VITAL_SPO2 = vitals.spo2;
 
-    const cleanAksiyon = (list: RubrikAksiyon[]) =>
-      list
+    const cleanAksiyon = (list: RubrikAksiyon[]) => {
+      const seen = new Set<string>();
+      return list
         .map((a) => ({
           key: a.key.trim(),
-          etiket: a.etiket.trim() || a.key.trim(),
+          etiket: a.etiket.trim() || humanizeKey(a.key.trim()),
           aciklama: a.aciklama.trim(),
         }))
-        .filter((a) => a.key);
+        .filter((a) => {
+          if (!a.key || seen.has(a.key)) return false;
+          seen.add(a.key);
+          return true;
+        });
+    };
 
     const body = {
       cdmVersion: "tip-ai-cdm-v1",

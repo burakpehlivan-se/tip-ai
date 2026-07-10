@@ -10,6 +10,7 @@ import {
   ChipKategorisi,
   TestSonucu,
   Hasta,
+  humanizeKey,
 } from "@/lib/types";
 import { normalizeSoru, normalizeTest } from "@/lib/nlp/normalize";
 import { degerlendir } from "@/lib/scoring/degerlendir";
@@ -391,7 +392,7 @@ export default function VakaWorkspace({
         (vaka.rubric?.gereksizTestler || []).find((t) => t.key === key)?.etiket;
       return {
         key,
-        ad: sonuc?.testAdi || rubrikEtiket || kat?.ad || key,
+        ad: sonuc?.testAdi || rubrikEtiket || kat?.ad || humanizeKey(key),
         kategori: kat?.kategori || "Diğer",
         sonuc: sonuc as TestSonucu | undefined,
         hasSonuc: !!sonuc,
@@ -1235,7 +1236,7 @@ function DebugTestKarti({
             )}
           </div>
           <div className="mt-0.5 text-[11px] text-muted">
-            {item.kategori} · <span className="font-mono">{item.key}</span>
+            {item.kategori} · <span>{humanizeKey(item.key)}</span>
             {item.hasSonuc
               ? ` · ${expanded ? "raporu gizle" : "raporu gör"}`
               : " · bu vakada sonuç tanımlı değil"}

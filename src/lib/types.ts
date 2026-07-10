@@ -194,3 +194,9 @@ export interface AnamnezAnalizi {
 export interface SynonymSozluk {
   [alias: string]: string;
 }
+
+export function humanizeKey(key: string): string {
+  return key
+    .replace(/_/g, " ")
+    .toLocaleLowerCase("tr");
+}
