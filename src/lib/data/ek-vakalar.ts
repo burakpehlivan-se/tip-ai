@@ -276,7 +276,7 @@ export const ekTestSynonymleri: SynonymSozluk = {
   "ürik asit": "URIC_ACID", "ürik": "URIC_ACID", "urik asit": "URIC_ACID",
   "lipaz": "LIPAZ",
   "gfr": "GFR", "egfr": "GFR",
-  "ph": "PH", "kan gazı": "PH",
+  "ph": "PH",
   "pco2": "PCO2",
   "po2": "PO2",
   "hco3": "HCO3", "bikarbonat": "HCO3",
