@@ -74,6 +74,7 @@ export interface Vaka {
   egitimNotu?: string;
   tedavi?: TedaviPlani;
   kaynaklar?: string[];
+  profile?: ClinicalProfile;
 }
 
 export interface TedaviPlani {
@@ -192,4 +193,12 @@ export interface AnamnezAnalizi {
 
 export interface SynonymSozluk {
   [alias: string]: string;
+}
+
+export interface ClinicalProfile {
+  age: number;
+  sex: Cinsiyet;
+  diagnoses: string[];
+  comorbidities: string[];
+  severity: "hafif" | "orta" | "agir";
 }

@@ -16,6 +16,7 @@ import { degerlendir } from "@/lib/scoring/degerlendir";
 import { birlesikTestKatalogu } from "@/lib/data";
 import { aksiyonRelevantMi, CHIP_KATEGORI_ETIKETLERI } from "@/lib/data/case-generator";
 import ResmiRapor from "./ResmiRapor";
+import { getLabResult } from "@/lib/lab-motor";
 import Link from "next/link";
 
 export type WorkspaceFaz = "anamnez" | "test" | "tani" | "tedavi";
@@ -205,18 +206,25 @@ export default function VakaWorkspace({
   };
 
   const testIstey = (testKey: string) => {
-    const statik = vaka.statikTestler[testKey];
+    let statik = vaka.statikTestler[testKey];
       if (!statik) {
-      setMesajlar((prev) => {
-        const alreadyWarned = prev.some((m) => m.id.endsWith("-err") && m.metin.includes(testKey));
-        if (alreadyWarned) return prev;
-        return [
-          ...prev,
-          { id: `${Date.now()}-err`, rol: "sistem", metin: `⚠ "${testKey}" testi sistemde kayıtlı değil. "Tüm Test Kataloğu" listesinden seçim yapabilirsiniz.`, zaman: Date.now() },
-        ];
-      });
-      setShowTestDropdown(false);
-      return;
+      // Lab motoru ile üretmeyi dene
+      const motorSonuc = vaka.profile ? getLabResult(testKey, vaka.profile, vaka.statikTestler) : null;
+      if (!motorSonuc) {
+        setMesajlar((prev) => {
+          const alreadyWarned = prev.some((m) => m.id.endsWith("-err") && m.metin.includes(testKey));
+          if (alreadyWarned) return prev;
+          return [
+            ...prev,
+            { id: `${Date.now()}-err`, rol: "sistem", metin: `⚠ "${testKey}" testi sistemde kayıtlı değil. "Tüm Test Kataloğu" listesinden seçim yapabilirsiniz.`, zaman: Date.now() },
+          ];
+        });
+        setShowTestDropdown(false);
+        return;
+      }
+      // Motor sonucunu kullan
+      // @ts-ignore: statik değişkenine motor sonucu atanıyor
+      statik = motorSonuc;
     }
 
     if (testIstekleri.some((t) => t.testKey === testKey)) {

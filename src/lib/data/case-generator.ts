@@ -1,5 +1,7 @@
 import { Vaka, Seviye, Hasta, Rubric, TestSonucu, SoruChipi, ChipKategorisi, Cinsiyet, TedaviPlani } from "../types";
 import { LAB_REFERANSLAR, HASTALIK_TEST_MAP, gercekciTestDegeri } from "./clinical-reference";
+import { generateFullPanel } from "../lab-motor";
+import { ClinicalProfile } from "../types";
 import { birlestirTestler, buildClinicalProfile } from "./lab-katalog";
 import { labKaynakSatirlari } from "./lab-kaynaklari";
 import { enrichHastaYanitlari } from "./hasta-yanit-enrich";
@@ -1776,29 +1778,12 @@ export function vakaUret(
     }
   }
 
-  // Statik testleri MIMIC-IV referans verileriyle zenginleştir
-  const zenginlestirilmisTestler: Record<string, TestSonucu> = { ...sablon.statikTestler() };
-  const hastalikTestleri = HASTALIK_TEST_MAP[sablon.hastalikKey] || [];
-  for (const testKey of hastalikTestleri) {
-    if (zenginlestirilmisTestler[testKey]) continue; // already has disease-specific result
-    const ref = LAB_REFERANSLAR.find((r) => r.testKey === testKey);
-    if (!ref) continue;
-    const { normal, deger } = gercekciTestDegeri(testKey, sablon.hastalikKey, cinsiyet);
-    const yorum = normal ? `${ref.testAdi} normal sınırlarda.` : `${ref.testAdi} referans aralık dışında.`;
-    if (ref.kategori === "ABG" || ref.kategori === "Elektrolit" || ref.kategori === "Koagülasyon") {
-      zenginlestirilmisTestler[testKey] = {
-        testKey, testAdi: ref.testAdi, tip: "numeric",
-        sonuc: { deger: Math.round(deger * 100) / 100, birim: ref.birim, referansAralik: `${ref.normalAlt}-${ref.normalUst} ${ref.birim}` },
-        referans: "Lab", yorum,
-      };
-    } else {
-      zenginlestirilmisTestler[testKey] = {
-        testKey, testAdi: ref.testAdi, tip: "numeric",
-        sonuc: { deger: Math.round(deger * 100) / 100, birim: ref.birim, referansAralik: `${ref.normalAlt}-${ref.normalUst} ${ref.birim}` },
-        referans: "Lab", yorum,
-      };
-    }
-  }
+  // Katman 2: Lab motoru ile tam panel üret
+  const zenginlestirilmisTestler: Record<string, TestSonucu> = generateFullPanel(
+    sablon.hastalikKey,
+    { age: yas, sex: cinsiyet, diagnoses: [sablon.hastalikKey], comorbidities: [], severity: sablon.seviye === "baslangic" ? "hafif" : sablon.seviye === "orta" ? "orta" : "agir" },
+    sablon.statikTestler()
+  );
 
   // Relevant aksiyonlar: vakanın beklediği + vital/öykü her zaman relevant
   const herZamanRelevant = [
