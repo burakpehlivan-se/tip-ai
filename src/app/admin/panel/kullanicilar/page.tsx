@@ -9,6 +9,7 @@ interface UserRow {
   role: "admin" | "doktor";
   displayName?: string;
   active: boolean;
+  superAdmin?: boolean;
   createdAt: number;
   createdBy?: string;
 }
@@ -16,6 +17,7 @@ interface UserRow {
 export default function KullanicilarPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [meUsername, setMeUsername] = useState("");
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
@@ -44,6 +46,10 @@ export default function KullanicilarPage() {
 
   useEffect(() => {
     load();
+    fetch("/api/admin/me")
+      .then((r) => r.json())
+      .then((d) => setMeUsername(d.username || ""))
+      .catch(() => {});
   }, [load]);
 
   async function onCreate(e: FormEvent) {
@@ -136,7 +142,8 @@ export default function KullanicilarPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Kullanıcılar</h1>
         <p className="mt-1 text-sm text-steel">
-          Admin: tam yetki · Doktor: vaka düzenleme ve onay
+          Admin: tam yetki · Doktor: vaka düzenleme ve onay ·{" "}
+          <strong className="text-ink">Süper admin</strong> (bootstrap) yetkileri kilitlidir
         </p>
       </div>
 
@@ -211,7 +218,10 @@ export default function KullanicilarPage() {
           Kayıtlı kullanıcılar ({users.length})
         </div>
         <div className="divide-y divide-hairline-soft">
-          {users.map((u) => (
+          {users.map((u) => {
+            const locked = !!u.superAdmin;
+            const isSelf = meUsername.toLowerCase() === u.username.toLowerCase();
+            return (
             <div
               key={u.id}
               className="flex flex-wrap items-center justify-between gap-3 px-4 py-3"
@@ -220,50 +230,77 @@ export default function KullanicilarPage() {
                 <div className="text-sm font-medium text-ink">
                   {u.displayName || u.username}{" "}
                   <span className="text-muted font-normal">@{u.username}</span>
+                  {locked && (
+                    <span className="ml-2 rounded-full bg-ink px-2 py-0.5 text-[10px] font-semibold text-white">
+                      Süper Admin
+                    </span>
+                  )}
                 </div>
                 <div className="text-[11px] text-muted">
-                  {u.role === "admin" ? "Admin" : "Doktor"}
+                  {locked ? "Süper Admin (kilitli)" : u.role === "admin" ? "Admin" : "Doktor"}
                   {u.active ? "" : " · pasif"}
                   {u.createdBy ? ` · ekleyen: ${u.createdBy}` : ""}
                   {" · "}
                   {new Date(u.createdAt).toLocaleDateString("tr-TR")}
+                  {locked && " · rol/silme korumalı"}
                 </div>
               </div>
               <div className="flex flex-wrap items-center gap-2">
-                <select
-                  className="input text-xs py-1"
-                  value={u.role}
-                  onChange={(e) =>
-                    changeRole(u.id, e.target.value as "admin" | "doktor")
-                  }
-                >
-                  <option value="doktor">Doktor</option>
-                  <option value="admin">Admin</option>
-                </select>
-                <button
-                  type="button"
-                  className="btn-secondary text-xs py-1"
-                  onClick={() => resetPassword(u.id, u.username)}
-                >
-                  Şifre
-                </button>
-                <button
-                  type="button"
-                  className="btn-secondary text-xs py-1"
-                  onClick={() => setActive(u.id, !u.active)}
-                >
-                  {u.active ? "Pasifleştir" : "Aktifleştir"}
-                </button>
-                <button
-                  type="button"
-                  className="text-xs text-clinical-red hover:underline"
-                  onClick={() => removeUser(u.id, u.username)}
-                >
-                  Sil
-                </button>
+                {locked ? (
+                  <>
+                    <span className="rounded-md border border-hairline bg-surface-soft px-2 py-1 text-[11px] text-steel">
+                      Admin · kilitli
+                    </span>
+                    {isSelf && (
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs py-1"
+                        onClick={() => resetPassword(u.id, u.username)}
+                        title="Yalnızca kendisi şifre değiştirebilir"
+                      >
+                        Şifremi değiştir
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <select
+                      className="input text-xs py-1"
+                      value={u.role}
+                      onChange={(e) =>
+                        changeRole(u.id, e.target.value as "admin" | "doktor")
+                      }
+                    >
+                      <option value="doktor">Doktor</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                    <button
+                      type="button"
+                      className="btn-secondary text-xs py-1"
+                      onClick={() => resetPassword(u.id, u.username)}
+                    >
+                      Şifre
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary text-xs py-1"
+                      onClick={() => setActive(u.id, !u.active)}
+                    >
+                      {u.active ? "Pasifleştir" : "Aktifleştir"}
+                    </button>
+                    <button
+                      type="button"
+                      className="text-xs text-clinical-red hover:underline"
+                      onClick={() => removeUser(u.id, u.username)}
+                    >
+                      Sil
+                    </button>
+                  </>
+                )}
               </div>
             </div>
-          ))}
+            );
+          })}
           {users.length === 0 && (
             <p className="p-4 text-sm text-muted">Henüz kullanıcı yok.</p>
           )}

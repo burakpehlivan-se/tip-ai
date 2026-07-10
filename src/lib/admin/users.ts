@@ -17,6 +17,22 @@ import { getAdminCredentials } from "./auth-env";
 
 const SCRYPT_KEYLEN = 64;
 
+/** Env bootstrap kullanıcı adı (varsayılan: admin) */
+export function superAdminUsername(): string {
+  return getAdminCredentials().username;
+}
+
+/** Süper admin — yetkileri değiştirilemez */
+export function isSuperAdminUser(u: Pick<AdminUser, "username" | "superAdmin" | "createdBy">): boolean {
+  if (u.superAdmin === true) return true;
+  const boot = superAdminUsername().toLowerCase();
+  if (u.username.toLowerCase() === boot) return true;
+  if (u.createdBy === "system" || u.createdBy === "env") {
+    return u.username.toLowerCase() === boot;
+  }
+  return false;
+}
+
 function readJson<T>(file: string, fallback: T): T {
   try {
     if (!fs.existsSync(file)) return fallback;
@@ -55,10 +71,33 @@ export function verifyPasswordHash(password: string, stored: string): boolean {
 
 function ensureBootstrapAdmin(store: UsersStore): UsersStore {
   const creds = getAdminCredentials();
+  let dirty = false;
+
+  // Mevcut bootstrap kullanıcıyı superAdmin kilitle
+  for (const u of store.users) {
+    if (u.username.toLowerCase() === creds.username.toLowerCase()) {
+      if (!u.superAdmin || u.role !== "admin" || !u.active) {
+        u.superAdmin = true;
+        u.role = "admin";
+        u.active = true;
+        if (!u.displayName || u.displayName === u.username) {
+          u.displayName = "Süper Admin";
+        }
+        dirty = true;
+      }
+    }
+  }
+
   const existing = store.users.find(
     (u) => u.username.toLowerCase() === creds.username.toLowerCase()
   );
-  if (existing) return store;
+  if (existing) {
+    if (dirty) {
+      store.updatedAt = Date.now();
+      writeJsonAtomic(usersPath(), store);
+    }
+    return store;
+  }
 
   // Env admin yoksa seed et (ilk kurulum)
   if (store.users.length === 0 || !store.users.some((u) => u.role === "admin")) {
@@ -68,8 +107,9 @@ function ensureBootstrapAdmin(store: UsersStore): UsersStore {
       username: creds.username,
       passwordHash: hashPassword(creds.password),
       role: "admin",
-      displayName: "Sistem Admin",
+      displayName: "Süper Admin",
       active: true,
+      superAdmin: true,
       createdAt: now,
       updatedAt: now,
       createdBy: "system",
@@ -110,6 +150,7 @@ export function listUsersPublic(): Array<{
   role: AdminRole;
   displayName?: string;
   active: boolean;
+  superAdmin?: boolean;
   createdAt: number;
   updatedAt: number;
   createdBy?: string;
@@ -118,6 +159,7 @@ export function listUsersPublic(): Array<{
     id: u.id,
     username: u.username,
     role: u.role,
+    superAdmin: isSuperAdminUser(u),
     displayName: u.displayName,
     active: u.active,
     createdAt: u.createdAt,
@@ -157,8 +199,9 @@ export function authenticateUser(
         username: creds.username,
         passwordHash: hashPassword(creds.password),
         role: "admin",
-        displayName: "Sistem Admin",
+        displayName: "Süper Admin",
         active: true,
+        superAdmin: true,
         createdAt: now,
         updatedAt: now,
         createdBy: "env",
@@ -220,18 +263,44 @@ export function updateUser(
     displayName?: string;
     active?: boolean;
     password?: string;
-  }
+  },
+  actor?: { username: string; userId?: string }
 ): AdminUser {
   const store = loadUsersStore();
   const idx = store.users.findIndex((u) => u.id === id);
   if (idx < 0) throw new Error("Kullanıcı bulunamadı.");
 
   const user = store.users[idx];
-  if (patch.role) {
+  const locked = isSuperAdminUser(user);
+
+  if (locked) {
+    // Süper admin: rol ve aktiflik asla değişmez
+    if (patch.role !== undefined && patch.role !== "admin") {
+      throw new Error("Süper admin rolü değiştirilemez.");
+    }
+    if (patch.active === false) {
+      throw new Error("Süper admin pasifleştirilemez.");
+    }
+    // Şifre: yalnızca kendisi değiştirebilir
+    if (patch.password) {
+      const self =
+        actor &&
+        (actor.userId === user.id ||
+          actor.username.toLowerCase() === user.username.toLowerCase());
+      if (!self) {
+        throw new Error("Süper admin şifresini yalnızca kendisi değiştirebilir.");
+      }
+    }
+    // superAdmin bayrağı her zaman koru
+    user.superAdmin = true;
+    user.role = "admin";
+    user.active = true;
+  }
+
+  if (patch.role && !locked) {
     if (patch.role !== "admin" && patch.role !== "doktor") {
       throw new Error("Geçersiz rol.");
     }
-    // Son admin pasifleştirilemez / rol düşürülemez
     if (user.role === "admin" && patch.role !== "admin") {
       const admins = store.users.filter((u) => u.role === "admin" && u.active && u.id !== id);
       if (admins.length === 0) {
@@ -240,8 +309,15 @@ export function updateUser(
     }
     user.role = patch.role;
   }
-  if (patch.displayName !== undefined) user.displayName = patch.displayName;
-  if (patch.active !== undefined) {
+  if (patch.displayName !== undefined && !locked) {
+    user.displayName = patch.displayName;
+  }
+  // Süper admin displayName opsiyonel sabit "Süper Admin" bırakılabilir; izin ver hafif güncelleme
+  if (patch.displayName !== undefined && locked) {
+    // isim estetik; yetki değil — serbest
+    user.displayName = patch.displayName;
+  }
+  if (patch.active !== undefined && !locked) {
     if (user.role === "admin" && patch.active === false) {
       const admins = store.users.filter((u) => u.role === "admin" && u.active && u.id !== id);
       if (admins.length === 0) {
@@ -264,6 +340,9 @@ export function deleteUser(id: string): void {
   const store = loadUsersStore();
   const user = store.users.find((u) => u.id === id);
   if (!user) throw new Error("Kullanıcı bulunamadı.");
+  if (isSuperAdminUser(user)) {
+    throw new Error("Süper admin silinemez.");
+  }
   if (user.role === "admin") {
     const admins = store.users.filter((u) => u.role === "admin" && u.active && u.id !== id);
     if (admins.length === 0) throw new Error("Son admin silinemez.");
@@ -279,6 +358,7 @@ export function publicUser(u: AdminUser) {
     role: u.role,
     displayName: u.displayName,
     active: u.active,
+    superAdmin: isSuperAdminUser(u),
     createdAt: u.createdAt,
     updatedAt: u.updatedAt,
     createdBy: u.createdBy,

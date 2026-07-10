@@ -18,12 +18,16 @@ export async function PATCH(
 
   try {
     const body = await req.json();
-    const user = updateUser(params.id, {
-      role: body.role as AdminRole | undefined,
-      displayName: body.displayName,
-      active: body.active,
-      password: body.password ? String(body.password) : undefined,
-    });
+    const user = updateUser(
+      params.id,
+      {
+        role: body.role as AdminRole | undefined,
+        displayName: body.displayName,
+        active: body.active,
+        password: body.password ? String(body.password) : undefined,
+      },
+      { username: session!.username, userId: session!.userId }
+    );
 
     appendLog({
       action: "update_user",

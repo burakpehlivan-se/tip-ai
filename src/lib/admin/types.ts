@@ -245,6 +245,11 @@ export interface AdminUser {
   role: AdminRole;
   displayName?: string;
   active: boolean;
+  /**
+   * Bootstrap süper admin (env admin / admin123).
+   * Rol, aktiflik ve silme değiştirilemez.
+   */
+  superAdmin?: boolean;
   createdAt: number;
   updatedAt: number;
   createdBy?: string;
