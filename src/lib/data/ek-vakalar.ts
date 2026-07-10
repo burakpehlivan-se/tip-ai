@@ -287,10 +287,7 @@ export const ekTestSynonymleri: SynonymSozluk = {
 
 
   "amilaz": "AMILAZ",
-  "bun": "BUN", "blood urea nitrogen": "BUN",
   "chol": "CHOL", "total kolesterol": "CHOL",
-  "ft4": "FT4",
-  "usg": "USG_ABDOMEN", "ultrason": "USG_ABDOMEN",
   "bt batın": "BT_ABDOMEN", "bt karın": "BT_ABDOMEN",
   "bt kafa": "BT_KRANIYAL", "bt beyin": "BT_KRANIYAL",
   "pelvik": "PELVIK_USG",

@@ -104,6 +104,26 @@ export const LAB_REFERANSLAR: LabReferans[] = [
   { testKey: "U_SG", testAdi: "İdrar Dansite", birim: "", normalAlt: 1.005, normalUst: 1.030, kategori: "İdrar" },
   { testKey: "U_PROTEIN", testAdi: "İdrar Protein", birim: "mg/dL", normalAlt: 0, normalUst: 15, kategori: "İdrar" },
   { testKey: "U_GLUKOZ", testAdi: "İdrar Glukoz", birim: "mg/dL", normalAlt: 0, normalUst: 15, kategori: "İdrar" },
+  { testKey: "ABG", testAdi: "Arteriyel Kan Gazı", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "ABG" },
+  { testKey: "AKCIGER_GRAFISI", testAdi: "PA Akciğer Grafisi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "BIYOPSI", testAdi: "Biyopsi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Patoloji" },
+  { testKey: "BT_TORAKS", testAdi: "Toraks BT", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "DEMIR", testAdi: "Serum Demir", birim: "mcg/dL", normalAlt: 60, normalUst: 170, kategori: "Hematoloji" },
+  { testKey: "EKG", testAdi: "EKG (12 Derivasyon)", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Kardiyak" },
+  { testKey: "ELEKTROLIT", testAdi: "Elektrolit Paneli", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "Elektrolit" },
+  { testKey: "IDRAR", testAdi: "Tam İdrar Tetkiki", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "İdrar" },
+  { testKey: "KOLESTEROL", testAdi: "Lipid Paneli", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "Lipid" },
+  { testKey: "MAMOGRAFI", testAdi: "Mamografi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "MEME_USG", testAdi: "Meme Ultrasonografisi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "T4", testAdi: "Serbest T4", birim: "ng/dL", normalAlt: 0.8, normalUst: 1.8, kategori: "Tiroid" },
+  { testKey: "URE", testAdi: "Üre (BUN)", birim: "mg/dL", normalAlt: 7, normalUst: 20, kritikUst: 80, kategori: "Böbrek" },
+  { testKey: "USG_ABDOMEN", testAdi: "USG Abdomen", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "BT_ABDOMEN", testAdi: "BT Abdomen", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "BT_KRANIYAL", testAdi: "BT Kraniyal", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "PELVIK_USG", testAdi: "Pelvik USG", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
+  { testKey: "BHCG", testAdi: "Beta-HCG", birim: "mIU/mL", normalAlt: 0, normalUst: 5, kategori: "Endokrin" },
+  { testKey: "KREATININ_KINAZ", testAdi: "Kreatinin Kinaz", birim: "U/L", normalAlt: 30, normalUst: 200, kategori: "Kardiyak" },
+  { testKey: "KARACIGER_ENZIM", testAdi: "Karaciğer Enzimleri", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "Karaciğer" },
 ];
 
 // ─── Vital Pattern'leri (MIMIC-IV vitalsign bazlı) ───
@@ -195,41 +215,16 @@ export function gercekciTestDegeri(
     AST: { "akut-kolesistit": { dir: "up", factor: 2 }, hepatit: { dir: "up", factor: 8 } },
   };
 
-  const pattern = abnormalPatterns[testKey]?.[hastalik
-  // Panels / Procedure (composite or imaging)
-  { testKey: "ABG", testAdi: "Arteriyel Kan Gazı", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "ABG" },
-  { testKey: "AKCIGER_GRAFISI", testAdi: "PA Akciğer Grafisi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "BIYOPSI", testAdi: "Biyopsi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Patoloji" },
-  { testKey: "BT_TORAKS", testAdi: "Toraks BT", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "DEMIR", testAdi: "Serum Demir", birim: "mcg/dL", normalAlt: 60, normalUst: 170, kategori: "Hematoloji" },
-  { testKey: "EKG", testAdi: "EKG (12 Derivasyon)", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Kardiyak" },
-  { testKey: "ELEKTROLIT", testAdi: "Elektrolit Paneli", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "Elektrolit" },
-  { testKey: "IDRAR", testAdi: "Tam İdrar Tetkiki", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "İdrar" },
-  { testKey: "KOLESTEROL", testAdi: "Lipid Paneli", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "Lipid" },
-  { testKey: "MAMOGRAFI", testAdi: "Mamografi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "MEME_USG", testAdi: "Meme Ultrasonografisi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "T4", testAdi: "Serbest T4", birim: "ng/dL", normalAlt: 0.8, normalUst: 1.8, kategori: "Tiroid" },
-  { testKey: "URE", testAdi: "Üre (BUN)", birim: "mg/dL", normalAlt: 7, normalUst: 20, kritikUst: 80, kategori: "Böbrek" },
-  { testKey: "USG_ABDOMEN", testAdi: "USG Abdomen", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "BT_ABDOMEN", testAdi: "BT Abdomen", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "BT_KRANIYAL", testAdi: "BT Kraniyal", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "PELVIK_USG", testAdi: "Pelvik USG", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "BHCG", testAdi: "Beta-HCG", birim: "mIU/mL", normalAlt: 0, normalUst: 5, kategori: "Endokrin" },
-  { testKey: "KREATININ_KINAZ", testAdi: "Kreatinin Kinaz", birim: "U/L", normalAlt: 30, normalUst: 200, kategori: "Kardiyak" },
-  { testKey: "KARACIGER_ENZIM", testAdi: "Karaciğer Enzimleri", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "Karaciğer" },
-];
+  const pattern = abnormalPatterns[testKey]?.[hastalik];
 
-  { testKey: "ABG", testAdi: "Arteriyel Kan Gazı", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "ABG" },
-  { testKey: "AKCIGER_GRAFISI", testAdi: "PA Akciğer Grafisi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "BIYOPSI", testAdi: "Biyopsi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Patoloji" },
-  { testKey: "BT_TORAKS", testAdi: "Toraks BT", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "DEMIR", testAdi: "Serum Demir", birim: "mcg/dL", normalAlt: 60, normalUst: 170, kategori: "Hematoloji" },
-  { testKey: "EKG", testAdi: "EKG (12 Derivasyon)", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Kardiyak" },
-  { testKey: "ELEKTROLIT", testAdi: "Elektrolit Paneli", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "Elektrolit" },
-  { testKey: "IDRAR", testAdi: "Tam İdrar Tetkiki", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "İdrar" },
-  { testKey: "KOLESTEROL", testAdi: "Lipid Paneli", birim: "panel", normalAlt: 0, normalUst: 0, kategori: "Lipid" },
-  { testKey: "MAMOGRAFI", testAdi: "Mamografi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "MEME_USG", testAdi: "Meme Ultrasonografisi", birim: "rapor", normalAlt: 0, normalUst: 0, kategori: "Radyoloji" },
-  { testKey: "T4", testAdi: "Serbest T4", birim: "ng/dL", normalAlt: 0.8, normalUst: 1.8, kategori: "Tiroid" },
-  { testKey: "URE", testAdi: "Üre (BUN)", birim: "mg/dL", normalAlt: 7, normalUst: 20, kritikUst: 80, kategori: "Böbrek" },
-];
+  if (pattern) {
+    const base = pattern.dir === "up" ? ref.normalUst : ref.normalAlt;
+    const value = Math.round(base * pattern.factor * (0.85 + Math.random() * 0.3) * 100) / 100;
+    return { normal: false, deger: value };
+  }
+
+  // Normal değer üret
+  const range = ref.normalUst - ref.normalAlt;
+  const value = Math.round((ref.normalAlt + Math.random() * range) * 100) / 100;
+  return { normal: true, deger: value };
+}
