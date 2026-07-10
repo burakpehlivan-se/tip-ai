@@ -1,5 +1,5 @@
-import { TestSonucu, ClinicalProfile } from "../types";
-import { LAB_REFERANSLAR, HASTALIK_TEST_MAP, gercekciTestDegeri } from "../data/clinical-reference";
+import { TestSonucu, ClinicalProfile } from "./types";
+import { LAB_REFERANSLAR, HASTALIK_TEST_MAP, gercekciTestDegeri } from "./data/clinical-reference";
 
 // ─── Master Lab Catalogue (genişletilmiş) ───
 interface LabDef {

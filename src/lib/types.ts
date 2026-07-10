@@ -17,10 +17,11 @@ export type TestKaynak = "original" | "dataset" | "synthetic";
  */
 export interface ClinicalProfile {
   age: number;
-  sex: "F" | "M";
+  sex: Cinsiyet;
   diagnoses: string[];
   bmi?: number;
-  comorbidities?: string[];
+  comorbidities: string[];
+  severity: "hafif" | "orta" | "agir";
   /** Sistem içi hastalık anahtarı (örn. "tip-2-diyabet", "stemi") */
   hastalikKey?: string;
   poliklinikKey?: string;
@@ -74,7 +75,6 @@ export interface Vaka {
   egitimNotu?: string;
   tedavi?: TedaviPlani;
   kaynaklar?: string[];
-  profile?: ClinicalProfile;
 }
 
 export interface TedaviPlani {
@@ -193,12 +193,4 @@ export interface AnamnezAnalizi {
 
 export interface SynonymSozluk {
   [alias: string]: string;
-}
-
-export interface ClinicalProfile {
-  age: number;
-  sex: Cinsiyet;
-  diagnoses: string[];
-  comorbidities: string[];
-  severity: "hafif" | "orta" | "agir";
 }

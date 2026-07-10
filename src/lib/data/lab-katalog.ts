@@ -25,7 +25,7 @@ interface PoolRow {
   patientId: string;
   encounterId?: string;
   age: number;
-  sex: "F" | "M";
+  sex: Cinsiyet;
   loinc?: string;
   description?: string;
   unit?: string;
@@ -216,9 +216,9 @@ function pickFromPool(
   return top[Math.floor(Math.random() * top.length)];
 }
 
-function formatRef(def: LabTestDefinition | undefined, sex: "F" | "M"): string {
+function formatRef(def: LabTestDefinition | undefined, sex: Cinsiyet): string {
   if (!def) return "";
-  const [lo, hi] = sex === "F" ? def.refRangeFemale : def.refRangeMale;
+  const [lo, hi] = sex === "K" ? def.refRangeFemale : def.refRangeMale;
   return def.unit && def.unit !== "—" ? `${lo}-${hi} ${def.unit}` : `${lo}-${hi}`;
 }
 
@@ -597,8 +597,8 @@ export function labKatalogListesi(): { key: string; ad: string; kategori: string
   }));
 }
 
-export function cinsiyetToSex(c: Cinsiyet): "F" | "M" {
-  return c === "K" ? "F" : "M";
+export function cinsiyetToSex(c: Cinsiyet): Cinsiyet {
+  return c;
 }
 
 export function buildClinicalProfile(input: {
@@ -613,10 +613,9 @@ export function buildClinicalProfile(input: {
     age: input.yas,
     sex: cinsiyetToSex(input.cinsiyet),
     diagnoses: input.taniListesi,
-    hastalikKey: input.hastalikKey,
-    poliklinikKey: input.poliklinikKey,
-    comorbidities: input.comorbidities,
-  };
+    comorbidities: input.comorbidities || [],
+    severity: "orta",
+  } as ClinicalProfile;
 }
 
 /** Debug / UI: pool meta */
