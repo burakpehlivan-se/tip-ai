@@ -18,9 +18,30 @@ export const birlesikTestSynonymleri: SynonymSozluk = {
   alt: "ALT",
   "sgpt": "ALT",
   "alt bak": "ALT",
-  "karaciğer enzim": "AST",
-  "karaciger enzim": "AST",
-  "kc enzim": "AST",
+  "karaciğer enzim": "KARACIGER_ENZIM",
+  "karaciger enzim": "KARACIGER_ENZIM",
+  "kc enzim": "KARACIGER_ENZIM",
+  "karaciğer paneli": "KARACIGER_ENZIM",
+  "bt batın": "BT_ABDOMEN",
+  "bt abdomen": "BT_ABDOMEN",
+  "batın bt": "BT_ABDOMEN",
+  "abdomen bt": "BT_ABDOMEN",
+  "pelvik usg": "PELVIK_USG",
+  "pelvis usg": "PELVIK_USG",
+  "bt kraniyal": "BT_KRANIYAL",
+  "beyin bt": "BT_KRANIYAL",
+  "kafa bt": "BT_KRANIYAL",
+  "usg abdomen": "USG_ABDOMEN",
+  "batın usg": "USG_ABDOMEN",
+  "göz basıncı": "GOZ_BASINCI",
+  "goz basinci": "GOZ_BASINCI",
+  "göz tansiyonu": "GOZ_BASINCI",
+  "ck": "KREATININ_KINAZ",
+  "kreatin kinaz": "KREATININ_KINAZ",
+  "bhcg": "BHCG",
+  "beta hcg": "BHCG",
+  "beta-hcg": "BHCG",
+  "gebelik testi": "BHCG",
   "d-dimer": "D_DIMER",
   "d dimer": "D_DIMER",
   ddimer: "D_DIMER",
@@ -43,8 +64,43 @@ function katalogBirlestir(
   return Array.from(map.values());
 }
 
+const ekEksikTestKatalogu: { key: string; ad: string; kategori: string }[] = [
+  { key: "KARACIGER_ENZIM", ad: "Karaciğer Enzimleri (AST/ALT)", kategori: "Laboratuvar" },
+  { key: "BT_ABDOMEN", ad: "BT Batın", kategori: "Radyoloji" },
+  { key: "PELVIK_USG", ad: "Pelvik USG", kategori: "Radyoloji" },
+  { key: "BT_KRANIYAL", ad: "BT Kraniyal", kategori: "Radyoloji" },
+  { key: "USG_ABDOMEN", ad: "Batın USG", kategori: "Radyoloji" },
+  { key: "GOZ_BASINCI", ad: "Göz İçi Basıncı", kategori: "Göz" },
+  { key: "KREATININ_KINAZ", ad: "CK (Kreatin Kinaz)", kategori: "Laboratuvar" },
+  { key: "BHCG", ad: "Beta-hCG", kategori: "Laboratuvar" },
+];
+
 export const birlesikTestKatalogu: { key: string; ad: string; kategori: string }[] =
-  katalogBirlestir(kalpKatalog, ekTestKatalogu, labKatalogListesi());
+  katalogBirlestir(kalpKatalog, ekTestKatalogu, labKatalogListesi(), ekEksikTestKatalogu);
+
+// Soru synonym extra merge
+Object.assign(birlesikSoruSynonymleri, {
+  "aile öyküsü": "AILE_OYKUSU",
+  "aile oykusu": "AILE_OYKUSU",
+  "ailede hastalık": "AILE_OYKUSU",
+  "ilaç öyküsü": "ILAC_OYKUSU",
+  "ilac oykusu": "ILAC_OYKUSU",
+  "çarpıntı": "CARPINTI_OYKU",
+  "carpinti": "CARPINTI_OYKU",
+  "uyuşma": "UYUSMA",
+  "uyusma": "UYUSMA",
+  "yanma hissi": "YANMA",
+  "gece artıyor": "GECE_ARTIS",
+  "yara var mı": "YARA",
+  "dizüri": "DIZURI",
+  "dizuri": "DIZURI",
+  "pollaküri": "POLLAKURI",
+  "pollakuri": "POLLAKURI",
+  "idrar rengi": "IDRAR_RENK",
+  "ortopne": "ORTOPNE",
+  "düz yatınca nefes": "ORTOPNE",
+  "kemik ağrısı": "KEMIK_AGRISI",
+});
 
 export {
   generateNormalLabs,

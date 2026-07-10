@@ -235,7 +235,21 @@ export const CHIP_HAVUZU: SoruChipi[] = [
   { etiket: "Bilinç değişikliği / konfüzyon var mı?", aksiyon: "KONFUZYON", kategori: "red-flag" },
   { etiket: "Deride değişiklik (retraksiyon) var mı?", aksiyon: "MEME_DERI_DEGISIKLIGI", kategori: "red-flag" },
   { etiket: "Koltuk altında kitle var mı?", aksiyon: "AKSIlla_KITLE", kategori: "red-flag" },
-  { etiket: "Kemik ağrın var mı?", aksiyon: "AKSIlla_KITLE", kategori: "red-flag" },
+  { etiket: "Kemik ağrın var mı?", aksiyon: "KEMIK_AGRISI", kategori: "red-flag" },
+  // Rubrikte sık geçen ama chip’te eksik olanlar
+  { etiket: "Aile öyküsü var mı?", aksiyon: "AILE_OYKUSU", kategori: "soygecmis" },
+  { etiket: "İlaç öykün / ne kullanıyorsun?", aksiyon: "ILAC_OYKUSU", kategori: "anamnez-oyku" },
+  { etiket: "Çarpıntın var mı?", aksiyon: "CARPINTI_OYKU", kategori: "anamnez-agri" },
+  { etiket: "Uyuşma var mı?", aksiyon: "UYUSMA", kategori: "anamnez-agri" },
+  { etiket: "Yanma hissi var mı?", aksiyon: "YANMA", kategori: "anamnez-agri" },
+  { etiket: "Gece artıyor mu?", aksiyon: "GECE_ARTIS", kategori: "anamnez-agri" },
+  { etiket: "Yara / ülser var mı?", aksiyon: "YARA", kategori: "anamnez-agri" },
+  { etiket: "İdrar rengin nasıl?", aksiyon: "IDRAR_RENK", kategori: "anamnez-agri" },
+  { etiket: "İdrar yaparken yanma (dizüri)?", aksiyon: "DIZURI", kategori: "anamnez-agri" },
+  { etiket: "Sık idrara çıkma (pollaküri)?", aksiyon: "POLLAKURI", kategori: "anamnez-agri" },
+  { etiket: "Burun kanaması var mı?", aksiyon: "BURUN_KANAMASI", kategori: "red-flag" },
+  { etiket: "Ortopne (düz yatınca nefes darlığı)?", aksiyon: "ORTOPNE", kategori: "anamnez-agri" },
+  { etiket: "Gözde ağrı / kızarıklık?", aksiyon: "GOZ_AGRISI", kategori: "anamnez-agri" },
   { etiket: "Parmaklarda çomaklaşma var mı?", aksiyon: "PARMAK_COMAKLASMA", kategori: "red-flag" },
   { etiket: "Ani kilo kaybı var mı?", aksiyon: "ANI_KILO_KAYBI", kategori: "red-flag" },
   { etiket: "Gece terlemesi var mı?", aksiyon: "GECE_TERLEME", kategori: "red-flag" },
@@ -515,7 +529,7 @@ export const poliklinikler: PoliklinikSablonu[] = [
         egitimNotu: "Kalp Yetmezliği — Framingham kriterleri (major: PND, ortopne, BNP>400, kardiyomegali). En sık neden: iskemik KY (eski MI). NYHA Sınıf 2-3. TEDAVİ: ACEi/ARB + beta bloker (karvedilol/metoprolol) + loop diüretik (furosemid). SGLT2i (dapagliflozin) mortaliteyi azaltır.",
       },
     
-            { hastalikKey: "atriyal-fibrilasyon", hastalikAdi: "Atriyal Fibrilasyon", semptomSablonu: (h) => `${h.yas} yaş , çarpıntı ve düzensiz nabız`, anaSikayetSablonu: () => "Çarpıntı, düzensiz kalp atışı, efor intoleransı", ozetBilgilerSablonu: () => ["1 haftadır çarpıntı","Nabız düzensiz","Eforla nefes darlığı","Hipertansiyon öyküsü var"], yasAraligi: [60, 85], cinsiyetTercih: "herhangi", seviye: "orta", rubric: { beklenenSorular: [{key:"CARPINTI_OYKU",etiket:"Çarpıntı",aciklama:"Düzensiz"},{key:"NEFES_DARLIGI",etiket:"Efor dispnesi",aciklama:"Var"},{key:"HT_OYKUSU",etiket:"HT",aciklama:"Risk"},{key:"BAYILMA",etiket:"Senkop",aciklama:"Yok"},{key:"GOZ_BULGULARI",etiket:"Geçici iskemik atak",aciklama:"TIA?"}], beklenenTestler: [{key:"EKG",etiket:"EKG",aciklama:"AF ritmi"},{key:"CBC",etiket:"Hemogram",aciklama:"Bazal"},{key:"KREATININ",etiket:"Kreatinin",aciklama:"Böbrek"}], gereksizTestler: [{key:"TROPONIN",etiket:"Troponin",aciklama:"İlgisiz"}], redFlagler: [{key:"HEMODINAMIK_INSTABILITE",etiket:"Hemodinamik instabilite",aciklama:"Hipotansiyon+senkop"},{key:"AKUT_SVO",etiket:"Akut SVO",aciklama:"Nörolojik defisit"}], kabulEdilenTani: ["Atriyal Fibrilasyon","AF","Atrial Fibrillation"], puanlama: {dogru_kritik_soru:2,dogru_yardimci_soru:1,dogru_test:2,gereksiz_test:-1,red_flag_atlama:-3,tehlikeli_eksik:-5,tani_dogru:5,tani_yanlis:-3} }, statikTestler: () => ({EKG:{testKey:"EKG",testAdi:"EKG",tip:"json",sonuc:{ritim:"Sinüs",kalpHizi:"85"},referans:"ESC",yorum:"Normal."}, CBC:{testKey:"CBC",testAdi:"Hemogram",tip:"json",sonuc:{hemoglobin:"14.0",lokosit:"9.5 K/uL"},referans:"Lab",yorum:"Normal."}, KREATININ:{testKey:"KREATININ",testAdi:"Kreatinin",tip:"numeric",sonuc:{deger:1.0,birim:"mg/dL",referansAralik:"0.7-1.3"},referans:"Lab",yorum:"Normal."}}), hastaYanitlari: () => ({CARPINTI_OYKU:"Kalbim düzensiz atıyor", NEFES_DARLIGI:"Merdiven çıkınca nefesim daralıyor", HT_OYKUSU:"10 yıldır tansiyon", BAYILMA:"Bayılmadım", GOZ_BULGULARI:"Konuşmamda kayma olmadı", VITAL_TANSIYON:"120/80", VITAL_NABIZ:"110", VITAL_ATES:"36.5", VITAL_SPO2:"97", SIGARA:"Yok", DIYABET:"Yok", ILAC:"Yok", ALERJI:"Yok", OZEL:"Anlamadım"}), soruChipleri: ["Çarpıntı?","Nefes darlığı?","Bayılma?","Konuşma bozukluğu?"], idealYol: ["1.Anamnez+EKG","2.CHADS-VASc skoru","3.Hız kontrolü(beta bloker)","4.Antikoagülasyon(DOAK)","5.Kardiyoversiyon(endikasyon varsa)"], egitimNotu: "AF — en sık aritmi.CHADS-VASc≥2→antikoagülasyon.TEDAVİ:Hız kontrolü(beta bloker/digoksin),ritim kontrolü(kardiyoversiyon/antiaritmik),antikoagülasyon(DOAK/vafarin)." },
+            { hastalikKey: "atriyal-fibrilasyon", hastalikAdi: "Atriyal Fibrilasyon", semptomSablonu: (h) => `${h.yas} yaş , çarpıntı ve düzensiz nabız`, anaSikayetSablonu: () => "Çarpıntı, düzensiz kalp atışı, efor intoleransı", ozetBilgilerSablonu: () => ["1 haftadır çarpıntı","Nabız düzensiz","Eforla nefes darlığı","Hipertansiyon öyküsü var"], yasAraligi: [60, 85], cinsiyetTercih: "herhangi", seviye: "orta", rubric: { beklenenSorular: [{key:"CARPINTI_OYKU",etiket:"Çarpıntı",aciklama:"Düzensiz"},{key:"NEFES_DARLIGI",etiket:"Efor dispnesi",aciklama:"Var"},{key:"HT_OYKUSU",etiket:"HT",aciklama:"Risk"},{key:"BAYILMA",etiket:"Senkop",aciklama:"Yok"},{key:"GOZ_BULGULARI",etiket:"Geçici iskemik atak",aciklama:"TIA?"}], beklenenTestler: [{key:"EKG",etiket:"EKG",aciklama:"AF ritmi"},{key:"CBC",etiket:"Hemogram",aciklama:"Bazal"},{key:"KREATININ",etiket:"Kreatinin",aciklama:"Böbrek"}], gereksizTestler: [{key:"TROPONIN",etiket:"Troponin",aciklama:"İlgisiz"}], redFlagler: [{key:"HEMODINAMIK_INSTABILITE",etiket:"Hemodinamik instabilite",aciklama:"Hipotansiyon+senkop"},{key:"AKUT_SVO",etiket:"Akut SVO",aciklama:"Nörolojik defisit"}], kabulEdilenTani: ["Atriyal Fibrilasyon","AF","Atrial Fibrillation"], puanlama: {dogru_kritik_soru:2,dogru_yardimci_soru:1,dogru_test:2,gereksiz_test:-1,red_flag_atlama:-3,tehlikeli_eksik:-5,tani_dogru:5,tani_yanlis:-3} }, statikTestler: () => ({EKG:{testKey:"EKG",testAdi:"EKG",tip:"json",sonuc:{ritim:"Atriyal fibrilasyon (düzensiz RR)",kalpHizi:"118",pDalgasi:"Yok",qrs:"Dar"},referans:"ESC 2020 AF",yorum:"AF ile uyumlu — düzensiz ritim, P dalgası yok."}, CBC:{testKey:"CBC",testAdi:"Hemogram",tip:"json",sonuc:{hemoglobin:"14.0",lokosit:"9.5 K/uL"},referans:"Lab",yorum:"Normal."}, KREATININ:{testKey:"KREATININ",testAdi:"Kreatinin",tip:"numeric",sonuc:{deger:1.0,birim:"mg/dL",referansAralik:"0.7-1.3"},referans:"Lab",yorum:"Normal."}}), hastaYanitlari: () => ({CARPINTI_OYKU:"Kalbim düzensiz atıyor", NEFES_DARLIGI:"Merdiven çıkınca nefesim daralıyor", HT_OYKUSU:"10 yıldır tansiyon", BAYILMA:"Bayılmadım", GOZ_BULGULARI:"Konuşmamda kayma olmadı", VITAL_TANSIYON:"120/80", VITAL_NABIZ:"110", VITAL_ATES:"36.5", VITAL_SPO2:"97", SIGARA:"Yok", DIYABET:"Yok", ILAC:"Yok", ALERJI:"Yok", OZEL:"Anlamadım"}), soruChipleri: ["Çarpıntı?","Nefes darlığı?","Bayılma?","Konuşma bozukluğu?"], idealYol: ["1.Anamnez+EKG","2.CHADS-VASc skoru","3.Hız kontrolü(beta bloker)","4.Antikoagülasyon(DOAK)","5.Kardiyoversiyon(endikasyon varsa)"], egitimNotu: "AF — en sık aritmi.CHADS-VASc≥2→antikoagülasyon.TEDAVİ:Hız kontrolü(beta bloker/digoksin),ritim kontrolü(kardiyoversiyon/antiaritmik),antikoagülasyon(DOAK/vafarin)." },
       { hastalikKey: "stabil-angina", hastalikAdi: "Stabil Angina", semptomSablonu: (h) => `${h.yas} yaş erkek, eforla göğüs ağrısı`, anaSikayetSablonu: () => "Eforla gelen, dinlenince geçen göğüs ağrısı", ozetBilgilerSablonu: () => ["3 aydır eforla göğüs ağrısı","Dinlenince 5dk'da geçiyor","HT ve hiperlipidemi"], yasAraligi: [45, 70], cinsiyetTercih: "E", seviye: "orta", rubric: { beklenenSorular: [{key:"AGRI_YER",etiket:"Ağrı",aciklama:"Retrosternal"},{key:"AGRI_EFOR",etiket:"Eforla",aciklama:"Tipik"},{key:"AGRI_SURE",etiket:"Süre",aciklama:"<5dk"},{key:"SIGARA_OYKUSU",etiket:"Sigara",aciklama:"Risk"},{key:"HT_OYKUSU",etiket:"HT",aciklama:"Risk"}], beklenenTestler: [{key:"EKG",etiket:"EKG",aciklama:"İskemi"},{key:"CBC",etiket:"Hemogram",aciklama:"Bazal"}], gereksizTestler: [{key:"TROPONIN",etiket:"Troponin",aciklama:"İlgisiz"}], redFlagler: [{key:"ANSTABIL",etiket:"Unstabil",aciklama:"İstirahatte ağrı"},{key:"MI",etiket:"MI",aciklama:"ST değişikliği"}], kabulEdilenTani: ["Stabil Angina","Angina Pektoris"], puanlama: {dogru_kritik_soru:2,dogru_yardimci_soru:1,dogru_test:2,gereksiz_test:-1,red_flag_atlama:-3,tehlikeli_eksik:-5,tani_dogru:5,tani_yanlis:-3} }, statikTestler: () => ({EKG:{testKey:"EKG",testAdi:"EKG",tip:"json",sonuc:{ritim:"Sinüs",kalpHizi:"85"},referans:"ESC",yorum:"Normal."}, CBC:{testKey:"CBC",testAdi:"Hemogram",tip:"json",sonuc:{hemoglobin:"14.0",lokosit:"9.5"},referans:"Lab",yorum:"Normal."}}), hastaYanitlari: () => ({AGRI_YER:"Göğüs ortası", AGRI_EFOR:"Merdiven çıkınca", AGRI_SURE:"5dk'da geçiyor", SIGARA_OYKUSU:"20 yıl", HT_OYKUSU:"Var", VITAL_TANSIYON:"145/85", VITAL_NABIZ:"75", VITAL_ATES:"36.5", VITAL_SPO2:"97", SIGARA:"Yok", DIYABET:"Yok", ILAC:"Yok", ALERJI:"Yok", OZEL:"Anlamadım"}), soruChipleri: ["Göğüs ağrısı?","Eforla mı?","Ne kadar sürüyor?"], idealYol: ["1.Tipik angina","2.EKG","3.Efor testi","4.Medikal:BB+statin","5.Anjiyo(endikasyon)"], egitimNotu: "Stabil Angina — fixed koroner stenoz.Eforla ağrı,dinlenince<5dk geçer.TEDAVİ:Beta bloker,statin,ASA." }],
   },
   {
@@ -691,7 +705,7 @@ export const poliklinikler: PoliklinikSablonu[] = [
         egitimNotu: "Hipertiroidi — en sık neden Graves hastalığı (TSH reseptör antikorları). TSH suprese, fT4 yüksek. TEDAVİ: Metimazol 10-30mg/gün (titrasyon), propranolol 20-40mg (semptomatik). Graves'te remisyon %30-50. Alternatif: RAI ablasyon veya tiroidektomi.",
       },
     
-            { hastalikKey: "hipoglisemi", hastalikAdi: "Hipoglisemi (Diyabetik)", semptomSablonu: (h) => `${h.yas} yaş , terleme, titreme, bilinç bulanıklığı`, anaSikayetSablonu: () => "Ani terleme, titreme, çarpıntı, bilinç bulanıklığı", ozetBilgilerSablonu: () => ["30 dk önce aniden terleme ve titreme","Bilinç bulanıklaşıyor","Tip 2 DM, insülin kullanıyor","Bugün yemek yemedi"], yasAraligi: [30, 70], cinsiyetTercih: "herhangi", seviye: "orta", rubric: { beklenenSorular: [{key:"TERLEME",etiket:"Terleme",aciklama:"Ani"},{key:"TITREME",etiket:"Titreme",aciklama:"Var"},{key:"KONFUZYON",etiket:"Bilinç",aciklama:"Bulanık"},{key:"DIYABET",etiket:"DM",aciklama:"İnsülin"},{key:"BESLENME",etiket:"Yemek",aciklama:"Atladı"}], beklenenTestler: [{key:"GLUKOZ",etiket:"Kan Şekeri",aciklama:"Acil"},{key:"CBC",etiket:"Hemogram",aciklama:"Bazal"}], gereksizTestler: [{key:"TROPONIN",etiket:"Troponin",aciklama:"İlgisiz"}], redFlagler: [{key:"BILINC_KAYBI",etiket:"Bilinç kaybı",aciklama:"Glukagon IV"},{key:"NÖBET",etiket:"Nöbet",aciklama:"Hipoglisemik nöbet"}], kabulEdilenTani: ["Hipoglisemi","İnsülin Hipoglisemisi"], puanlama: {dogru_kritik_soru:2,dogru_yardimci_soru:1,dogru_test:2,gereksiz_test:-1,red_flag_atlama:-3,tehlikeli_eksik:-5,tani_dogru:5,tani_yanlis:-3} }, statikTestler: () => ({GLUKOZ:{testKey:"GLUKOZ",testAdi:"Kan Şekeri",tip:"text",sonuc:"Normal.",referans:"Lab",yorum:"Normal."}, CBC:{testKey:"CBC",testAdi:"Hemogram",tip:"json",sonuc:{hemoglobin:"14.0",lokosit:"9.5 K/uL"},referans:"Lab",yorum:"Normal."}}), hastaYanitlari: () => ({TERLEME:"Soğuk soğuk terliyorum", TITREME:"Ellerim titriyor", KONFUZYON:"Biraz sersem gibiyim", DIYABET:"Tip 2 DM,insülin kullanıyorum", BESLENME:"Bugün kahvaltı yapmadım", VITAL_TANSIYON:"140/90", VITAL_NABIZ:"100", VITAL_ATES:"36.5", VITAL_SPO2:"97", SIGARA:"Yok", ILAC:"Yok", ALERJI:"Yok", OZEL:"Anlamadım"}), soruChipleri: ["Terleme?","Titreme?","Bilincin yerinde mi?","Yemek yedin mi?"], idealYol: ["1.Acil:KŞ ölçümü","2.<70mg/dL→15g hızlı karbonhidrat","3.15dk sonra kontrol","4.Bilinç kapalı→IV %30 dekstroz","5.Glukagon IM"], egitimNotu: "Hipoglisemi — KŞ<70mg/dL.Whipple triadı:semptom+düşük KŞ+düzelme.TEDAVİ:Bilinci açık→15g hızlı CHO(meyve suyu).Bilinç kapalı→IV dekstroz/glukagon." },
+            { hastalikKey: "hipoglisemi", hastalikAdi: "Hipoglisemi (Diyabetik)", semptomSablonu: (h) => `${h.yas} yaş , terleme, titreme, bilinç bulanıklığı`, anaSikayetSablonu: () => "Ani terleme, titreme, çarpıntı, bilinç bulanıklığı", ozetBilgilerSablonu: () => ["30 dk önce aniden terleme ve titreme","Bilinç bulanıklaşıyor","Tip 2 DM, insülin kullanıyor","Bugün yemek yemedi"], yasAraligi: [30, 70], cinsiyetTercih: "herhangi", seviye: "orta", rubric: { beklenenSorular: [{key:"TERLEME",etiket:"Terleme",aciklama:"Ani"},{key:"TITREME",etiket:"Titreme",aciklama:"Var"},{key:"KONFUZYON",etiket:"Bilinç",aciklama:"Bulanık"},{key:"DIYABET",etiket:"DM",aciklama:"İnsülin"},{key:"BESLENME",etiket:"Yemek",aciklama:"Atladı"}], beklenenTestler: [{key:"GLUKOZ",etiket:"Kan Şekeri",aciklama:"Acil"},{key:"CBC",etiket:"Hemogram",aciklama:"Bazal"}], gereksizTestler: [{key:"TROPONIN",etiket:"Troponin",aciklama:"İlgisiz"}], redFlagler: [{key:"BILINC_KAYBI",etiket:"Bilinç kaybı",aciklama:"Glukagon IV"},{key:"NÖBET",etiket:"Nöbet",aciklama:"Hipoglisemik nöbet"}], kabulEdilenTani: ["Hipoglisemi","İnsülin Hipoglisemisi"], puanlama: {dogru_kritik_soru:2,dogru_yardimci_soru:1,dogru_test:2,gereksiz_test:-1,red_flag_atlama:-3,tehlikeli_eksik:-5,tani_dogru:5,tani_yanlis:-3} }, statikTestler: () => ({GLUKOZ:{testKey:"GLUKOZ",testAdi:"Kan Şekeri",tip:"numeric",sonuc:{deger:48,birim:"mg/dL",referansAralik:"70-100"},referans:"ADA",yorum:"Hipoglisemi — acil tedavi endikasyonu."}, CBC:{testKey:"CBC",testAdi:"Hemogram",tip:"json",sonuc:{hemoglobin:"14.0",lokosit:"9.5 K/uL"},referans:"Lab",yorum:"Normal."}}), hastaYanitlari: () => ({TERLEME:"Soğuk soğuk terliyorum", TITREME:"Ellerim titriyor", KONFUZYON:"Biraz sersem gibiyim", DIYABET:"Tip 2 DM,insülin kullanıyorum", BESLENME:"Bugün kahvaltı yapmadım", VITAL_TANSIYON:"140/90", VITAL_NABIZ:"100", VITAL_ATES:"36.5", VITAL_SPO2:"97", SIGARA:"Yok", ILAC:"Yok", ALERJI:"Yok", OZEL:"Anlamadım"}), soruChipleri: ["Terleme?","Titreme?","Bilincin yerinde mi?","Yemek yedin mi?"], idealYol: ["1.Acil:KŞ ölçümü","2.<70mg/dL→15g hızlı karbonhidrat","3.15dk sonra kontrol","4.Bilinç kapalı→IV %30 dekstroz","5.Glukagon IM"], egitimNotu: "Hipoglisemi — KŞ<70mg/dL.Whipple triadı:semptom+düşük KŞ+düzelme.TEDAVİ:Bilinci açık→15g hızlı CHO(meyve suyu).Bilinç kapalı→IV dekstroz/glukagon." },
       { hastalikKey: "diyabetik-noropati", hastalikAdi: "Diyabetik Nöropati", semptomSablonu: (h) => `${h.yas} yaş , ayaklarda uyuşma ve yanma`, anaSikayetSablonu: () => "Ayaklarda uyuşma, yanma, 10 yıllık DM", ozetBilgilerSablonu: () => ["10 yıldır Tip 2 DM","Son 1 yıldır ayaklarda uyuşma","Yanma ve karıncalanma","Gece artıyor"], yasAraligi: [45, 70], cinsiyetTercih: "herhangi", seviye: "orta", rubric: { beklenenSorular: [{key:"UYUSMA",etiket:"Uyuşma",aciklama:"Ayak"},{key:"YANMA",etiket:"Yanma",aciklama:"Nöropatik"},{key:"DIYABET",etiket:"DM",aciklama:"10 yıl"},{key:"GECE_ARTIS",etiket:"Gece",aciklama:"Artıyor"},{key:"YARA",etiket:"Yara",aciklama:"Var mı"}], beklenenTestler: [{key:"CBC",etiket:"Hemogram",aciklama:"Bazal"},{key:"KREATININ",etiket:"Kreatinin",aciklama:"Böbrek"}], gereksizTestler: [{key:"TROPONIN",etiket:"Troponin",aciklama:"İlgisiz"}], redFlagler: [{key:"AYAK_ULSERI",etiket:"Ayak ülseri",aciklama:"Diyabetik ayak"},{key:"OSTEOMIYELIT",etiket:"Osteomiyelit",aciklama:"Enfekte"}], kabulEdilenTani: ["Diyabetik Nöropati","DSPN"], puanlama: {dogru_kritik_soru:2,dogru_yardimci_soru:1,dogru_test:2,gereksiz_test:-1,red_flag_atlama:-3,tehlikeli_eksik:-5,tani_dogru:5,tani_yanlis:-3} }, statikTestler: () => ({CBC:{testKey:"CBC",testAdi:"Hemogram",tip:"json",sonuc:{hemoglobin:"14.0",lokosit:"9.5"},referans:"Lab",yorum:"Normal."}, KREATININ:{testKey:"KREATININ",testAdi:"Kreatinin",tip:"numeric",sonuc:{deger:1.0,birim:"mg/dL",referansAralik:"0.7-1.3"},referans:"Lab",yorum:"Normal."}}), hastaYanitlari: () => ({UYUSMA:"Ayaklarım uyuşuyor", YANMA:"Gece daha kötü", DIYABET:"10 yıllık şeker", GECE_ARTIS:"Evet", YARA:"Yok", VITAL_TANSIYON:"140/85", VITAL_NABIZ:"80", VITAL_ATES:"36.5", VITAL_SPO2:"97", SIGARA:"Yok", ILAC:"Yok", ALERJI:"Yok", OZEL:"Anlamadım"}), soruChipleri: ["Uyuşma?","Yanma?","DM süresi?","Yara?"], idealYol: ["1.Simetrik distal","2.Monofilaman","3.Glisemik kontrol","4.Gabapentin","5.Ayak bakımı"], egitimNotu: "DSPN — en sık DM komplikasyonu.TEDAVİ:Glisemik kontrol,gabapentin/pregabalin,duloksetin.Ayak bakımı." }],
   },
   {
@@ -1740,28 +1754,41 @@ export function vakaUret(
 
   // Şablon yanıtları + tüm chip'ler için tutarlı varsayılanlar + ağrı tutarlılığı
   const sablonYanitlari = sablon.hastaYanitlari();
-  const birlesikYanitlar = enrichHastaYanitlari(sablonYanitlari, {
+  let birlesikYanitlar = enrichHastaYanitlari(sablonYanitlari, {
     chipHavuzu: CHIP_HAVUZU,
     anaSikayet: hasta.anaSikayet,
     semptom: sablon.semptomSablonu(hasta),
   });
 
+  // Rubrikte beklenen soru/red flag için cevap garantisi
+  for (const q of sablon.rubric.beklenenSorular) {
+    if (!birlesikYanitlar[q.key] || !String(birlesikYanitlar[q.key]).trim()) {
+      birlesikYanitlar[q.key] = q.aciklama
+        ? `Evet — ${q.aciklama}.`
+        : `Evet, ${q.etiket.toLowerCase()} ile ilgili şikayetim var.`;
+    }
+  }
+  for (const rf of sablon.rubric.redFlagler) {
+    if (!birlesikYanitlar[rf.key] || !String(birlesikYanitlar[rf.key]).trim()) {
+      // Red flag varsayılanı: çoğu vakada "yok" (yoksa şablon yazar)
+      birlesikYanitlar[rf.key] = `Hayır, ${rf.etiket.toLowerCase()} yok.`;
+    }
+  }
+
   // Relevant aksiyonlar: vakanın beklediği + vital/öykü her zaman relevant
   const herZamanRelevant = [
     "VITAL_TANSIYON", "VITAL_NABIZ", "VITAL_ATES", "VITAL_SPO2",
     "SIGARA", "SIGARA_OYKUSU", "DIYABET", "DIYABET_OYKUSU", "ILAC", "ILAC_OYKUSU", "ALERJI",
+    "SIKAYET", "AILE_OYKUSU",
   ];
-  const relevantAksiyonlar = [
+  const relevantAksiyonlar = Array.from(new Set([
     ...sablon.rubric.beklenenSorular.map((s) => s.key),
     ...sablon.rubric.redFlagler.map((r) => r.key),
     ...sablon.rubric.beklenenTestler.map((t) => t.key),
     ...herZamanRelevant,
-  ];
+  ]));
 
   // ─── Data fusion: şablon patoloji testleri + profil uyumlu normal panel ───
-  // Dataset 1 = sablon.statikTestler (original)
-  // Dataset 2 = Lab KB generateNormalLabs (synthetic)
-  // Join anahtarı = ClinicalProfile + aynı patientId/episodeId
   const episodeZamani = Date.now();
   const profile = buildClinicalProfile({
     yas,
@@ -1773,10 +1800,29 @@ export function vakaUret(
 
   // Admin paneli testleri: varsa şablon testlerinin yerine geçer (tam yetki)
   const adminOverride = options?.adminTests?.[sablon.hastalikKey];
-  const originalTestler =
+  let originalTestler: Record<string, TestSonucu> =
     adminOverride && Object.keys(adminOverride).length > 0
-      ? adminOverride
-      : sablon.statikTestler();
+      ? { ...adminOverride }
+      : { ...sablon.statikTestler() };
+
+  // Beklenen / gereksiz testler vakada yoksa otomatik ekle (istenince sonuç gelsin)
+  for (const t of [...sablon.rubric.beklenenTestler, ...sablon.rubric.gereksizTestler]) {
+    if (!originalTestler[t.key]) {
+      const isBeklenen = sablon.rubric.beklenenTestler.some((b) => b.key === t.key);
+      originalTestler[t.key] = {
+        testKey: t.key,
+        testAdi: t.etiket,
+        tip: "text",
+        sonuc: isBeklenen
+          ? `${t.etiket}: klinik olarak anlamlı bulgu mevcut. (${t.aciklama})`
+          : `${t.etiket}: bu vaka bağlamında ek tanısal katkı sınırlı / erken aşamada öncelikli değil.`,
+        referans: "Vaka şablonu",
+        yorum: isBeklenen ? t.aciklama : "Gereksiz/erken test olarak değerlendirilebilir.",
+        source: "original",
+      };
+    }
+  }
+
   const statikTestler = birlestirTestler(originalTestler, profile, {
     patientId: tc,
     episodeId: vakaId,

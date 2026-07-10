@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { birlesikTestKatalogu } from "@/lib/data";
 
 interface TestSonucu {
   testKey: string;
@@ -55,6 +56,64 @@ function pretty(v: unknown): string {
   return JSON.stringify(v, null, 2);
 }
 
+/** Katalog testine göre varsayılan sonuç şablonu */
+function defaultSonucForKey(key: string): { tip: string; sonuc: string } {
+  const jsonPanel: Record<string, string> = {
+    CBC: JSON.stringify(
+      { hemoglobin: "14.0 g/dL", lokosit: "8.5 K/uL", trombosit: "250 K/uL" },
+      null,
+      2
+    ),
+    ELEKTROLIT: JSON.stringify({ sodyum: "140 mmol/L", potasyum: "4.2 mmol/L", klor: "102 mmol/L" }, null, 2),
+    KOLESTEROL: JSON.stringify(
+      { totalKolesterol: "180 mg/dL", ldl: "100 mg/dL", hdl: "50 mg/dL", trigliserit: "120 mg/dL" },
+      null,
+      2
+    ),
+    IDRAR: JSON.stringify({ dansite: "1015", protein: "Negatif", glukoz: "Negatif", ph: 6.0 }, null, 2),
+    ABG: JSON.stringify({ pH: "7.40", pCO2: "40 mmHg", pO2: "90 mmHg", HCO3: "24 mmol/L" }, null, 2),
+    EKG: JSON.stringify({ ritim: "Sinüs", kalpHizi: "78", yorum: "Normal sinüs ritmi" }, null, 2),
+    DEMIR: JSON.stringify({ serumDemir: "90 µg/dL", tdbk: "300 µg/dL", transferrinSaturasyonu: "30%" }, null, 2),
+    PT: JSON.stringify({ PT: "12 sn", INR: "1.0" }, null, 2),
+    KARACIGER_ENZIM: JSON.stringify({ AST: "25 U/L", ALT: "28 U/L" }, null, 2),
+  };
+  if (jsonPanel[key]) return { tip: "json", sonuc: jsonPanel[key] };
+
+  const numericDefaults: Record<string, string> = {
+    TROPONIN: JSON.stringify({ deger: 0.01, birim: "ng/mL", referansAralik: "<0.04" }, null, 2),
+    BNP: JSON.stringify({ deger: 50, birim: "pg/mL", referansAralik: "<100" }, null, 2),
+    GLUKOZ: JSON.stringify({ deger: 92, birim: "mg/dL", referansAralik: "70-100" }, null, 2),
+    HBA1C: JSON.stringify({ deger: 5.4, birim: "%", referansAralik: "<5.7" }, null, 2),
+    TSH: JSON.stringify({ deger: 2.1, birim: "mIU/L", referansAralik: "0.4-4.0" }, null, 2),
+    T4: JSON.stringify({ deger: 1.2, birim: "ng/dL", referansAralik: "0.8-1.8" }, null, 2),
+    CRP: JSON.stringify({ deger: 3, birim: "mg/L", referansAralik: "<5" }, null, 2),
+    KREATININ: JSON.stringify({ deger: 0.9, birim: "mg/dL", referansAralik: "0.7-1.3" }, null, 2),
+    URE: JSON.stringify({ deger: 14, birim: "mg/dL", referansAralik: "7-20" }, null, 2),
+    AST: JSON.stringify({ deger: 22, birim: "U/L", referansAralik: "10-40" }, null, 2),
+    ALT: JSON.stringify({ deger: 24, birim: "U/L", referansAralik: "10-41" }, null, 2),
+    FERITIN: JSON.stringify({ deger: 80, birim: "ng/mL", referansAralik: "30-300" }, null, 2),
+    D_DIMER: JSON.stringify({ deger: 200, birim: "ng/mL", referansAralik: "<500" }, null, 2),
+    PTT: JSON.stringify({ deger: 30, birim: "sn", referansAralik: "25-35" }, null, 2),
+    GOZ_BASINCI: JSON.stringify({ deger: 15, birim: "mmHg", referansAralik: "10-21" }, null, 2),
+    KREATININ_KINAZ: JSON.stringify({ deger: 120, birim: "U/L", referansAralik: "30-200" }, null, 2),
+    BHCG: JSON.stringify({ deger: 0, birim: "mIU/mL", referansAralik: "<5" }, null, 2),
+  };
+  if (numericDefaults[key]) return { tip: "numeric", sonuc: numericDefaults[key] };
+
+  const imageLike = ["AKCIGER_GRAFISI", "BT_TORAKS", "MAMOGRAFI", "MEME_USG", "BT_ABDOMEN", "BT_KRANIYAL", "USG_ABDOMEN", "PELVIK_USG"];
+  if (imageLike.includes(key)) {
+    return { tip: "image", sonuc: "Görüntüleme: belirgin patoloji yok / klinik korelasyon önerilir." };
+  }
+  if (key === "BIYOPSI") {
+    return { tip: "text", sonuc: "Patoloji raporu: bulgular klinik bağlamda değerlendirilmeli." };
+  }
+  return { tip: "text", sonuc: "Sonuç normal sınırlarda." };
+}
+
+function katalogAdi(key: string, fallback?: string): string {
+  return birlesikTestKatalogu.find((t) => t.key === key)?.ad || fallback || key;
+}
+
 export default function AdminVakaDetailPage() {
   const params = useParams();
   const router = useRouter();
@@ -86,6 +145,7 @@ export default function AdminVakaDetailPage() {
     yorum: "",
   });
   const [editDrafts, setEditDrafts] = useState<Record<string, string>>({});
+  const [katalogFiltre, setKatalogFiltre] = useState("");
 
   const load = useCallback(() => {
     fetch(`/api/admin/cases/${encodeURIComponent(id)}`)
@@ -207,11 +267,36 @@ export default function AdminVakaDetailPage() {
     load();
   }
 
-  async function addTest(e: FormEvent) {
-    e.preventDefault();
-    let sonuc: unknown = newTest.sonuc;
+  function selectCatalogTest(key: string) {
+    const item = birlesikTestKatalogu.find((t) => t.key === key);
+    if (!item) return;
+    const def = defaultSonucForKey(key);
+    setNewTest({
+      testKey: item.key,
+      testAdi: item.ad,
+      tip: def.tip,
+      sonuc: def.sonuc,
+      yorum: "",
+    });
+  }
+
+  async function addTestFromCatalog(key: string, e?: FormEvent) {
+    e?.preventDefault();
+    const item = birlesikTestKatalogu.find((t) => t.key === key);
+    if (!item) {
+      setError("Katalogdan test seçin.");
+      return;
+    }
+    if (vaka?.statikTestler?.[key]) {
+      setError("Bu test zaten vakada var — aşağıdan düzenleyin.");
+      return;
+    }
+    const def = defaultSonucForKey(key);
+    const tip = newTest.testKey === key ? newTest.tip : def.tip;
+    let sonucRaw = newTest.testKey === key ? newTest.sonuc : def.sonuc;
+    let sonuc: unknown = sonucRaw;
     try {
-      sonuc = JSON.parse(newTest.sonuc);
+      sonuc = JSON.parse(sonucRaw);
     } catch {
       /* text */
     }
@@ -219,11 +304,11 @@ export default function AdminVakaDetailPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        testKey: newTest.testKey,
-        testAdi: newTest.testAdi || newTest.testKey,
-        tip: newTest.tip,
+        testKey: item.key,
+        testAdi: item.ad,
+        tip,
         sonuc,
-        yorum: newTest.yorum,
+        yorum: newTest.testKey === key ? newTest.yorum : "",
       }),
     });
     const d = await res.json();
@@ -231,7 +316,7 @@ export default function AdminVakaDetailPage() {
       setError(d.error || "Eklenemedi");
       return;
     }
-    notify(d.log?.message || "Test eklendi.");
+    notify(d.log?.message || `${item.ad} eklendi.`);
     setNewTest({
       testKey: "",
       testAdi: "",
@@ -240,6 +325,15 @@ export default function AdminVakaDetailPage() {
       yorum: "",
     });
     load();
+  }
+
+  async function addTest(e: FormEvent) {
+    e.preventDefault();
+    if (!newTest.testKey) {
+      setError("Listeden bir test seçin.");
+      return;
+    }
+    await addTestFromCatalog(newTest.testKey, e);
   }
 
   async function deleteTest(testKey: string) {
@@ -268,6 +362,29 @@ export default function AdminVakaDetailPage() {
     router.push("/admin/panel/vakalar");
   }
 
+  const tests = Object.values(vaka?.statikTestler || {});
+  const mevcutKeys = useMemo(
+    () => new Set(Object.keys(vaka?.statikTestler || {})),
+    [vaka?.statikTestler]
+  );
+
+  const katalogGruplu = useMemo(() => {
+    const q = katalogFiltre.trim().toLowerCase();
+    const list = birlesikTestKatalogu.filter(
+      (t) =>
+        !q ||
+        t.ad.toLowerCase().includes(q) ||
+        t.key.toLowerCase().includes(q) ||
+        t.kategori.toLowerCase().includes(q)
+    );
+    const map = new Map<string, { key: string; ad: string; kategori: string }[]>();
+    for (const t of list) {
+      if (!map.has(t.kategori)) map.set(t.kategori, []);
+      map.get(t.kategori)!.push(t);
+    }
+    return Array.from(map.entries()).sort((a, b) => a[0].localeCompare(b[0], "tr"));
+  }, [katalogFiltre]);
+
   if (error && !vaka) {
     return (
       <div>
@@ -282,8 +399,6 @@ export default function AdminVakaDetailPage() {
   if (!vaka) {
     return <p className="text-sm text-steel">Yükleniyor…</p>;
   }
-
-  const tests = Object.values(vaka.statikTestler || {});
 
   return (
     <div className="space-y-8">
@@ -462,12 +577,154 @@ export default function AdminVakaDetailPage() {
       </form>
 
       <section className="space-y-4">
-        <h2 className="text-lg font-semibold text-ink">Testler ({tests.length})</h2>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <h2 className="text-lg font-semibold text-ink">
+            Test kataloğu ({birlesikTestKatalogu.length}) · vakada {tests.length}
+          </h2>
+          <input
+            className="input max-w-xs text-sm"
+            placeholder="Katalogda ara…"
+            value={katalogFiltre}
+            onChange={(e) => setKatalogFiltre(e.target.value)}
+          />
+        </div>
+        <p className="text-xs text-muted">
+          Serbest test adı yazılmaz — listeden seçilir. Vakada olanlar düzenlenebilir; olmayanlar tek tıkla eklenir.
+        </p>
+
+        {/* Katalog listesi */}
+        <div className="rounded-xl border border-hairline bg-canvas divide-y divide-hairline-soft max-h-[420px] overflow-y-auto">
+          {katalogGruplu.map(([kategori, items]) => (
+            <div key={kategori} className="p-3">
+              <div className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                {kategori}
+              </div>
+              <div className="space-y-1">
+                {items.map((item) => {
+                  const varMi = mevcutKeys.has(item.key);
+                  const secili = newTest.testKey === item.key;
+                  return (
+                    <div
+                      key={item.key}
+                      className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border px-3 py-2 text-sm ${
+                        secili
+                          ? "border-brand bg-brand/5"
+                          : varMi
+                            ? "border-hairline bg-surface-soft"
+                            : "border-hairline bg-canvas hover:bg-surface-soft"
+                      }`}
+                    >
+                      <button
+                        type="button"
+                        className="min-w-0 flex-1 text-left"
+                        onClick={() => {
+                          if (varMi) {
+                            // scroll/focus existing - just select for info
+                            selectCatalogTest(item.key);
+                          } else {
+                            selectCatalogTest(item.key);
+                          }
+                        }}
+                      >
+                        <div className="font-medium text-ink">{item.ad}</div>
+                        <div className="text-[11px] text-muted">{item.key}</div>
+                      </button>
+                      {varMi ? (
+                        <span className="shrink-0 rounded-full bg-brand/15 px-2 py-0.5 text-[10px] font-medium text-brand-deep">
+                          Vakada ✓
+                        </span>
+                      ) : (
+                        <button
+                          type="button"
+                          className="btn-accent text-xs shrink-0 py-1"
+                          onClick={() => addTestFromCatalog(item.key)}
+                        >
+                          + Ekle
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+          {katalogGruplu.length === 0 && (
+            <p className="p-4 text-sm text-muted">Aramaya uyan test yok.</p>
+          )}
+        </div>
+
+        {/* Seçili test için sonuç formu (yeni ekleme öncesi) */}
+        {newTest.testKey && !mevcutKeys.has(newTest.testKey) && (
+          <form
+            onSubmit={addTest}
+            className="rounded-xl border border-brand/30 bg-brand/5 p-5 space-y-3"
+          >
+            <h3 className="text-sm font-semibold text-ink">
+              Eklenecek: {katalogAdi(newTest.testKey)}
+            </h3>
+            <div className="text-xs text-muted">{newTest.testKey}</div>
+            <div>
+              <label className="text-xs text-muted">Tip</label>
+              <select
+                className="input w-full max-w-xs"
+                value={newTest.tip}
+                onChange={(e) => setNewTest({ ...newTest, tip: e.target.value })}
+              >
+                <option value="numeric">numeric</option>
+                <option value="json">json</option>
+                <option value="text">text</option>
+                <option value="image">image</option>
+              </select>
+            </div>
+            <div>
+              <label className="text-xs text-muted">Sonuç (JSON veya metin)</label>
+              <textarea
+                className="input w-full min-h-[100px] font-mono text-xs"
+                value={newTest.sonuc}
+                onChange={(e) => setNewTest({ ...newTest, sonuc: e.target.value })}
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted">Yorum</label>
+              <input
+                className="input w-full"
+                value={newTest.yorum}
+                onChange={(e) => setNewTest({ ...newTest, yorum: e.target.value })}
+              />
+            </div>
+            <div className="flex gap-2">
+              <button type="submit" className="btn-accent text-sm">
+                Vakaya ekle
+              </button>
+              <button
+                type="button"
+                className="btn-secondary text-sm"
+                onClick={() =>
+                  setNewTest({
+                    testKey: "",
+                    testAdi: "",
+                    tip: "numeric",
+                    sonuc: "",
+                    yorum: "",
+                  })
+                }
+              >
+                İptal
+              </button>
+            </div>
+          </form>
+        )}
+
+        {/* Vakadaki testler — düzenleme */}
+        <h3 className="text-base font-semibold text-ink pt-2">Vakadaki test sonuçları</h3>
+        {tests.length === 0 && (
+          <p className="text-sm text-muted">Henüz test yok — yukarıdaki katalogdan ekleyin.</p>
+        )}
         {tests.map((t) => (
           <div key={t.testKey} className="rounded-xl border border-hairline bg-canvas p-4 space-y-3">
             <div className="flex flex-wrap items-center justify-between gap-2">
               <div>
-                <div className="font-medium text-ink">{t.testAdi}</div>
+                <div className="font-medium text-ink">{katalogAdi(t.testKey, t.testAdi)}</div>
                 <div className="text-xs text-muted">
                   {t.testKey} · {t.tip}
                 </div>
@@ -478,27 +735,6 @@ export default function AdminVakaDetailPage() {
               >
                 Sil
               </button>
-            </div>
-            <div>
-              <label className="text-xs text-muted">Test adı</label>
-              <div className="flex gap-2">
-                <input
-                  className="input flex-1"
-                  value={editDrafts[`${t.testKey}::testAdi`] ?? ""}
-                  onChange={(e) =>
-                    setEditDrafts((d) => ({ ...d, [`${t.testKey}::testAdi`]: e.target.value }))
-                  }
-                />
-                <button
-                  className="btn-secondary text-xs"
-                  type="button"
-                  onClick={() =>
-                    saveTestField(t.testKey, "testAdi", editDrafts[`${t.testKey}::testAdi`] ?? "")
-                  }
-                >
-                  Kaydet
-                </button>
-              </div>
             </div>
             <div>
               <label className="text-xs text-muted">Sonuç (JSON veya metin)</label>
@@ -564,62 +800,6 @@ export default function AdminVakaDetailPage() {
           </div>
         ))}
       </section>
-
-      <form onSubmit={addTest} className="rounded-xl border border-dashed border-hairline bg-canvas p-5 space-y-3">
-        <h2 className="text-sm font-semibold text-ink">Yeni test ekle</h2>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <div>
-            <label className="text-xs text-muted">testKey</label>
-            <input
-              className="input w-full"
-              placeholder="TROPONIN"
-              value={newTest.testKey}
-              onChange={(e) => setNewTest({ ...newTest, testKey: e.target.value })}
-              required
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted">Test adı</label>
-            <input
-              className="input w-full"
-              value={newTest.testAdi}
-              onChange={(e) => setNewTest({ ...newTest, testAdi: e.target.value })}
-            />
-          </div>
-          <div>
-            <label className="text-xs text-muted">Tip</label>
-            <select
-              className="input w-full"
-              value={newTest.tip}
-              onChange={(e) => setNewTest({ ...newTest, tip: e.target.value })}
-            >
-              <option value="numeric">numeric</option>
-              <option value="json">json</option>
-              <option value="text">text</option>
-              <option value="image">image</option>
-            </select>
-          </div>
-          <div>
-            <label className="text-xs text-muted">Yorum</label>
-            <input
-              className="input w-full"
-              value={newTest.yorum}
-              onChange={(e) => setNewTest({ ...newTest, yorum: e.target.value })}
-            />
-          </div>
-        </div>
-        <div>
-          <label className="text-xs text-muted">Sonuç</label>
-          <textarea
-            className="input w-full min-h-[80px] font-mono text-xs"
-            value={newTest.sonuc}
-            onChange={(e) => setNewTest({ ...newTest, sonuc: e.target.value })}
-          />
-        </div>
-        <button type="submit" className="btn-accent text-sm">
-          Testi ekle
-        </button>
-      </form>
     </div>
   );
 }

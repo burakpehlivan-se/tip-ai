@@ -243,6 +243,16 @@ export function buildDefaultYanitlar(chipHavuzu: SoruChipi[]): Record<string, st
     GOZ_BULGULARI: "Göz bulgum yok.",
     SESSIZ_AKCIGER: "Akciğer seslerim duyuluyor.",
     TETIKLEYICI: "Belirgin tetikleyici bilmiyorum.",
+    UYUSMA: "Uyuşma tarif etmiyorum.",
+    YANMA: "Yanma hissim yok.",
+    GECE_ARTIS: "Gece artan bir şikayetim yok.",
+    YARA: "Açık yaram yok.",
+    KEMIK_AGRISI: "Kemik ağrım yok.",
+    BURUN_KANAMASI: "Burun kanamam yok.",
+    GOZ_AGRISI: "Göz ağrım / kızarıklık yok.",
+    DIZURI: "İdrar yaparken yanma yok.",
+    POLLAKURI: "Sık idrara çıkmıyorum.",
+    IDRAR_RENK: "İdrar rengim normal, berrak.",
   };
 
   for (const chip of chipHavuzu) {

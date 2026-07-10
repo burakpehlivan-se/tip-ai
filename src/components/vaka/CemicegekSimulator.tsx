@@ -40,6 +40,10 @@ function bosSnapshot(): WorkspaceSnapshot {
   };
 }
 
+function labDonusHazirMi(k: HastaKayit, toplamGorulen: number, esik: number): boolean {
+  return k.labda && !k.raporHazir && !k.tamamlandiMi && toplamGorulen - k.siraNo >= esik;
+}
+
 export default function CemicegekSimulator() {
   const [kuyruk, setKuyruk] = useState<HastaKayit[]>([]);
   const [aktifIndex, setAktifIndex] = useState<number>(-1);
@@ -49,10 +53,16 @@ export default function CemicegekSimulator() {
   const [gonderiliyor, setGonderiliyor] = useState(false);
   const [geriDonusEsik, setGeriDonusEsik] = useState(DEFAULT_GERI_DONUS);
 
-
-  // Snapshot callback stabil kalsın diye ref
   const aktifIndexRef = useRef(aktifIndex);
   aktifIndexRef.current = aktifIndex;
+  const kuyrukRef = useRef(kuyruk);
+  kuyrukRef.current = kuyruk;
+  const toplamRef = useRef(toplamGorulen);
+  toplamRef.current = toplamGorulen;
+  const siraRef = useRef(siraSayaci);
+  siraRef.current = siraSayaci;
+  const esikRef = useRef(geriDonusEsik);
+  esikRef.current = geriDonusEsik;
 
   useEffect(() => {
     fetch("/api/admin/settings/public")
@@ -92,14 +102,12 @@ export default function CemicegekSimulator() {
     bannerGoster(`🚑 Yeni hasta: ${vaka.hasta.tamAd || vaka.hasta.ad} — ${vaka.hasta.anaSikayet}`);
   }, []);
 
-  /** Workspace state’ini aktif hastaya yaz */
   const onSnapshotChange = useCallback((snap: WorkspaceSnapshot) => {
     const idx = aktifIndexRef.current;
     if (idx < 0) return;
     setKuyruk((prev) => {
       if (idx >= prev.length) return prev;
       const cur = prev[idx];
-      // Lab’da bekleyen / tamamlanan hastanın snapshot’ını bozma
       if (cur.labda && !cur.raporHazir) return prev;
       const yeni = [...prev];
       yeni[idx] = { ...cur, snapshot: snap };
@@ -108,14 +116,123 @@ export default function CemicegekSimulator() {
   }, []);
 
   /**
-   * Test için gönder:
-   * 1) Aktif hastayı lab’a koy (snapshot saklı)
-   * 2) Yeni hasta getir VEYA eşiği dolmuş lab hastasını geri getir
-   * 3) Geri dönen hastada sohbet + testler restore, raporlar açık
+   * Sonraki hastayı seç:
+   * 1) Lab eşiğini doldurmuş hasta → sonuçlarla dön
+   * 2) Kuyrukta bekleyen (lab’da değil, tamamlanmamış)
+   * 3) Yoksa yeni hasta üret
    */
-  const hastaGonder = useCallback(async () => {
+  const secSonraki = useCallback(
+    async (
+      liste: HastaKayit[],
+      excludeIndex: number,
+      opts: { toplam: number; sira: number; esik: number; uretYeni: boolean }
+    ): Promise<{ liste: HastaKayit[]; aktif: number; banner: string; yeniToplam?: number; yeniSira?: number }> => {
+      // 1) Lab dönüşü (eşiği dolan)
+      for (let i = 0; i < liste.length; i++) {
+        if (i === excludeIndex) continue;
+        const k = liste[i];
+        if (labDonusHazirMi(k, opts.toplam, opts.esik)) {
+          const kopya = [...liste];
+          kopya[i] = { ...kopya[i], labda: false, raporHazir: true };
+          return {
+            liste: kopya,
+            aktif: i,
+            banner: `📋 ${k.vaka.hasta.tamAd || "Hasta"} (#${k.siraNo}) lab’dan döndü — sohbet ve test sonuçları hazır.`,
+          };
+        }
+      }
+
+      // 2) Bekleyen (odada / kuyrukta, lab’da değil)
+      let best = -1;
+      for (let i = 0; i < liste.length; i++) {
+        if (i === excludeIndex) continue;
+        const k = liste[i];
+        if (k.tamamlandiMi || k.labda) continue;
+        if (best < 0 || k.siraNo < liste[best].siraNo) best = i;
+      }
+      if (best >= 0) {
+        const k = liste[best];
+        return {
+          liste,
+          aktif: best,
+          banner: `👤 Sıradaki hasta: ${k.vaka.hasta.tamAd || k.vaka.hasta.ad} (#${k.siraNo}) — ${k.vaka.hasta.anaSikayet}`,
+        };
+      }
+
+      // 2b) Kuyruk boşsa lab’daki en eski hastayı sonuçlarıyla getir
+      {
+        let oldestLab = -1;
+        for (let i = 0; i < liste.length; i++) {
+          if (i === excludeIndex) continue;
+          const k = liste[i];
+          if (!k.labda || k.raporHazir || k.tamamlandiMi) continue;
+          if (oldestLab < 0 || k.siraNo < liste[oldestLab].siraNo) oldestLab = i;
+        }
+        if (oldestLab >= 0) {
+          const k = liste[oldestLab];
+          const kopya = [...liste];
+          kopya[oldestLab] = { ...kopya[oldestLab], labda: false, raporHazir: true };
+          return {
+            liste: kopya,
+            aktif: oldestLab,
+            banner: `📋 ${k.vaka.hasta.tamAd || "Hasta"} (#${k.siraNo}) lab’dan çağrıldı — test sonuçları hazır.`,
+          };
+        }
+      }
+
+      // 3) Yeni üret
+      if (opts.uretYeni) {
+        const vaka = await uretVaka();
+        const yeniSira = opts.sira + 1;
+        const yeniToplam = opts.toplam + 1;
+        const kayit: HastaKayit = {
+          id: vaka.id,
+          vaka,
+          siraNo: yeniSira,
+          snapshot: bosSnapshot(),
+          labda: false,
+          raporHazir: false,
+          tamamlandiMi: false,
+        };
+        // Yeni hasta eklenince lab eşiği dolmuş olabilir — önce lab dönüşü dene
+        let liste2 = [...liste, kayit];
+        for (let i = 0; i < liste2.length; i++) {
+          const k = liste2[i];
+          if (labDonusHazirMi(k, yeniToplam, opts.esik)) {
+            liste2[i] = { ...liste2[i], labda: false, raporHazir: true };
+            return {
+              liste: liste2,
+              aktif: i,
+              banner: `📋 ${k.vaka.hasta.tamAd || "Hasta"} (#${k.siraNo}) lab’dan döndü. (Yeni hasta kuyruğa eklendi: #${yeniSira})`,
+              yeniToplam,
+              yeniSira,
+            };
+          }
+        }
+        return {
+          liste: liste2,
+          aktif: liste2.length - 1,
+          banner: `🚑 Yeni hasta: ${vaka.hasta.tamAd || vaka.hasta.ad} — ${vaka.hasta.anaSikayet}`,
+          yeniToplam,
+          yeniSira,
+        };
+      }
+
+      return {
+        liste,
+        aktif: excludeIndex >= 0 ? excludeIndex : 0,
+        banner: "Kuyrukta hasta kalmadı.",
+      };
+    },
+    []
+  );
+
+  /**
+   * Test için lab’a gönder → aktif lab’a gider, sonra sıradaki (veya lab dönüşü / yeni)
+   */
+  const testIcinGonder = useCallback(async () => {
     if (aktifIndex < 0 || gonderiliyor) return;
-    const aktif = kuyruk[aktifIndex];
+    const aktif = kuyrukRef.current[aktifIndex];
     if (!aktif) return;
     if (aktif.labda && !aktif.raporHazir) return;
     if (aktif.snapshot.testIstekleri.length === 0) {
@@ -125,87 +242,98 @@ export default function CemicegekSimulator() {
 
     setGonderiliyor(true);
     try {
-      const yeniVaka = await uretVaka();
+      const esik = esikRef.current;
       const gidenSira = aktif.siraNo;
-      const yeniSira = siraSayaci + 1;
-      const yeniToplam = toplamGorulen + 1;
+      let liste = kuyrukRef.current.map((k, i) =>
+        i === aktifIndex ? { ...k, labda: true, raporHazir: false, tamamlandiMi: false } : { ...k }
+      );
 
-      setKuyruk((prev) => {
-        const yeni = prev.map((k, i) =>
-          i === aktifIndex
-            ? {
-                ...k,
-                labda: true,
-                raporHazir: false,
-                // snapshot zaten onSnapshotChange ile güncel
-              }
-            : k
-        );
-
-        // Eşiği dolan lab hastası var mı? (şimdi gönderilen hariç)
-        let donecekIndex = -1;
-        for (let i = 0; i < yeni.length; i++) {
-          const k = yeni[i];
-          if (!k.labda || k.raporHazir || k.tamamlandiMi) continue;
-          if (k.siraNo === gidenSira) continue; // az önce giden henüz dönmez
-          // Görülen hasta sayısı − bu hastanın siraNo’su ≥ eşik
-          // Not: yeni hasta eklenecek → eşik kontrolü yeniToplam ile
-          if (yeniToplam - k.siraNo >= geriDonusEsik) {
-            donecekIndex = i;
-            break;
-          }
-        }
-
-        if (donecekIndex >= 0) {
-          // Geri dönen hasta: raporlar aç, snapshot korunur
-          yeni[donecekIndex] = {
-            ...yeni[donecekIndex],
-            labda: false,
-            raporHazir: true,
-          };
-          // Yeni hasta da kuyruğa eklenir (kalabalık artar) ama aktif geri dönen
-          const yeniKayit: HastaKayit = {
-            id: yeniVaka.id,
-            vaka: yeniVaka,
-            siraNo: yeniSira,
-            snapshot: bosSnapshot(),
-            labda: false,
-            raporHazir: false,
-            tamamlandiMi: false,
-          };
-          yeni.push(yeniKayit);
-          setAktifIndex(donecekIndex);
-          const d = yeni[donecekIndex];
-          bannerGoster(
-            `📋 ${d.vaka.hasta.tamAd || "Hasta"} (#${d.siraNo}) lab’dan döndü — sohbet ve test sonuçları hazır. (Yeni hasta kuyrukta)`
-          );
-        } else {
-          // Sadece yeni hasta
-          const yeniKayit: HastaKayit = {
-            id: yeniVaka.id,
-            vaka: yeniVaka,
-            siraNo: yeniSira,
-            snapshot: bosSnapshot(),
-            labda: false,
-            raporHazir: false,
-            tamamlandiMi: false,
-          };
-          yeni.push(yeniKayit);
-          setAktifIndex(yeni.length - 1);
-          bannerGoster(
-            `🧪 Test için gönderildi. Yeni hasta: ${yeniVaka.hasta.tamAd || yeniVaka.hasta.ad} — ${yeniVaka.hasta.anaSikayet}`
-          );
-        }
-
-        return yeni;
+      // Yeni hasta her lab gönderiminde kuyruğu besler (kalabalık)
+      const vaka = await uretVaka();
+      const yeniSira = siraRef.current + 1;
+      const yeniToplam = toplamRef.current + 1;
+      liste.push({
+        id: vaka.id,
+        vaka,
+        siraNo: yeniSira,
+        snapshot: bosSnapshot(),
+        labda: false,
+        raporHazir: false,
+        tamamlandiMi: false,
       });
 
-      setSiraSayaci(yeniSira);
-      setToplamGorulen(yeniToplam);
+      // Lab dönüşü (az önce giden hariç)
+      let donecek = -1;
+      for (let i = 0; i < liste.length; i++) {
+        const k = liste[i];
+        if (k.siraNo === gidenSira) continue;
+        if (labDonusHazirMi(k, yeniToplam, esik)) {
+          donecek = i;
+          break;
+        }
+      }
+
+      if (donecek >= 0) {
+        liste[donecek] = { ...liste[donecek], labda: false, raporHazir: true };
+        setKuyruk(liste);
+        setAktifIndex(donecek);
+        setSiraSayaci(yeniSira);
+        setToplamGorulen(yeniToplam);
+        const d = liste[donecek];
+        bannerGoster(
+          `📋 ${d.vaka.hasta.tamAd || "Hasta"} (#${d.siraNo}) lab’dan döndü. Yeni hasta kuyrukta (#${yeniSira}).`
+        );
+      } else {
+        // Bekleyen (yeni eklenen) → odaya al
+        setKuyruk(liste);
+        setAktifIndex(liste.length - 1);
+        setSiraSayaci(yeniSira);
+        setToplamGorulen(yeniToplam);
+        bannerGoster(
+          `🧪 Test için gönderildi. Yeni hasta: ${vaka.hasta.tamAd || vaka.hasta.ad} — ${vaka.hasta.anaSikayet}`
+        );
+      }
     } finally {
       setGonderiliyor(false);
     }
-  }, [aktifIndex, gonderiliyor, kuyruk, siraSayaci, toplamGorulen, geriDonusEsik]);
+  }, [aktifIndex, gonderiliyor]);
+
+  /**
+   * Hastayı gönder / sıradaki:
+   * Mevcut muayene bitti (lab dönüşü sonrası tanı vb.) →
+   * sıradaki bekleyen veya lab’dan dönen veya yeni hasta
+   */
+  const hastayiGonderSiradaki = useCallback(async () => {
+    if (aktifIndex < 0 || gonderiliyor) return;
+    setGonderiliyor(true);
+    try {
+      const esik = esikRef.current;
+      const toplam = toplamRef.current;
+      const sira = siraRef.current;
+
+      // Aktifi tamamlandı say
+      let liste = kuyrukRef.current.map((k, i) =>
+        i === aktifIndex
+          ? { ...k, tamamlandiMi: true, labda: false }
+          : { ...k }
+      );
+
+      const sonuc = await secSonraki(liste, aktifIndex, {
+        toplam,
+        sira,
+        esik,
+        uretYeni: true,
+      });
+
+      setKuyruk(sonuc.liste);
+      setAktifIndex(sonuc.aktif);
+      if (sonuc.yeniSira != null) setSiraSayaci(sonuc.yeniSira);
+      if (sonuc.yeniToplam != null) setToplamGorulen(sonuc.yeniToplam);
+      bannerGoster(sonuc.banner);
+    } finally {
+      setGonderiliyor(false);
+    }
+  }, [aktifIndex, gonderiliyor, secSonraki]);
 
   // Menü
   if (kuyruk.length === 0) {
@@ -218,12 +346,14 @@ export default function CemicegekSimulator() {
           <ol className="text-left text-sm text-steel mb-6 space-y-1.5 list-decimal pl-5">
             <li>Hastaya anamnez sorun, test isteyin.</li>
             <li>
-              <strong className="text-ink">Test için gönder</strong> ile hastayı lab’a yollayın.
+              <strong className="text-ink">Test için gönder</strong> → hasta lab’a gider, yeni hasta gelir.
             </li>
-            <li>Yeni hasta gelir; kalabalık artar.</li>
             <li>
-              {geriDonusEsik} hasta sonra lab’daki hasta <strong className="text-ink">önceki sohbetiyle</strong> ve
-              sonuçlarıyla geri döner.
+              {geriDonusEsik} hasta sonra lab hastası <strong className="text-ink">sohbetiyle + sonuçlarıyla</strong>{" "}
+              döner.
+            </li>
+            <li>
+              Dönen hastayı bitirince <strong className="text-ink">Hastayı gönder · sıradaki</strong> ile devam edin.
             </li>
           </ol>
           <button onClick={ilkHastayiGetir} className="btn-accent px-8 py-3 text-lg">
@@ -244,11 +374,19 @@ export default function CemicegekSimulator() {
 
   const isReturning = aktif.raporHazir && !aktif.tamamlandiMi;
   const labdaBekleyen = kuyruk.filter((k) => k.labda && !k.raporHazir && !k.tamamlandiMi).length;
+  const kuyruktaBekleyen = kuyruk.filter(
+    (k, i) => i !== aktifIndex && !k.tamamlandiMi && !k.labda
+  ).length;
   const testVar = aktif.snapshot.testIstekleri.length > 0;
-  const gonderebilir = testVar && !aktif.labda && !aktif.tamamlandiMi && !isReturning;
+  /** İlk muayene: test var, henüz lab’a gitmedi, dönen hasta değil */
+  const testGonderebilir =
+    testVar && !aktif.labda && !aktif.tamamlandiMi && !isReturning;
+  /**
+   * Sıradaki: lab’dan dönen hasta, veya test göndermeden/sevk ile geçiş,
+   * veya tanı sonrası devam — her zaman mevcut hasta “bitti” sayılır
+   */
+  const siradakiGoster = !aktif.labda || aktif.raporHazir;
 
-  // Geri dönen hastada: restore snapshot + raporlar açık
-  // Yeni hastada: boş başlangıç (VakaWorkspace default mesaj üretir)
   const restoreSnapshot =
     aktif.snapshot.mesajlar.length > 0 || aktif.snapshot.testIstekleri.length > 0
       ? aktif.snapshot
@@ -257,7 +395,7 @@ export default function CemicegekSimulator() {
   return (
     <div className="flex h-screen flex-col bg-canvas">
       {/* Top Bar */}
-      <div className="flex h-12 items-center justify-between border-b border-hairline bg-clinical-red/5 px-3 lg:px-4 shrink-0">
+      <div className="flex h-12 items-center justify-between border-b border-hairline bg-clinical-red/5 px-3 lg:px-4 shrink-0 gap-2">
         <div className="flex items-center gap-2 min-w-0">
           <Link href="/vakalar" className="text-steel hover:text-ink shrink-0" title="Poliklinikler">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -268,25 +406,33 @@ export default function CemicegekSimulator() {
           <span className="text-[10px] text-steel hidden sm:inline shrink-0">
             #{aktif.siraNo} · {toplamGorulen} görüldü
             {labdaBekleyen > 0 ? ` · ${labdaBekleyen} lab’da` : ""}
+            {kuyruktaBekleyen > 0 ? ` · ${kuyruktaBekleyen} kuyrukta` : ""}
           </span>
         </div>
-        <div className="flex items-center gap-2 shrink-0">
-          {gonderebilir && (
+        <div className="flex items-center gap-2 shrink-0 flex-wrap justify-end">
+          {testGonderebilir && (
             <button
-              onClick={hastaGonder}
+              onClick={testIcinGonder}
               disabled={gonderiliyor}
-              className="inline-flex items-center gap-1.5 rounded-full bg-clinical-red px-4 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-clinical-red/90 disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-full bg-clinical-red px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-clinical-red/90 disabled:opacity-60"
             >
-              {gonderiliyor ? "Gönderiliyor…" : "🧪 Test için gönder →"}
+              {gonderiliyor ? "…" : "🧪 Test için gönder"}
+            </button>
+          )}
+          {siradakiGoster && (
+            <button
+              onClick={hastayiGonderSiradaki}
+              disabled={gonderiliyor}
+              className="inline-flex items-center gap-1.5 rounded-full bg-ink px-3 py-2 text-xs font-semibold text-white shadow-sm transition-colors hover:bg-charcoal disabled:opacity-60"
+              title="Mevcut hastayı bitir, sıradaki veya lab’dan dönen hastayı al"
+            >
+              {gonderiliyor ? "…" : "➡️ Hastayı gönder · sıradaki"}
             </button>
           )}
           {isReturning && (
-            <span className="rounded-full bg-brand/15 px-3 py-1.5 text-[11px] font-medium text-brand-deep">
+            <span className="rounded-full bg-brand/15 px-2.5 py-1 text-[11px] font-medium text-brand-deep">
               Lab’dan döndü
             </span>
-          )}
-          {aktif.labda && !aktif.raporHazir && (
-            <span className="text-[11px] text-muted">Lab’da…</span>
           )}
         </div>
       </div>
@@ -303,12 +449,12 @@ export default function CemicegekSimulator() {
 
       {isReturning && (
         <div className="bg-brand/10 border-b border-brand/20 px-4 py-2 text-center text-xs font-semibold text-brand-deep shrink-0">
-          📋 Bu hasta lab’a gitmişti — önceki sohbetiniz ve test sonuçları yüklendi. Tanı/tedaviye devam
-          edebilirsiniz.
+          📋 Lab dönüşü — sohbet ve test sonuçları yüklendi. Bitince{" "}
+          <span className="underline">Hastayı gönder · sıradaki</span> ile devam edin.
         </div>
       )}
 
-      {/* Kuyruk şeridi (mobil/desktop) */}
+      {/* Kuyruk şeridi */}
       <div className="flex gap-1.5 overflow-x-auto border-b border-hairline bg-surface-soft px-2 py-1.5 shrink-0 scrollbar-none">
         {kuyruk.map((k, i) => {
           const durum = k.tamamlandiMi
@@ -325,9 +471,12 @@ export default function CemicegekSimulator() {
               key={k.id}
               type="button"
               onClick={() => {
-                // Sadece aktif veya rapor hazır / tamamlanmış görüntülenebilir; lab’dakine tıklama engeli
                 if (k.labda && !k.raporHazir) {
-                  bannerGoster(`#${k.siraNo} lab’da — sonuçlar gelince otomatik dönecek.`);
+                  bannerGoster(`#${k.siraNo} lab’da — eşik dolunca veya «sıradaki» ile dönebilir.`);
+                  return;
+                }
+                if (k.tamamlandiMi) {
+                  bannerGoster(`#${k.siraNo} muayenesi tamamlandı.`);
                   return;
                 }
                 setAktifIndex(i);
@@ -337,7 +486,9 @@ export default function CemicegekSimulator() {
                   ? "border-ink bg-ink text-white"
                   : k.labda && !k.raporHazir
                     ? "border-hairline bg-surface text-muted"
-                    : "border-hairline bg-canvas text-steel hover:border-ink/40"
+                    : k.tamamlandiMi
+                      ? "border-hairline bg-surface text-muted line-through"
+                      : "border-hairline bg-canvas text-steel hover:border-ink/40"
               }`}
               title={k.vaka.hasta.tamAd}
             >
@@ -348,14 +499,13 @@ export default function CemicegekSimulator() {
       </div>
 
       <VakaWorkspace
-        key={`${aktif.id}-${aktif.raporHazir ? "donus" : "ilk"}`}
+        key={`${aktif.id}-${aktif.raporHazir ? "donus" : "ilk"}-${aktif.tamamlandiMi ? "done" : "act"}`}
         vaka={aktif.vaka}
         mod="cemicegek"
         embed
-        // İlk görüşmede test sonuçları gizli; lab dönüşünde açık
         raporHazir={aktif.raporHazir}
         onTestIstendi={() => {
-          bannerGoster("Test kaydedildi. Bitince üstteki «Test için gönder»e basın.");
+          bannerGoster("Test kaydedildi. Bitince «Test için gönder» veya tanı sonrası «Hastayı gönder · sıradaki».");
         }}
         onSnapshotChange={onSnapshotChange}
         initialSnapshot={restoreSnapshot}

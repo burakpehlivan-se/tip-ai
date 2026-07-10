@@ -518,16 +518,25 @@ export default function VakaWorkspace({
             {faz === "anamnez" && (() => {
               const aktifKat = Array.from(acikKategoriler)[0];
               if (!aktifKat) return null;
-              const chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === aktifKat).slice(0, 8);
+              const all = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === aktifKat);
+              // Önce vakaya relevant sorular, sonra diğerleri — kesme yok
+              const relevant = all.filter((c) => vaka.relevantAksiyonlar?.includes(c.aksiyon));
+              const rest = all.filter((c) => !vaka.relevantAksiyonlar?.includes(c.aksiyon));
+              const chips = [...relevant, ...rest];
               if (chips.length === 0) return null;
               return (
-                <div className="mx-auto max-w-2xl flex flex-wrap gap-1 pt-1.5">
+                <div className="mx-auto max-w-2xl flex flex-wrap gap-1 pt-1.5 max-h-24 overflow-y-auto scrollbar-thin">
                   {chips.map((chip, i) => {
                     const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
+                    const rel = vaka.relevantAksiyonlar?.includes(chip.aksiyon);
                     return (
-                      <button key={i} onClick={() => chipSor(chip)} disabled={soruldu}
+                      <button key={`${chip.aksiyon}-${i}`} onClick={() => chipSor(chip)} disabled={soruldu}
                         className={`rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-all ${
-                          soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
+                          soruldu
+                            ? "cursor-default border-hairline bg-surface text-muted/60 line-through"
+                            : rel
+                              ? "border-brand/40 bg-brand/5 text-ink hover:border-brand hover:bg-brand/10"
+                              : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
                         }`}>{chip.etiket}</button>
                     );
                   })}
