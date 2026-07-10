@@ -21,6 +21,8 @@ import path from "path";
 import { loadCasesStore } from "../src/lib/admin/store";
 import { buildValidationReport, formatValidationReportText } from "../src/lib/cdm/validate-report";
 import { scanAllCases } from "../src/lib/pipeline/case-scanner";
+import { computeCatalogueFlags } from "../src/lib/pipeline/catalogue-flags";
+import { buildTestInventory } from "../src/lib/pipeline/master-catalogue";
 
 const onlyJson = process.argv.includes("--json");
 
@@ -28,12 +30,23 @@ function main() {
   const store = loadCasesStore();
   const report = buildValidationReport(store.cases);
   const scan = scanAllCases(store.cases);
+  const flags = computeCatalogueFlags(store.cases);
+  const inventory = buildTestInventory(store.cases);
+
+  // Çekirdek test coverage — motor-capable'da olmayan core testler blocking hata
+  const coreMissingData: string[] = [];
+  for (const [key, entry] of Object.entries(inventory.entries)) {
+    if (entry.visibility === "visible_default" && !flags.hasData.has(key)) {
+      coreMissingData.push(key);
+    }
+  }
 
   // Çözülmemiş sorunlar
   const unresolvedErrors =
     report.summary.errorCount +
     scan.totalNeedsGenerated +
-    scan.totalInvalid;
+    scan.totalInvalid +
+    coreMissingData.length;
 
   const hasBlocking = unresolvedErrors > 0;
 
@@ -42,11 +55,11 @@ function main() {
     fs.mkdirSync(outDir, { recursive: true });
     fs.writeFileSync(
       path.join(outDir, "validate-report.json"),
-      JSON.stringify({ report, scan }, null, 2),
+      JSON.stringify({ report, scan, flags: { totalWithData: flags.totalWithData, motorCapable: flags.totalMotorCapable, coreMissingData } }, null, 2),
       "utf8"
     );
     console.log(
-      `validate-report.json yazıldı · blocking=${hasBlocking} · errors=${report.summary.errorCount} · needsGen=${scan.totalNeedsGenerated} · invalid=${scan.totalInvalid}`
+      `validate-report.json yazıldı · blocking=${hasBlocking} · errors=${report.summary.errorCount} · needsGen=${scan.totalNeedsGenerated} · invalid=${scan.totalInvalid} · coreMissing=${coreMissingData.length}`
     );
   } else {
     console.log(formatValidationReportText(report));
@@ -56,10 +69,20 @@ function main() {
     console.log(`  Statik gerekli:      ${scan.totalStaticRequired}`);
     console.log(`  Geçersiz (katalog dışı): ${scan.totalInvalid}`);
     console.log("");
+    console.log("GÖRÜNÜRLÜK KATMANLARI");
+    console.log(`  Çekirdek test:        ${flags.totalVisibleDefault} · hasData=${flags.totalVisibleDefault - coreMissingData.length} · eksik=${coreMissingData.length}`);
+    console.log(`  Motor-capable:        ${flags.totalMotorCapable}`);
+    if (coreMissingData.length > 0) {
+      console.log(`  ⚠ Çekirdek eksik veri: ${coreMissingData.join(", ")}`);
+    }
+    console.log("");
     if (hasBlocking) {
-      console.log(
-        `✗ GEÇEMEDİ: ${report.summary.errorCount} CDM hatası, ${scan.totalNeedsGenerated} doldurolmamış, ${scan.totalInvalid} geçersiz test.`
-      );
+      const parts: string[] = [];
+      if (report.summary.errorCount > 0) parts.push(`${report.summary.errorCount} CDM hatası`);
+      if (scan.totalNeedsGenerated > 0) parts.push(`${scan.totalNeedsGenerated} doldurolmamış`);
+      if (scan.totalInvalid > 0) parts.push(`${scan.totalInvalid} geçersiz test`);
+      if (coreMissingData.length > 0) parts.push(`${coreMissingData.length} çekirdek test verisiz`);
+      console.log(`✗ GEÇEMEDİ: ${parts.join(", ")}.`);
       console.log(
         `  Çözüm: 'npm run pipeline:fill' çalıştır, sonra tekrar validate et.`
       );

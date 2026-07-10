@@ -12,6 +12,8 @@ import path from "path";
 import { loadCasesStore } from "../src/lib/admin/store";
 import { buildTestInventory } from "../src/lib/pipeline/master-catalogue";
 import { scanAllCases, problemCases } from "../src/lib/pipeline/case-scanner";
+import { computeCatalogueFlags } from "../src/lib/pipeline/catalogue-flags";
+import { TestVisibility } from "../src/lib/pipeline/types";
 
 const onlyJson = process.argv.includes("--json");
 
@@ -20,12 +22,26 @@ function main() {
   const cases = store.cases;
   const inventory = buildTestInventory(cases);
   const report = scanAllCases(cases);
+  const flags = computeCatalogueFlags(cases);
+
+  // Görünürlük katmanı istatistiği
+  const visibilityStats: Record<TestVisibility, { total: number; withData: number; missing: string[] }> = {
+    visible_default: { total: 0, withData: 0, missing: [] },
+    visible_advanced: { total: 0, withData: 0, missing: [] },
+    hidden: { total: 0, withData: 0, missing: [] },
+  };
+  for (const [key, entry] of Object.entries(inventory.entries)) {
+    const vis = entry.visibility || "visible_default";
+    visibilityStats[vis].total++;
+    if (flags.hasData.has(key)) visibilityStats[vis].withData++;
+    else if (vis !== "hidden") visibilityStats[vis].missing.push(key);
+  }
 
   const outDir = path.join(process.cwd(), "reports", "test-pipeline");
   fs.mkdirSync(outDir, { recursive: true });
   fs.writeFileSync(
     path.join(outDir, "scan-report.json"),
-    JSON.stringify({ inventory, report }, null, 2),
+    JSON.stringify({ inventory, report, flags: { totalWithData: flags.totalWithData, motorCapable: flags.totalMotorCapable, visibilityStats } }, null, 2),
     "utf8"
   );
   fs.writeFileSync(
@@ -49,6 +65,15 @@ function main() {
   console.log(`  Rubrikte kullanılan: ${inventory.usage.filter((u) => u.usedInRubric).length}`);
   console.log(`  Statikte kullanılan: ${inventory.usage.filter((u) => u.usedInStatic).length}`);
   console.log(`  Katalog dışı key:   ${inventory.unknownKeys.length}`);
+  console.log("");
+  console.log("GÖRÜNÜRLÜK KATMANLARI");
+  console.log(`  Çekirdek (default):  ${visibilityStats.visible_default.total} test, ${visibilityStats.visible_default.withData} verili`);
+  console.log(`  Branş (advanced):    ${visibilityStats.visible_advanced.total} test, ${visibilityStats.visible_advanced.withData} verili`);
+  console.log(`  Gizli (hidden):      ${visibilityStats.hidden.total} test`);
+  console.log(`  Motor-capable:       ${flags.totalMotorCapable}`);
+  if (visibilityStats.visible_default.missing.length > 0) {
+    console.log(`  ⚠ Çekirdek test eksik veri: ${visibilityStats.visible_default.missing.join(", ")}`);
+  }
   console.log("");
   console.log("EKSİK TEST ÖZETİ");
   console.log(`  Vaka sayısı:        ${report.totalCases}`);

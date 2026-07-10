@@ -179,9 +179,6 @@ function buildMasterCatalogue(): Record<string, TestCatalogueEntry> {
   return Object.fromEntries(map.entries());
 }
 
-export const MASTER_TEST_CATALOGUE: Record<string, TestCatalogueEntry> =
-  buildMasterCatalogue();
-
 export function masterCatalogueKeySet(): Set<string> {
   return new Set(Object.keys(MASTER_TEST_CATALOGUE));
 }
@@ -249,6 +246,9 @@ const TIER_MAP: Record<string, { visibility: TestVisibility; tier: TestTier }> =
   USG_ABDOMEN: _hid, PELVIK_USG: _hid,
   MAMOGRAFI: _hid, MEME_USG: _hid, BIYOPSI: _hid,
 };
+
+export const MASTER_TEST_CATALOGUE: Record<string, TestCatalogueEntry> =
+  buildMasterCatalogue();
 
 /**
  * Layer 1.1 — Test envanteri üret.
