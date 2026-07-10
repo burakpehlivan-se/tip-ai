@@ -37,3 +37,4 @@ next-env.d.ts
 
 # admin runtime store (cases, logs, backups, sessions)
 /data/admin/
+data/etl-out/

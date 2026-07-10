@@ -4,9 +4,9 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import {
   createSessionToken,
+  loginUser,
   sessionCookieOptions,
   SESSION_COOKIE,
-  verifyPassword,
 } from "@/lib/admin/auth";
 
 export async function POST(req: NextRequest) {
@@ -15,13 +15,24 @@ export async function POST(req: NextRequest) {
     const username = String(body.username || "");
     const password = String(body.password || "");
     if (!username || !password) {
-      return NextResponse.json({ error: "Kullanıcı adı ve şifre gerekli." }, { status: 400 });
+      return NextResponse.json(
+        { error: "Kullanıcı adı ve şifre gerekli." },
+        { status: 400 }
+      );
     }
-    if (!verifyPassword(username, password)) {
-      return NextResponse.json({ error: "Geçersiz kullanıcı adı veya şifre." }, { status: 401 });
+    const user = loginUser(username, password);
+    if (!user) {
+      return NextResponse.json(
+        { error: "Geçersiz kullanıcı adı veya şifre." },
+        { status: 401 }
+      );
     }
-    const token = createSessionToken(username);
-    const res = NextResponse.json({ ok: true, username });
+    const token = createSessionToken(user.username, user.role, user.userId);
+    const res = NextResponse.json({
+      ok: true,
+      username: user.username,
+      role: user.role,
+    });
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
     return res;
   } catch {

@@ -18,11 +18,11 @@ import {
  */
 export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
-
+  const { requirePermission } = await import("@/lib/admin/permissions");
+  // dryRun: validate ok for doktor; gerçek import admin
   const dryRun = req.nextUrl.searchParams.get("dryRun") === "1";
+  const denied = requirePermission(session, dryRun ? "cases.validate" : "cases.import");
+  if (denied) return denied;
   const overwrite = req.nextUrl.searchParams.get("overwrite") === "1";
 
   try {
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
     }
 
     const result = recordMutation(
-      session.username,
+      session!.username,
       "import_cdm",
       `CDM import: +${imported.length} yeni, ${updated.length} güncelleme, ${skipped.length} atlandı.`,
       adminCases

@@ -37,3 +37,7 @@ export function settingsPath(): string {
 export function analyticsPath(): string {
   return path.join(adminDataDir(), "analytics.json");
 }
+
+export function usersPath(): string {
+  return path.join(adminDataDir(), "users.json");
+}

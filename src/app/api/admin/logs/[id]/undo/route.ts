@@ -10,9 +10,11 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const { requirePermission } = await import("@/lib/admin/permissions");
+  const denied = requirePermission(session, "logs.undo");
+  if (denied) return denied;
 
-  const result = undoLog(params.id, session.username);
+  const result = undoLog(params.id, session!.username);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

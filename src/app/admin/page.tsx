@@ -59,8 +59,10 @@ export default function AdminLoginPage() {
           <div className="text-2xl font-semibold tracking-tight text-ink">
             tıp<span className="text-brand">_ai</span>
           </div>
-          <h1 className="mt-2 text-lg font-semibold text-ink">Admin Girişi</h1>
-          <p className="mt-1 text-sm text-steel">Yönetim paneline erişmek için giriş yapın.</p>
+          <h1 className="mt-2 text-lg font-semibold text-ink">Panel Girişi</h1>
+          <p className="mt-1 text-sm text-steel">
+            Admin veya doktor hesabınızla giriş yapın.
+          </p>
         </div>
 
         <form onSubmit={onSubmit} className="space-y-4">

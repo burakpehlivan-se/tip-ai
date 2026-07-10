@@ -5,9 +5,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { loadLogsStore } from "@/lib/admin/store";
 
+import { requirePermission } from "@/lib/admin/permissions";
+
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "logs.read");
+  if (denied) return denied;
 
   const limit = Math.min(Number(req.nextUrl.searchParams.get("limit") || 200), 1000);
   const store = loadLogsStore();

@@ -1,10 +1,14 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
-import { AdminSessionPayload } from "./types";
+import { AdminRole, AdminSessionPayload } from "./types";
+import { getAdminCredentials } from "./auth-env";
+import { authenticateUser } from "./users";
 
 export const SESSION_COOKIE = "tip_ai_admin_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
+
+export { getAdminCredentials };
 
 function secret(): string {
   return (
@@ -14,20 +18,19 @@ function secret(): string {
   );
 }
 
-export function getAdminCredentials(): { username: string; password: string } {
-  return {
-    username: process.env.ADMIN_USERNAME || "admin",
-    password: process.env.ADMIN_PASSWORD || "admin123",
-  };
-}
-
 function sign(payloadB64: string): string {
   return createHmac("sha256", secret()).update(payloadB64).digest("base64url");
 }
 
-export function createSessionToken(username: string): string {
+export function createSessionToken(
+  username: string,
+  role: AdminRole = "admin",
+  userId?: string
+): string {
   const payload: AdminSessionPayload = {
     username,
+    role,
+    userId,
     exp: Date.now() + SESSION_TTL_MS,
   };
   const payloadB64 = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
@@ -54,25 +57,30 @@ export function verifySessionToken(token: string | undefined | null): AdminSessi
     ) as AdminSessionPayload;
     if (!payload.exp || payload.exp < Date.now()) return null;
     if (!payload.username) return null;
+    // Eski oturumlar (role yok) → admin say (bootstrap)
+    if (!payload.role) payload.role = "admin";
     return payload;
   } catch {
     return null;
   }
 }
 
+/** Kullanıcı deposu + env bootstrap */
 export function verifyPassword(username: string, password: string): boolean {
-  const creds = getAdminCredentials();
-  try {
-    const uOk =
-      username.length === creds.username.length &&
-      timingSafeEqual(Buffer.from(username), Buffer.from(creds.username));
-    const pOk =
-      password.length === creds.password.length &&
-      timingSafeEqual(Buffer.from(password), Buffer.from(creds.password));
-    return uOk && pOk;
-  } catch {
-    return false;
-  }
+  return authenticateUser(username, password) !== null;
+}
+
+export function loginUser(
+  username: string,
+  password: string
+): { username: string; role: AdminRole; userId: string } | null {
+  const auth = authenticateUser(username, password);
+  if (!auth) return null;
+  return {
+    username: auth.user.username,
+    role: auth.user.role,
+    userId: auth.user.id,
+  };
 }
 
 export function getSessionFromCookies(): AdminSessionPayload | null {

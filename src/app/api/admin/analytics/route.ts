@@ -5,9 +5,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { computeAnalyticsSummary, listFeedbacks, loadCasesStore } from "@/lib/admin/store";
 
+import { requirePermission } from "@/lib/admin/permissions";
+
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "analytics.read");
+  if (denied) return denied;
 
   const summary = computeAnalyticsSummary();
   const cases = loadCasesStore();

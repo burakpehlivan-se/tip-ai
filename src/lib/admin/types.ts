@@ -189,7 +189,10 @@ export type AuditAction =
   | "add_feedback"
   | "update_settings"
   | "play_session"
-  | "import_cdm";
+  | "import_cdm"
+  | "create_user"
+  | "update_user"
+  | "delete_user";
 
 export interface AuditPatch {
   path: string;
@@ -231,9 +234,33 @@ export interface BackupsIndex {
   backups: BackupMeta[];
 }
 
+/** Panel rolleri */
+export type AdminRole = "admin" | "doktor";
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  /** scrypt: saltHex:hashHex — düz şifre saklanmaz */
+  passwordHash: string;
+  role: AdminRole;
+  displayName?: string;
+  active: boolean;
+  createdAt: number;
+  updatedAt: number;
+  createdBy?: string;
+}
+
+export interface UsersStore {
+  version: number;
+  updatedAt: number;
+  users: AdminUser[];
+}
+
 export interface AdminSessionPayload {
   username: string;
+  role: AdminRole;
   exp: number;
+  userId?: string;
 }
 
 export const DEFAULT_CEMICEGEK: CemicegekAyarlari = {

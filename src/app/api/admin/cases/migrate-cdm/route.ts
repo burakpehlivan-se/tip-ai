@@ -9,9 +9,9 @@ import { upgradeAllCasesToCdm, needsCdmUpgrade } from "@/lib/cdm";
 /** POST — tüm vakaları TIP-AI CDM v1 şekline zorla yükselt */
 export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const { requirePermission } = await import("@/lib/admin/permissions");
+  const denied = requirePermission(session, "system.migrate");
+  if (denied) return denied;
 
   const store = loadCasesStore();
   const needing = store.cases.filter(needsCdmUpgrade).length;
@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
 
   appendLog({
     action: "import_cdm",
-    actor: session.username,
+    actor: session!.username,
     message: `Toplu CDM v1 migrate: ${upgradedCount} vaka işlendi (${needing} aday).`,
     patches: [],
   });

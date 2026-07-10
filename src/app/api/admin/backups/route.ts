@@ -5,9 +5,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { createBackup, loadBackupsIndex, loadCasesStore } from "@/lib/admin/store";
 
+import { requirePermission } from "@/lib/admin/permissions";
+
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "backups.read");
+  if (denied) return denied;
 
   const index = loadBackupsIndex();
   const store = loadCasesStore();
@@ -20,8 +23,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "backups.restore");
+  if (denied) return denied;
 
-  const meta = createBackup("manual", session.username);
+  const meta = createBackup("manual", session!.username);
   return NextResponse.json({ ok: true, backup: meta });
 }

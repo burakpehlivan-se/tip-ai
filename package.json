@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "next lint",
     "validate:vakalar": "npx tsx scripts/validate-vakalar.ts",
-    "validate:vakalar:json": "npx tsx scripts/validate-vakalar.ts --json"
+    "validate:vakalar:json": "npx tsx scripts/validate-vakalar.ts --json",
+    "etl:mimic-demo": "npx tsx scripts/etl-mimic-demo.ts"
   },
   "dependencies": {
     "next": "14.2.15",

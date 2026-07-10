@@ -53,25 +53,42 @@ export const LAB_KAYNAKLARI: LabKaynak[] = [
     ad: "MIMIC-IV — labevents (+ d_labitems)",
     kisaAd: "MIMIC-IV",
     durum: "planlanan",
-    rol: "Gerçek hastane LIS davranışı: tüm lab ölçümleri (normal+anormal), zaman damgası, birim",
+    rol: "EHR iskeleti: demografi, ICD tanılar, labevents, vitals, ilaç, prosedür → TIP-AI CDM v1 ETL",
     url: "https://physionet.org/content/mimiciv/",
     ekUrl: [
       { etiket: "PhysioNet", url: "https://physionet.org/" },
       { etiket: "MIMIC-IV docs", url: "https://mimic.mit.edu/docs/iv/" },
+      {
+        etiket: "ETL kodu",
+        url: "src/lib/etl/mimic/pipeline.ts",
+      },
     ],
     lisans: "PhysioNet Credentialed Health Data — CITI + başvuru gerekir",
-    tablolar: ["hosp.labevents", "hosp.d_labitems"],
-    not: "Erişim açılınca aynı lab-pool şemasına ikinci kaynak olarak bağlanacak. ICU ağırlıklıdır.",
+    tablolar: [
+      "hosp.patients",
+      "hosp.admissions",
+      "hosp.diagnoses_icd",
+      "hosp.labevents",
+      "hosp.d_labitems",
+      "hosp.prescriptions",
+      "hosp.procedures_icd",
+      "icu.chartevents (vitals)",
+    ],
+    not:
+      "Doğrudan JSON’a kopyalanmaz. subject_id+hadm_id epizodu ETL ile CDM v1 iskeletine map edilir " +
+      "(src/lib/etl/mimic). Rubrik/presentation AI+uzman post-process. Fixture demo: npm run etl:mimic-demo",
   },
   {
     id: "ai-readi-lab-docs",
-    ad: "AI-READI — Clinical Lab Tests documentation",
+    ad: "AI-READI — Clinical Lab Tests (diyabet odaklı OMOP)",
     kisaAd: "AI-READI",
     durum: "referans",
-    rol: "Lab test referans aralıkları ve OMOP measurement şeması (bilgi tabanı)",
+    rol: "Diyabet ağırlıklı lab pattern / OMOP measurement referansı (HbA1c, glukoz aralıkları)",
     url: "https://docs.aireadi.org/docs/3/dataset/clinical-data/clinical-lab-tests/",
     lisans: "Dokümantasyon / dataset erişim koşullarına bağlı",
-    not: "Değer üretmek için değil; normal/abnormal etiketleme ve test anlamlandırma referansı.",
+    not:
+      "T2DM vaka fixture ve lab yorumları için pattern kaynağı. Değer aralıktan üretilmez; " +
+      "gerçek/import satır veya onaylı şablon kullanılır.",
   },
 ];
 
