@@ -22,6 +22,8 @@ import {
   TestCategory,
   TestInventory,
   TestResultKind,
+  TestVisibility,
+  TestTier,
 } from "./types";
 
 // ─── Kategori eşlemesi ───
@@ -150,6 +152,30 @@ function buildMasterCatalogue(): Record<string, TestCatalogueEntry> {
     });
   }
 
+  // 4) visibility + tier ata (klinik sınıflandırma)
+  for (const [key, entry] of Array.from(map.entries())) {
+    const v = TIER_MAP[key];
+    if (v) {
+      entry.visibility = v.visibility;
+      entry.tier = v.tier;
+    } else {
+      // Varsayılanlar
+      if (entry.category === "imaging" || entry.category === "procedure") {
+        entry.visibility = "hidden";
+        entry.tier = "advanced";
+      } else if (entry.generationStrategy === "never_generate") {
+        entry.visibility = "hidden";
+        entry.tier = "advanced";
+      } else if (entry.pathologyDiagnoses && entry.pathologyDiagnoses.length > 0) {
+        entry.visibility = "visible_default";
+        entry.tier = "branch";
+      } else {
+        entry.visibility = "visible_default";
+        entry.tier = "core";
+      }
+    }
+  }
+
   return Object.fromEntries(map.entries());
 }
 
@@ -176,6 +202,53 @@ function invertSynonyms(syn: Record<string, string>): Record<string, string> {
   }
   return out;
 }
+
+// ─── visibility + tier klinik sınıflandırma ───
+const _vis = (v: TestVisibility, t: TestTier) => ({ visibility: v, tier: t });
+const _def = (t: TestTier = "core" as TestTier) => _vis("visible_default" as TestVisibility, t);
+const _adv = (t: TestTier = "advanced" as TestTier) => _vis("visible_advanced" as TestVisibility, t);
+const _hid = _vis("hidden" as TestVisibility, "advanced" as TestTier);
+
+const TIER_MAP: Record<string, { visibility: TestVisibility; tier: TestTier }> = {
+  // ── Çekirdek (core) — her zaman görünür, tüm vakalarda temel ──
+  CBC: _def("core"), WBC: _def("core"), HGB: _def("core"), PLT: _def("core"),
+  HCT: _def("core"), MCV: _def("core"), RBC: _def("core"),
+  GLUKOZ: _def("core"), HBA1C: _def("core"),
+  KREATININ: _def("core"), BUN: _def("core"), URE: _def("core"),
+  NA: _def("core"), K: _def("core"), GFR: _def("core"),
+  ALT: _def("core"), AST: _def("core"), TBIL: _def("core"),
+  CRP: _def("core"), ESR: _def("core"),
+  TSH: _def("core"), FT4: _def("core"),
+  TROPONIN: _def("core"), BNP: _def("core"),
+  EKG: _def("core"), AKCIGER_GRAFISI: _def("core"),
+  IDRAR: _def("core"), ABG: _def("core"),
+  KOLESTEROL: _def("core"), ELEKTROLIT: _def("core"),
+  KARACIGER_ENZIM: _def("core"),
+
+  // ── Branş (branch) — poliklinik bağlamında, "gelişmiş mod"da görünür ──
+  ALP: _adv("branch"), GGT: _adv("branch"), ALBUMIN: _adv("branch"),
+  DBIL: _adv("branch"), AMILAZ: _adv("branch"), LIPAZ: _adv("branch"),
+  LACTATE: _adv("branch"), PT: _adv("branch"), PTT: _adv("branch"),
+  INR: _adv("branch"), FIBRINOGEN: _adv("branch"), DDIMER: _adv("branch"),
+  CKMB: _adv("branch"), MYOGLOBIN: _adv("branch"),
+  FT3: _adv("branch"), CA: _adv("branch"), MG: _adv("branch"),
+  PHOS: _adv("branch"), CL: _adv("branch"),
+  URIC_ACID: _adv("branch"), AMMONIA: _adv("branch"),
+  PH: _adv("branch"), PCO2: _adv("branch"), PO2: _adv("branch"),
+  HCO3: _adv("branch"), PROCT: _adv("branch"), FERITIN: _adv("branch"),
+  DEMIR: _adv("branch"), U_PH: _adv("branch"), U_SG: _adv("branch"),
+  U_PROTEIN: _adv("branch"), U_GLUKOZ: _adv("branch"),
+  BHCG: _adv("branch"), KREATININ_KINAZ: _adv("branch"),
+  NEUT: _adv("branch"), LYMPH: _adv("branch"), EOS: _adv("branch"),
+  T4: _adv("branch"), GOZ_BASINCI: _adv("branch"),
+  CHOL: _adv("branch"), LDL: _adv("branch"), HDL: _adv("branch"),
+  TRIG: _adv("branch"),
+
+  // ── Gelişmiş (advanced) — nadir/ileri, isteğe bağlı ──
+  BT_TORAKS: _hid, BT_ABDOMEN: _hid, BT_KRANIYAL: _hid,
+  USG_ABDOMEN: _hid, PELVIK_USG: _hid,
+  MAMOGRAFI: _hid, MEME_USG: _hid, BIYOPSI: _hid,
+};
 
 /**
  * Layer 1.1 — Test envanteri üret.

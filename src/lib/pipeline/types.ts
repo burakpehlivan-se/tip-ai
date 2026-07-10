@@ -13,6 +13,8 @@ import { ClinicalProfile, TestSonucu } from "../types";
 
 export type TestCategory = "lab" | "imaging" | "procedure";
 export type TestResultKind = "numeric" | "report" | "panel";
+export type TestVisibility = "visible_default" | "visible_advanced" | "hidden";
+export type TestTier = "core" | "branch" | "advanced";
 
 /**
  * Lab motorunun bir test için izleyeceği üretim stratejisi.
@@ -41,6 +43,12 @@ export interface TestCatalogueEntry {
   refRangeFemale: [number, number] | null;
   pathologyDiagnoses: string[];
   generationStrategy: GenerationStrategy;
+  /** Öğrenci tarafında görünürlük */
+  visibility?: TestVisibility;
+  /** Kategori katmanı (çekirdek / branş / gelişmiş) */
+  tier?: TestTier;
+  /** Sistemde en az bir vaka için veri var mı (pipeline tarafından doldurulur) */
+  hasData?: boolean;
 }
 
 export interface RawTestUsage {

@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (body.id) {
+    let filled: string[] = [];
     const result = recordMutation(
       session.username,
       "add_test",
@@ -31,29 +32,34 @@ export async function POST(req: NextRequest) {
       (store) => {
         const idx = store.cases.findIndex((c) => c.id === body.id);
         if (idx < 0) return;
-        const { vaka } = fillCaseGeneratedTests(store.cases[idx]);
-        store.cases[idx] = vaka;
+        const out = fillCaseGeneratedTests(store.cases[idx]);
+        store.cases[idx] = out.vaka;
+        filled = out.fill.filled;
       }
     );
     const target = result.store.cases.find((c) => c.id === body.id);
     return NextResponse.json({
       ok: true,
+      filled,
       after: target ? scanAllCases([target]) : null,
     });
   }
 
+  const summary = { totalFilled: 0, totalStaticRequired: 0, totalInvalid: 0 };
   const result = recordMutation(
     session.username,
     "add_test",
     "Pipeline: tüm vakaların eksik testleri lab motoruyla dolduruldu",
     [],
     (store) => {
-      const { cases } = fillAllCases(store.cases);
-      store.cases = cases;
+      const out = fillAllCases(store.cases);
+      store.cases = out.cases;
+      summary.totalFilled = out.totalFilled;
+      summary.totalStaticRequired = out.totalStaticRequired;
+      summary.totalInvalid = out.totalInvalid;
     }
   );
 
-  const summary = fillAllCases(result.store.cases);
   return NextResponse.json({
     ok: true,
     totalFilled: summary.totalFilled,

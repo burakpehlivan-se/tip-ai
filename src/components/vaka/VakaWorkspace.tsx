@@ -13,7 +13,7 @@ import {
 } from "@/lib/types";
 import { normalizeSoru, normalizeTest } from "@/lib/nlp/normalize";
 import { degerlendir } from "@/lib/scoring/degerlendir";
-import { birlesikTestKatalogu } from "@/lib/data";
+import { birlesikTestKatalogu, TEST_VISIBILITY_MAP, MOTOR_CAPABLE_KEYS } from "@/lib/data";
 import { aksiyonRelevantMi, CHIP_KATEGORI_ETIKETLERI } from "@/lib/data/case-generator";
 import ResmiRapor from "./ResmiRapor";
 import { getLabResult } from "@/lib/lab-motor";
@@ -105,6 +105,7 @@ export default function VakaWorkspace({
   const [taniInput, setTaniInput] = useState(initialSnapshot?.taniInput || "");
   const [tedaviInput, setTedaviInput] = useState(initialSnapshot?.tedaviInput || "");
   const [showTestDropdown, setShowTestDropdown] = useState(false);
+  const [testTab, setTestTab] = useState<"recommended" | "all">("recommended");
   const [sonuc, setSonuc] = useState<DegerlendirmeSonuc | null>(null);
   const [testArama, setTestArama] = useState("");
   const [chipArama, setChipArama] = useState("");
@@ -313,8 +314,56 @@ export default function VakaWorkspace({
     onComplete?.(deg);
   };
 
-  const filtreliTestler = birlesikTestKatalogu.filter((t) =>
-    testArama.trim() === "" || t.ad.toLowerCase().includes(testArama.toLowerCase()) || t.kategori.toLowerCase().includes(testArama.toLowerCase())
+  // ── hasData + visibility filtreli test kataloğu ──
+  const hasDataLocal = useMemo(() => {
+    const s = new Set(Object.keys(vaka.statikTestler || {}));
+    for (const k of Array.from(MOTOR_CAPABLE_KEYS)) s.add(k);
+    return s;
+  }, [vaka.statikTestler]);
+
+  const visibleDefaultTests = useMemo(
+    () =>
+      birlesikTestKatalogu.filter((t) => {
+        const v = TEST_VISIBILITY_MAP[t.key];
+        return v?.visibility === "visible_default";
+      }),
+    []
+  );
+
+  const visibleAllNonHidden = useMemo(
+    () =>
+      birlesikTestKatalogu.filter((t) => {
+        const v = TEST_VISIBILITY_MAP[t.key];
+        return !v || v.visibility !== "hidden";
+      }),
+    []
+  );
+
+  const visibleDefaultWithData = useMemo(
+    () => visibleDefaultTests.filter((t) => hasDataLocal.has(t.key)),
+    [visibleDefaultTests, hasDataLocal]
+  );
+
+  const visibleAllWithData = useMemo(
+    () => visibleAllNonHidden.filter((t) => hasDataLocal.has(t.key)),
+    [visibleAllNonHidden, hasDataLocal]
+  );
+
+  const recommendedTests = useMemo(() => {
+    const expected = new Set(
+      (vaka.rubric?.beklenenTestler || []).map((e) => e.key)
+    );
+    return visibleDefaultWithData.filter((t) => expected.has(t.key));
+  }, [visibleDefaultWithData, vaka.rubric]);
+
+  const displayTests =
+    testTab === "recommended" ? recommendedTests : visibleAllWithData;
+
+  const filtreliTestler = displayTests.filter(
+    (t) =>
+      testArama.trim() === "" ||
+      t.ad.toLowerCase().includes(testArama.toLowerCase()) ||
+      t.kategori.toLowerCase().includes(testArama.toLowerCase())
   );
 
   // Tüm testleri kategori bazında grupla
@@ -755,55 +804,97 @@ export default function VakaWorkspace({
               {/* Dropdown — Tüm testler kategori bazında */}
               <div className="relative">
                 <button
-                  onClick={() => setShowTestDropdown(!showTestDropdown)}
-                  className="btn-secondary w-full justify-center text-sm"
-                >
-                  📋 Tüm Test Kataloğu ({birlesikTestKatalogu.length}) ▾
-                </button>
-                {showTestDropdown && (
-                  <div className="absolute z-20 mt-2 max-h-96 w-full overflow-y-auto rounded-lg border border-hairline bg-canvas shadow-card scrollbar-thin">
-                    {Object.entries(testlerKategoriyeGore).map(([kategori, testler]) => (
-                      <div key={kategori}>
-                        <div className="sticky top-0 bg-surface-soft px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                          {kategori}
-                        </div>
-                        {testler.map((test) => {
-                          const istendi = testIstekleri.some((t) => t.testKey === test.key);
-                          const hasSonuc = !!vaka.statikTestler?.[test.key];
-                          return (
-                            <button
-                              key={test.key}
-                              onClick={() => testIstey(test.key)}
-                              disabled={istendi}
-                              className={`flex w-full items-center justify-between border-b border-hairline-soft px-4 py-2.5 text-left text-sm last:border-0 hover:bg-surface transition-colors ${
-                                istendi ? "opacity-40 cursor-not-allowed" : "text-ink"
-                              }`}
-                            >
-                              <div className="min-w-0">
-                                <div className="font-medium">{test.ad}</div>
-                                <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                                  {istendi && (
-                                    <span className="text-[10px] text-brand">✓ İstendi</span>
-                                  )}
-                                  {debugMode && (
-                                    <span
-                                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                                        hasSonuc
-                                          ? "bg-brand/15 text-brand-deep"
-                                          : "bg-clinical-orange/15 text-clinical-orange"
-                                      }`}
-                                    >
-                                      {hasSonuc ? "sonuç var" : "sonuç yok"}
-                                    </span>
-                                  )}
-                                </div>
-                              </div>
-                              {!istendi && <span className="text-brand">+</span>}
-                            </button>
-                          );
-                        })}
-                      </div>
-                    ))}
+                   onClick={() => setShowTestDropdown(!showTestDropdown)}
+                   className="btn-secondary w-full justify-center text-sm"
+                 >
+                   {testTab === "recommended"
+                     ? `📋 Önerilen Testler (${recommendedTests.length})`
+                     : `📋 Tüm Testler (${visibleAllWithData.length})`}{" "}
+                   ▾
+                 </button>
+                 {showTestDropdown && (
+                   <div className="absolute z-20 mt-2 max-h-96 w-full overflow-y-auto rounded-lg border border-hairline bg-canvas shadow-card scrollbar-thin">
+                     {/* Sekme barı */}
+                     <div className="sticky top-0 flex border-b border-hairline bg-surface-soft px-2 py-1.5 gap-1">
+                       <button
+                         onClick={() => setTestTab("recommended")}
+                         className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                           testTab === "recommended"
+                             ? "bg-brand text-canvas"
+                             : "text-steel hover:text-ink"
+                         }`}
+                       >
+                         Önerilen ({recommendedTests.length})
+                       </button>
+                       <button
+                         onClick={() => setTestTab("all")}
+                         className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
+                           testTab === "all"
+                             ? "bg-brand text-canvas"
+                             : "text-steel hover:text-ink"
+                         }`}
+                       >
+                         Tümü ({visibleAllWithData.length})
+                       </button>
+                       <span className="ml-auto text-[10px] text-muted self-center">
+                         {testTab === "all" && `${visibleAllNonHidden.length - visibleAllWithData.length} gizli`}
+                       </span>
+                     </div>
+                     {Object.entries(testlerKategoriyeGore).map(([kategori, testler]) => (
+                       <div key={kategori}>
+                         <div className="sticky top-0 bg-surface-soft px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                           {kategori}
+                         </div>
+                         {testler.map((test) => {
+                           const istendi = testIstekleri.some((t) => t.testKey === test.key);
+                           const hasSonuc = !!vaka.statikTestler?.[test.key];
+                           const tier = TEST_VISIBILITY_MAP[test.key]?.tier;
+                           return (
+                             <button
+                               key={test.key}
+                               onClick={() => testIstey(test.key)}
+                               disabled={istendi}
+                               className={`flex w-full items-center justify-between border-b border-hairline-soft px-4 py-2.5 text-left text-sm last:border-0 hover:bg-surface transition-colors ${
+                                 istendi ? "opacity-40 cursor-not-allowed" : "text-ink"
+                               }`}
+                             >
+                               <div className="min-w-0">
+                                 <div className="font-medium flex items-center gap-1.5">
+                                   {test.ad}
+                                   {tier === "core" && (
+                                     <span className="rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-medium text-brand-deep">
+                                       çekirdek
+                                     </span>
+                                   )}
+                                   {tier === "branch" && (
+                                     <span className="rounded-full bg-clinical-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-clinical-blue">
+                                       branş
+                                     </span>
+                                   )}
+                                 </div>
+                                 <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                                   {istendi && (
+                                     <span className="text-[10px] text-brand">✓ İstendi</span>
+                                   )}
+                                   {debugMode && (
+                                     <span
+                                       className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                         hasSonuc
+                                           ? "bg-brand/15 text-brand-deep"
+                                           : "bg-clinical-orange/15 text-clinical-orange"
+                                       }`}
+                                     >
+                                       {hasSonuc ? "sonuç var" : "sonuç yok"}
+                                     </span>
+                                   )}
+                                 </div>
+                               </div>
+                               {!istendi && <span className="text-brand">+</span>}
+                             </button>
+                           );
+                         })}
+                       </div>
+                     ))}
                   </div>
                 )}
               </div>
