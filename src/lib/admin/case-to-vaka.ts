@@ -54,7 +54,7 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {
     profile.bmi = av.patientProfil.bmi;
   }
 
-  const original = av.statikTestler || {};
+  const original = { ...(av.statikTestler || {}), ...(av.generatedTests || {}) };
   const statikTestler = birlestirTestler(original, profile, {
     patientId: tc,
     episodeId: vakaId,

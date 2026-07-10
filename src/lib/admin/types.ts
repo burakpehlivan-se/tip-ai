@@ -65,6 +65,8 @@ export interface AdminVaka {
   semptomSablon: string;
   rubric: Rubric;
   statikTestler: Record<string, TestSonucu>;
+  /** Pipeline (lab motoru) tarafından üretilip kalıcılaştırılan sonuçlar */
+  generatedTests?: Record<string, TestSonucu>;
   hastaYanitlari: Record<string, string>;
   idealYol: string[];
   egitimNotu: string;
@@ -301,6 +303,7 @@ export function normalizeAdminVaka(c: Partial<AdminVaka> & { id: string }): Admi
       puanlama: {},
     },
     statikTestler: c.statikTestler || {},
+    generatedTests: c.generatedTests || {},
     hastaYanitlari: c.hastaYanitlari || {},
     idealYol: c.idealYol || [],
     egitimNotu: c.egitimNotu || "",

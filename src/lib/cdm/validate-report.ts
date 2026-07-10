@@ -9,6 +9,8 @@ import { AdminVaka } from "../admin/types";
 import { DEFAULT_CDM_PUANLAMA, TipAiCdmDocument, TIP_AI_CDM_VERSION } from "./types";
 import { adminVakaToCdm } from "./convert";
 import { canonicalizeTestKey, knownTestKeys } from "./vocabulary";
+import { LAB_REFERANSLAR } from "../data/clinical-reference";
+import { MASTER_TEST_CATALOGUE } from "../pipeline/master-catalogue";
 
 export interface ValidationIssue {
   code: string;
@@ -273,7 +275,11 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
   }
 
   // ── 6. Labs ──
-  const labMap = doc.labs?.statikTestler || {};
+  // generatedTests (lab motoru ürünü) de dolu sayılır
+  const labMap = {
+    ...(doc.labs?.statikTestler || {}),
+    ...(doc.labs?.generatedTests || {}),
+  };
   const labKeysRaw = Object.keys(labMap);
   if (labKeysRaw.length === 0) {
     addError(
@@ -355,7 +361,69 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
     }
   }
 
-  // ── 7. Vitals ──
+    // 6d. Referans aralığı & tanı çelişkisi
+    const refByKey = new Map(LAB_REFERANSLAR.map((r) => [r.testKey, r]));
+    for (const [rawKey, val] of Object.entries(labMap)) {
+      const t = val as { tip?: string; sonuc?: unknown };
+      if (t.tip !== "numeric") continue;
+      const sonuc = t.sonuc as Record<string, unknown> | string | number;
+      const deger = typeof sonuc === "object" && sonuc ? Number((sonuc as Record<string, unknown>).deger) : Number(sonuc);
+      if (!Number.isFinite(deger)) continue;
+      const ref = refByKey.get(canonicalizeTestKey(rawKey));
+      // Sadece açıkça imkânsız veri-giriş hatları (negatif / aşırı büyük)
+      // — klinik olarak doğru patoloji değerleri (yüksek CRP, BHCG …) uyarı
+      // DEĞİLDİR, çünkü referans aralıkları "normal" popülasyon içindir.
+      if (ref && ref.normalUst > 0) {
+        if (deger < 0 && ref.normalAlt >= 0) {
+          addWarning(
+            warnings,
+            `labs.statikTestler.${rawKey}`,
+            `Değer negatif olamaz (${deger}) — veri girişi hatası`,
+            "REF_RANGE_MISMATCH"
+          );
+        } else if (deger > 1e7) {
+          addWarning(
+            warnings,
+            `labs.statikTestler.${rawKey}`,
+            `Değer aşırı büyük (${deger}, üst referans ${ref.normalUst}) — olası birim/yazım hatası`,
+            "REF_RANGE_MISMATCH"
+          );
+        }
+      }
+    }
+
+    // 6e. Tanı çelişkisi: depends_on_profile test bekleniyor ama sonuç normal
+    for (const t of rub?.beklenenTestler || []) {
+      if (!t?.key) continue;
+      const canon = canonicalizeTestKey(t.key);
+      const entry = MASTER_TEST_CATALOGUE[canon];
+      if (!entry || entry.generationStrategy !== "depends_on_profile") continue;
+      const dx = doc.meta?.hastalikKey || "";
+      const cm =
+        (doc.conditions || []).map((c) => c.code).join(",") +
+        "," +
+        (rub.kabulEdilenTani || []).join(",");
+      if (!(entry.pathologyDiagnoses || []).some((d) => dx === d || cm.includes(d))) continue;
+      const res = labMap[canon] as { tip?: string; sonuc?: unknown } | undefined;
+      if (!res) continue;
+      const sonuc = res.sonuc as Record<string, unknown> | string | number;
+      const deger = typeof sonuc === "object" && sonuc ? Number((sonuc as Record<string, unknown>).deger) : Number(sonuc);
+      if (!Number.isFinite(deger)) continue;
+      const ref = refByKey.get(canon);
+      if (ref && ref.normalUst > 0) {
+        const within = deger >= ref.normalAlt && deger <= ref.normalUst;
+        if (within) {
+          addWarning(
+            warnings,
+            `labs.statikTestler.${canon}`,
+            `Tanıya göre anormal olması beklenen ${canon} normal aralıkta (klinik çelişki)`,
+            "DIAGNOSIS_CONTRADICTION"
+          );
+        }
+      }
+    }
+
+    // ── 7. Vitals ──
   if (!doc.vitals) {
     addError(errors, "vitals", "Vital bulgular eksik", "NO_VITALS");
   } else {

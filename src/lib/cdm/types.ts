@@ -152,6 +152,8 @@ export interface TipAiCdmDocument {
   /** OMOP measurement — standart testKey sözlüğü */
   labs: {
     statikTestler: Record<string, CdmLabResult | TestSonucu>;
+    /** Pipeline (lab motoru) tarafından üretilip kalıcılaştırılan sonuçlar */
+    generatedTests?: Record<string, CdmLabResult | TestSonucu>;
   };
 
   /** Vitals (measurement subset) */

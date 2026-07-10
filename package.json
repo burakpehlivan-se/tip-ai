@@ -9,6 +9,13 @@
     "lint": "next lint",
     "validate:vakalar": "npx tsx scripts/validate-vakalar.ts",
     "validate:vakalar:json": "npx tsx scripts/validate-vakalar.ts --json",
+    "pipeline:scan": "npx tsx scripts/scan-tests.ts",
+    "pipeline:scan:json": "npx tsx scripts/scan-tests.ts --json",
+    "pipeline:fill": "npx tsx scripts/fill-tests.ts",
+    "pipeline:fill:dry": "npx tsx scripts/fill-tests.ts --dry",
+    "pipeline:validate": "npx tsx scripts/validate-vakalar.ts",
+    "pipeline:validate:json": "npx tsx scripts/validate-vakalar.ts --json",
+    "pipeline:run": "npx tsx scripts/fill-tests.ts && npx tsx scripts/validate-vakalar.ts",
     "etl:mimic-demo": "npx tsx scripts/etl-mimic-demo.ts",
     "postinstall": "prisma generate",
     "db:push": "prisma db push"

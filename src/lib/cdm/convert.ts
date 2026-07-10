@@ -148,6 +148,7 @@ export function cdmToAdminVaka(doc: TipAiCdmDocument): AdminVaka {
       },
     },
     statikTestler: labs,
+    generatedTests: doc.labs?.generatedTests,
     hastaYanitlari: yanitlar,
     idealYol: doc.management?.idealYol || [],
     egitimNotu: doc.management?.egitimNotu || "",
@@ -194,6 +195,21 @@ export function adminVakaToCdm(av: AdminVaka): TipAiCdmDocument {
       referans: t.referans,
       yorum: t.yorum,
       source: t.source || "original",
+      flag: "unknown",
+    };
+  }
+  // Pipeline tarafından üretilen (generatedTests) sonuçlar
+  for (const [k, t] of Object.entries(av.generatedTests || {})) {
+    const canon = canonicalizeTestKey(k);
+    if (labs[canon]) continue; // statik kazanır
+    labs[canon] = {
+      testKey: t.testKey || canon,
+      testAdi: t.testAdi,
+      tip: t.tip,
+      sonuc: t.sonuc,
+      referans: t.referans,
+      yorum: t.yorum,
+      source: t.source || "synthetic",
       flag: "unknown",
     };
   }
@@ -253,7 +269,7 @@ export function adminVakaToCdm(av: AdminVaka): TipAiCdmDocument {
       kabulEdilenTani: av.rubric?.kabulEdilenTani || [],
       puanlama: { ...DEFAULT_CDM_PUANLAMA, ...(av.rubric?.puanlama || {}) },
     },
-    labs: { statikTestler: labs },
+      labs: { statikTestler: labs, generatedTests: av.generatedTests },
     vitals: av.vitals,
     hastaYanitlari: av.hastaYanitlari || {},
     management: {
