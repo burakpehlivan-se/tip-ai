@@ -20,6 +20,43 @@ interface VakaResult {
   status: "valid" | "valid_with_warnings" | "invalid";
 }
 
+interface PedagogicFinding {
+  code: string;
+  severity: "critical" | "warning" | "info";
+  field: string;
+  message: string;
+  evidence: string;
+  suggestion: string;
+}
+
+interface PedagogicVakaReport {
+  vakaId: string;
+  hastalikAdi: string;
+  poliklinikKey: string;
+  durum: string;
+  uzmanOnayi: boolean;
+  findings: PedagogicFinding[];
+  summary: {
+    total: number;
+    critical: number;
+    warning: number;
+    info: number;
+    needsReview: boolean;
+  };
+}
+
+interface PedagogicReport {
+  grandTotal: {
+    totalCases: number;
+    totalFindings: number;
+    critical: number;
+    warning: number;
+    info: number;
+    casesNeedingReview: number;
+  };
+  reports: PedagogicVakaReport[];
+}
+
 interface Report {
   generatedAt: string;
   cdmVersion: string;
@@ -45,6 +82,10 @@ export default function DogrulamaPage() {
   const [filter, setFilter] = useState<Filter>("invalid");
   const [q, setQ] = useState("");
   const [openId, setOpenId] = useState<string | null>(null);
+  const [pedagogicOpen, setPedagogicOpen] = useState(false);
+  const [pedagogicReport, setPedagogicReport] = useState<PedagogicReport | null>(null);
+  const [pedagogicLoading, setPedagogicLoading] = useState(false);
+  const [pedagogicFilter, setPedagogicFilter] = useState<"all" | "critical" | "warning">("critical");
 
   const load = useCallback(() => {
     setLoading(true);
@@ -62,6 +103,19 @@ export default function DogrulamaPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  const loadPedagogic = useCallback(() => {
+    setPedagogicLoading(true);
+    fetch("/api/admin/cases/pedagogic-check")
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || "Rapor alınamadı");
+        setPedagogicReport(d);
+        setPedagogicOpen(true);
+      })
+      .catch(() => {})
+      .finally(() => setPedagogicLoading(false));
+  }, []);
 
   const filtered = useMemo(() => {
     if (!report) return [];
@@ -278,6 +332,151 @@ export default function DogrulamaPage() {
         ))}
         {filtered.length === 0 && (
           <p className="text-sm text-steel py-6 text-center">Bu filtrede vaka yok.</p>
+        )}
+      </div>
+
+      {/* ── Faz 3: Pedagojik Tutarlılık Kontrolü ── */}
+      <hr className="my-8 border-hairline-soft" />
+      <div>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-xl font-semibold tracking-tight text-ink">
+              Pedagojik Tutarlılık Denetimi (Faz 3)
+            </h2>
+            <p className="mt-1 text-sm text-steel">
+              Eğitim notu, hasta yanıtları, test sonuçları ve rubrik arasındaki klinik çelişkileri tarar.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="btn-accent text-sm"
+            onClick={loadPedagogic}
+            disabled={pedagogicLoading}
+          >
+            {pedagogicLoading ? "Taranıyor…" : "Pedagojik tarama başlat"}
+          </button>
+        </div>
+
+        {pedagogicReport && pedagogicOpen && (
+          <>
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <StatCard label="Taranan vaka" value={pedagogicReport.grandTotal.totalCases} />
+              <StatCard label="Toplam bulgu" value={pedagogicReport.grandTotal.totalFindings} />
+              <StatCard
+                label="Kritik"
+                value={pedagogicReport.grandTotal.critical}
+                tone="bad"
+              />
+              <StatCard
+                label="Uyarı"
+                value={pedagogicReport.grandTotal.warning}
+                tone="warn"
+              />
+              <StatCard
+                label="İnceleme gerekli"
+                value={pedagogicReport.grandTotal.casesNeedingReview}
+                tone={pedagogicReport.grandTotal.casesNeedingReview > 0 ? "bad" : "good"}
+              />
+            </div>
+
+            <div className="mt-4 flex gap-2">
+              {(["all", "critical", "warning"] as const).map((f) => (
+                <button
+                  key={f}
+                  type="button"
+                  className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                    pedagogicFilter === f
+                      ? "bg-ink text-white"
+                      : "bg-surface text-steel hover:bg-surface-soft"
+                  }`}
+                  onClick={() => setPedagogicFilter(f)}
+                >
+                  {f === "all" ? "Tümü" : f === "critical" ? "Kritik" : "Uyarı"}
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-4 space-y-3">
+              {pedagogicReport.reports
+                .filter((r) => {
+                  if (pedagogicFilter === "all") return r.findings.length > 0;
+                  if (pedagogicFilter === "critical") return r.summary.critical > 0;
+                  return r.summary.warning > 0;
+                })
+                .map((r) => (
+                  <div
+                    key={r.vakaId}
+                    className="rounded-lg border border-hairline-soft bg-canvas"
+                  >
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <div>
+                        <span className="text-sm font-medium text-ink">
+                          {r.hastalikAdi}
+                        </span>
+                        <span className="ml-2 text-xs text-steel">{r.vakaId}</span>
+                        <span className="ml-2 text-xs text-muted">({r.durum})</span>
+                      </div>
+                      <div className="flex gap-1.5 text-xs">
+                        {r.summary.critical > 0 && (
+                          <span className="rounded-full bg-clinical-red/15 px-2 py-0.5 text-clinical-red font-medium">
+                            {r.summary.critical} kritik
+                          </span>
+                        )}
+                        {r.summary.warning > 0 && (
+                          <span className="rounded-full bg-clinical-orange/15 px-2 py-0.5 text-clinical-orange font-medium">
+                            {r.summary.warning} uyarı
+                          </span>
+                        )}
+                        {r.uzmanOnayi && r.summary.needsReview && (
+                          <span className="rounded-full bg-clinical-red/10 px-2 py-0.5 text-clinical-red text-[10px]">
+                            ⚠ onaylı ama sorunlu
+                          </span>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-hairline px-4 py-3 space-y-2 text-xs">
+                      {r.findings
+                        .filter((f) => {
+                          if (pedagogicFilter === "all") return true;
+                          return f.severity === pedagogicFilter;
+                        })
+                        .map((f, i) => {
+                          const severityColor =
+                            f.severity === "critical"
+                              ? "text-clinical-red border-clinical-red/20 bg-clinical-red/5"
+                              : f.severity === "warning"
+                                ? "text-clinical-orange border-clinical-orange/20 bg-clinical-orange/5"
+                                : "text-steel border-hairline bg-surface";
+                          return (
+                            <div
+                              key={i}
+                              className={`rounded border px-3 py-2 ${severityColor}`}
+                            >
+                              <div className="flex items-center gap-1.5">
+                                <code className="text-[10px] opacity-70">[{f.code}]</code>
+                                <span className="font-medium">{f.message}</span>
+                              </div>
+                              <div className="mt-1 text-[11px] opacity-80">
+                                Kanıt: {f.evidence}
+                              </div>
+                              <div className="mt-0.5 text-[11px] font-medium opacity-90">
+                                Öneri: {f.suggestion}
+                              </div>
+                            </div>
+                          );
+                        })}
+                    </div>
+                  </div>
+                ))}
+            </div>
+
+            {pedagogicReport.reports.filter((r) => r.findings.length > 0).length === 0 && (
+              <p className="mt-6 text-sm text-steel text-center py-6">
+                Tüm vakalar pedagojik olarak tutarlı.
+              </p>
+            )}
+          </>
         )}
       </div>
     </div>

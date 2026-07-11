@@ -1,164 +1,299 @@
 import { TestSonucu, ClinicalProfile } from "./types";
-import { LAB_REFERANSLAR, HASTALIK_TEST_MAP, gercekciTestDegeri } from "./data/clinical-reference";
+import { HASTALIK_TEST_MAP } from "./data/clinical-reference";
+import {
+  generateNormalValue,
+  generateAbnormalValue,
+  getReferenceEntry,
+  getAllTestKeys,
+} from "./lab-reference-library";
+import { getActiveRules, getActiveAliases } from "./admin/rule-engine-store";
 
-// ─── Master Lab Catalogue (genişletilmiş) ───
-interface LabDef {
-  code: string;
-  name: string;
-  unit: string;
-  refLow: number;
-  refHigh: number;
-  profileAdjust?: (profile: ClinicalProfile) => "normal" | "yuksek" | "dusuk";
+// ═══════════════════════════════════════════════════
+// Layer 2: Rule Engine — disease → test tendency mapping
+// ═══════════════════════════════════════════════════
+
+type Tendency = "yuksek" | "dusuk";
+
+interface DiseaseRule {
+  disease: string;
+  tendency: Tendency;
+  factor: number;
 }
 
-const LAB_CATALOGUE: Record<string, LabDef> = {};
-for (const r of LAB_REFERANSLAR) {
-  LAB_CATALOGUE[r.testKey] = {
-    code: r.testKey,
-    name: r.testAdi,
-    unit: r.birim,
-    refLow: r.normalAlt,
-    refHigh: r.normalUst,
-  };
-}
+/** Hardcoded fallback — store yoksa veya boşsa kullanılır */
+const FALLBACK_RULES: Record<string, DiseaseRule[]> = {
+  TROPONIN: [
+    { disease: "stemi", tendency: "yuksek", factor: 20 },
+    { disease: "nstemi", tendency: "yuksek", factor: 3 },
+    { disease: "kalp-yetmezligi", tendency: "yuksek", factor: 2 },
+  ],
+  BNP: [
+    { disease: "kalp-yetmezligi", tendency: "yuksek", factor: 8 },
+    { disease: "stemi", tendency: "yuksek", factor: 3 },
+    { disease: "nstemi", tendency: "yuksek", factor: 2 },
+  ],
+  GLUKOZ: [
+    { disease: "tip2-dm", tendency: "yuksek", factor: 1.8 },
+    { disease: "diyabetik-noropati", tendency: "yuksek", factor: 2 },
+    { disease: "diyabetik-retinopati", tendency: "yuksek", factor: 1.8 },
+    { disease: "hipoglisemi", tendency: "dusuk", factor: 0.6 },
+    { disease: "preeklampsi", tendency: "yuksek", factor: 1.3 },
+  ],
+  HBA1C: [
+    { disease: "tip2-dm", tendency: "yuksek", factor: 1.8 },
+    { disease: "diyabetik-noropati", tendency: "yuksek", factor: 2 },
+    { disease: "diyabetik-retinopati", tendency: "yuksek", factor: 1.8 },
+  ],
+  KREATININ: [
+    { disease: "kbh", tendency: "yuksek", factor: 3 },
+    { disease: "abh", tendency: "yuksek", factor: 2.5 },
+    { disease: "ckd-ev3", tendency: "yuksek", factor: 2 },
+  ],
+  BUN: [
+    { disease: "kbh", tendency: "yuksek", factor: 2.5 },
+    { disease: "abh", tendency: "yuksek", factor: 2 },
+  ],
+  TSH: [
+    { disease: "hipotiroidi", tendency: "yuksek", factor: 4 },
+    { disease: "hipertiroidi", tendency: "dusuk", factor: 0.08 },
+  ],
+  FT4: [
+    { disease: "hipertiroidi", tendency: "yuksek", factor: 2.5 },
+    { disease: "hipotiroidi", tendency: "dusuk", factor: 0.35 },
+  ],
+  CRP: [
+    { disease: "pnömoni", tendency: "yuksek", factor: 15 },
+    { disease: "akut-apandisit", tendency: "yuksek", factor: 12 },
+    { disease: "akut-kolesistit", tendency: "yuksek", factor: 10 },
+    { disease: "akut-pankreatit", tendency: "yuksek", factor: 8 },
+    { disease: "koah-eks", tendency: "yuksek", factor: 9 },
+    { disease: "iye", tendency: "yuksek", factor: 6 },
+  ],
+  WBC: [
+    { disease: "pnömoni", tendency: "yuksek", factor: 1.5 },
+    { disease: "akut-apandisit", tendency: "yuksek", factor: 1.6 },
+    { disease: "akut-kolesistit", tendency: "yuksek", factor: 1.5 },
+    { disease: "akut-pankreatit", tendency: "yuksek", factor: 1.4 },
+  ],
+  AMILAZ: [
+    { disease: "akut-pankreatit", tendency: "yuksek", factor: 5 },
+    { disease: "koledokolitiazis", tendency: "yuksek", factor: 3 },
+  ],
+  LIPAZ: [
+    { disease: "akut-pankreatit", tendency: "yuksek", factor: 8 },
+  ],
+  HGB: [
+    { disease: "demir-eksikligi-anemisi", tendency: "dusuk", factor: 0.55 },
+    { disease: "kalca-kirigi", tendency: "dusuk", factor: 0.7 },
+  ],
+  ALT: [
+    { disease: "akut-kolesistit", tendency: "yuksek", factor: 2.5 },
+    { disease: "hepatit", tendency: "yuksek", factor: 10 },
+    { disease: "koledokolitiazis", tendency: "yuksek", factor: 2 },
+  ],
+  AST: [
+    { disease: "akut-kolesistit", tendency: "yuksek", factor: 2.5 },
+    { disease: "hepatit", tendency: "yuksek", factor: 10 },
+  ],
+  TBIL: [
+    { disease: "hepatit", tendency: "yuksek", factor: 5 },
+    { disease: "koledokolitiazis", tendency: "yuksek", factor: 3 },
+    { disease: "akut-kolesistit", tendency: "yuksek", factor: 2 },
+  ],
+  DDIMER: [
+    { disease: "dvt", tendency: "yuksek", factor: 3 },
+  ],
+  LACTATE: [
+    { disease: "sepsis", tendency: "yuksek", factor: 3 },
+    { disease: "pnömoni", tendency: "yuksek", factor: 1.5 },
+  ],
+  PH: [
+    { disease: "koah-eks", tendency: "dusuk", factor: 0.95 },
+    { disease: "pnömoni", tendency: "dusuk", factor: 0.97 },
+    { disease: "astim", tendency: "dusuk", factor: 0.97 },
+  ],
+  PCO2: [
+    { disease: "koah-eks", tendency: "yuksek", factor: 1.3 },
+  ],
+  PO2: [
+    { disease: "pnömoni", tendency: "dusuk", factor: 0.85 },
+    { disease: "koah-eks", tendency: "dusuk", factor: 0.82 },
+  ],
+  ALBUMIN: [
+    { disease: "hepatit", tendency: "dusuk", factor: 0.7 },
+  ],
+  U_PROTEIN: [
+    { disease: "kbh", tendency: "yuksek", factor: 10 },
+    { disease: "preeklampsi", tendency: "yuksek", factor: 15 },
+  ],
+  PLT: [
+    { disease: "preeklampsi", tendency: "dusuk", factor: 0.5 },
+  ],
+  K: [
+    { disease: "kbh", tendency: "yuksek", factor: 1.2 },
+    { disease: "abh", tendency: "yuksek", factor: 1.3 },
+  ],
+  GFR: [
+    { disease: "kbh", tendency: "dusuk", factor: 0.4 },
+    { disease: "abh", tendency: "dusuk", factor: 0.5 },
+  ],
+  GGT: [
+    { disease: "akut-kolesistit", tendency: "yuksek", factor: 3 },
+    { disease: "hepatit", tendency: "yuksek", factor: 3 },
+  ],
+  ALP: [
+    { disease: "koledokolitiazis", tendency: "yuksek", factor: 3 },
+  ],
+  CA: [
+    { disease: "meme-ca", tendency: "yuksek", factor: 1.2 },
+    { disease: "akciger-ca", tendency: "yuksek", factor: 1.2 },
+  ],
+  FERITIN: [
+    { disease: "demir-eksikligi-anemisi", tendency: "dusuk", factor: 0.3 },
+  ],
+  HCT: [
+    { disease: "demir-eksikligi-anemisi", tendency: "dusuk", factor: 0.7 },
+  ],
+  MCV: [
+    { disease: "demir-eksikligi-anemisi", tendency: "dusuk", factor: 0.8 },
+  ],
+  PROCT: [
+    { disease: "pnömoni", tendency: "yuksek", factor: 8 },
+  ],
+  U_SG: [
+    { disease: "iye", tendency: "yuksek", factor: 1.05 },
+  ],
+};
 
-// ─── Profile Adjustment Rules ───
-function sampleFromRange(low: number, high: number, tendency: "normal" | "yuksek" | "dusuk"): number {
-  const mid = (low + high) / 2;
-  const range = high - low;
-  
-  if (tendency === "normal") {
-    // Normal: range'in ortasında, hafif varyans
-    return Math.round((mid + (Math.random() - 0.5) * range * 0.4) * 100) / 100;
-  } else if (tendency === "yuksek") {
-    // Yüksek: üst sınıra yakın
-    return Math.round((high + range * (Math.random() * 0.3)) * 100) / 100;
-  } else {
-    // Düşük: alt sınıra yakın
-    return Math.round((low - range * (Math.random() * 0.3)) * 100) / 100;
+function getMergedRules(): Record<string, DiseaseRule[]> {
+  try {
+    const active = getActiveRules();
+    if (!active || active.length === 0) return FALLBACK_RULES;
+
+    const merged: Record<string, DiseaseRule[]> = {};
+    for (const r of active) {
+      if (!merged[r.testKey]) merged[r.testKey] = [];
+      merged[r.testKey].push({
+        disease: r.diseaseKey,
+        tendency: r.tendency as Tendency,
+        factor: r.factor,
+      });
+    }
+    return merged;
+  } catch {
+    return FALLBACK_RULES;
   }
 }
 
-function profileTendency(testCode: string, profile: ClinicalProfile): "normal" | "yuksek" | "dusuk" {
-  const dx = profile.diagnoses[0] || "";
-  const cm = profile.comorbidities.join(",");
-
-  // Hastalığa özel pattern'ler
-  const patterns: Record<string, Record<string, "yuksek" | "dusuk">> = {
-    GLUKOZ: { "tip2-dm": "yuksek", diyabet: "yuksek", hipoglisemi: "dusuk" },
-    HBA1C: { "tip2-dm": "yuksek", diyabet: "yuksek" },
-    TROPONIN: { stemi: "yuksek", nstemi: "yuksek", "kalp-yetmezligi": "yuksek" },
-    BNP: { "kalp-yetmezligi": "yuksek", stemi: "yuksek" },
-    KREATININ: { kbh: "yuksek", abh: "yuksek", "ckd-ev3": "yuksek" },
-    BUN: { kbh: "yuksek", abh: "yuksek" },
-    TSH: { hipotiroidi: "yuksek", hipertiroidi: "dusuk" },
-    FT4: { hipotiroidi: "dusuk", hipertiroidi: "yuksek" },
-    CRP: { pnömoni: "yuksek", "akut-apandisit": "yuksek", enfeksiyon: "yuksek" },
-    WBC: { pnömoni: "yuksek", "akut-apandisit": "yuksek", enfeksiyon: "yuksek" },
-    AMILAZ: { "akut-pankreatit": "yuksek", pankreatit: "yuksek" },
-    LIPAZ: { "akut-pankreatit": "yuksek", pankreatit: "yuksek" },
-    HGB: { anemi: "dusuk", "demir-eksikligi-anemisi": "dusuk" },
-    ALT: { hepatit: "yuksek", "akut-kolesistit": "yuksek" },
-    AST: { hepatit: "yuksek", "akut-kolesistit": "yuksek" },
-    TBIL: { hepatit: "yuksek", "koledokolitiazis": "yuksek" },
-    DDIMER: { dvt: "yuksek", "pulmoner-emboli": "yuksek" },
-    LACTATE: { sepsis: "yuksek", sok: "yuksek" },
-    NA: { diyabet: "yuksek", "tip2-dm": "yuksek" },
-    PH: { "koah-eks": "dusuk", pnömoni: "dusuk", astim: "dusuk" },
-    PCO2: { "koah-eks": "yuksek" },
-    PO2: { pnömoni: "dusuk", "koah-eks": "dusuk", astim: "dusuk" },
-    ALBUMIN: { siroz: "dusuk", hepatit: "dusuk", nefrotik: "dusuk" },
-    U_PROTEIN: { kbh: "yuksek", nefrotik: "yuksek", preeklampsi: "yuksek" },
-    PLT: { preeklampsi: "dusuk", sepsis: "dusuk", "demir-eksikligi-anemisi": "yuksek" },
-    K: { kbh: "yuksek", abh: "yuksek" },
-    CA: { "meme-ca": "yuksek", "akciger-ca": "yuksek" },
-    GFR: { kbh: "dusuk", abh: "dusuk" },
-  };
-
-  const diseasePatterns = patterns[testCode] || {};
-  
-  // Önce tanıya bak
-  if (dx && diseasePatterns[dx]) return diseasePatterns[dx];
-  
-  // Sonra komorbiditelere
-  for (const d of Object.keys(diseasePatterns)) {
-    if (cm.includes(d)) return diseasePatterns[d];
+function getDiseaseAliases(): Record<string, string> {
+  try {
+    return getActiveAliases();
+  } catch {
+    return {};
   }
-
-  return "normal";
 }
 
-// ─── Ana Motor Fonksiyonu ───
+// ═══════════════════════════════
+// Disease prevalence adjustments
+// ═══════════════════════════════
+
+function matchDisease(profile: ClinicalProfile): string | undefined {
+  const { diagnoses, comorbidities, hastalikKey } = profile;
+  const rules = getMergedRules();
+  const aliasMap = getDiseaseAliases();
+
+  // Collect all disease keys that have rules
+  const diseasesWithRules = new Set<string>();
+  for (const [, diseaseRules] of Object.entries(rules)) {
+    for (const r of diseaseRules) {
+      diseasesWithRules.add(r.disease);
+    }
+  }
+  const diseaseKeysArr = Array.from(diseasesWithRules);
+
+  // Check hastalikKey first (most specific)
+  if (hastalikKey) {
+    const canon = aliasMap[hastalikKey] || hastalikKey;
+    if (diseasesWithRules.has(canon)) return canon;
+  }
+
+  // Check diagnoses
+  for (const dx of diagnoses) {
+    const canon = aliasMap[dx] || dx;
+    if (diseasesWithRules.has(canon)) return canon;
+    for (const key of diseaseKeysArr) {
+      if (dx.toLowerCase().includes(key) || key.includes(dx.toLowerCase())) return key;
+    }
+  }
+
+  // Check comorbidities
+  for (const cm of comorbidities) {
+    const canon = aliasMap[cm] || cm;
+    if (diseasesWithRules.has(canon)) return canon;
+  }
+
+  return undefined;
+}
+
+// ═══════════════════════════════════════════════════════
+// Main Motor
+// ═══════════════════════════════════════════════════════
+
 export function getLabResult(
   testKey: string,
   profile: ClinicalProfile,
   statikTestler?: Record<string, TestSonucu>
 ): TestSonucu | null {
-  // Katman 1: Statik test varsa direkt dön
+  // ── Layer 1: Case-specific static override ──
   if (statikTestler?.[testKey]) {
     return statikTestler[testKey];
   }
 
-  // Katman 2: Lab motoru ile üret
-  const def = LAB_CATALOGUE[testKey];
-  if (!def) return null;
+  // ── Layer 2: Rule engine — disease → abnormal value ──
+  const disease = matchDisease(profile);
+  const rules = getMergedRules();
+  const testRules = rules[testKey];
 
-  // Panel/rapor tipi testler — text sonuç döner
-  if (def.unit === "panel" || def.unit === "rapor") {
-    const panelDescriptions: Record<string, string> = {
-      ABG: "pH:7.38, pCO2:42, pO2:88, HCO3:24 — normal kan gazı",
-      ELEKTROLIT: "Na:140, K:4.2, Cl:103, Ca:9.5, Mg:2.0 — normal",
-      IDRAR: "Dansite:1020, pH:6.0, protein:negatif, glukoz:negatif — normal",
-      KOLESTEROL: "Total:195, LDL:120, HDL:50, TG:140 mg/dL — normal",
-      EKG: "Sinüs ritmi, HR:78, normal aks, ST/T normal",
-      AKCIGER_GRAFISI: "PA Akciğer: normal, infiltrasyon yok",
-      MAMOGRAFI: "Bilateral mamografi: normal, BIRADS 1",
-      MEME_USG: "Meme USG: normal, kitle yok",
-      BT_TORAKS: "Toraks BT: normal, mediasten normal",
-      BIYOPSI: "Biyopsi: yetersiz materyal",
-      BT_ABDOMEN: "BT Abdomen: normal, organomegali yok",
-      BT_KRANIYAL: "BT Kraniyal: normal, kanama yok",
-      USG_ABDOMEN: "USG Abdomen: normal, safra kesesi normal",
-      PELVIK_USG: "Pelvik USG: normal, uterus ve overler normal",
-      KARACIGER_ENZIM: "ALT:28, AST:32, ALP:85, GGT:35, TBil:0.8 — normal",
-    };
-    const desc = panelDescriptions[testKey] || `${def.name} — normal bulgular`;
-    return {
-      testKey, testAdi: def.name, tip: "text" as const,
-      sonuc: desc,
-      referans: "TIP-AI Lab Motoru",
-      yorum: `${def.name} normal sınırlarda.`,
-    };
+  if (disease && testRules) {
+    const matchedRule = testRules.find((r) => r.disease === disease)
+      || testRules[0]; // fallback to the first matching rule
+
+    const entry = getReferenceEntry(testKey);
+    if (entry && entry.tip === "numeric") {
+      const result = generateAbnormalValue(
+        testKey,
+        profile.sex,
+        matchedRule?.tendency || "yuksek",
+        matchedRule?.factor
+      );
+      if (result) return result;
+    }
   }
 
-  const tendency = profileTendency(testKey, profile);
-  const value = sampleFromRange(def.refLow, def.refHigh, tendency);
+  // ── Layer 3: Global reference library — normal value ──
+  const normalResult = generateNormalValue(testKey, profile.sex);
+  if (normalResult) return normalResult;
 
-  const refStr = `${def.refLow}-${def.refHigh} ${def.unit}`;
-  const statusText = tendency === "normal" ? "normal sınırlarda" : tendency === "yuksek" ? "yüksek" : "düşük";
-
-  return {
-    testKey,
-    testAdi: def.name,
-    tip: "numeric",
-    sonuc: {
-      deger: value,
-      birim: def.unit,
-      referansAralik: refStr,
-    },
-    referans: "TIP-AI Lab Motoru",
-    yorum: `${def.name} ${statusText} (${refStr}).`,
-  };
+  // ── Layer 4: Unknown test — log + null ──
+  console.warn(
+    `[getLabResult] Unknown test key: "${testKey}". Consider adding it to lab-reference-library.json.`,
+    { testKey, profile: profile.hastalikKey }
+  );
+  return null;
 }
 
-// Tüm hastalık testlerini tek seferde üret
+// ═══════════════════════════════════════════════════════
+// Full panel generator
+// ═══════════════════════════════════════════════════════
+
 export function generateFullPanel(
   diagnosis: string,
   profile: ClinicalProfile,
   existingTests?: Record<string, TestSonucu>
 ): Record<string, TestSonucu> {
   const panel: Record<string, TestSonucu> = { ...existingTests };
-  const relevantTests = HASTALIK_TEST_MAP[diagnosis] || [];
+  const canonDiagnosis = (getDiseaseAliases() || {})[diagnosis] || diagnosis;
+  const relevantTests = HASTALIK_TEST_MAP[canonDiagnosis] || HASTALIK_TEST_MAP[diagnosis] || [];
 
   for (const testKey of relevantTests) {
     if (panel[testKey]) continue;
@@ -167,4 +302,16 @@ export function generateFullPanel(
   }
 
   return panel;
+}
+
+// ═══════════════════════════════════════════════════════
+// Utility: list all known test keys
+// ═══════════════════════════════════════════════════════
+
+export function getKnownTestKeys(): string[] {
+  return getAllTestKeys();
+}
+
+export function isTestKnown(testKey: string): boolean {
+  return !!getReferenceEntry(testKey);
 }

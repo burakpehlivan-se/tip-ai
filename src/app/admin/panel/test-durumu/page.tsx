@@ -33,11 +33,43 @@ interface PipelineData {
   scan: ScanReport;
 }
 
+interface OverrideReport {
+  vakaId: string;
+  hastalikAdi: string;
+  poliklinikKey: string;
+  totalStaticTests: number;
+  summary: {
+    total: number;
+    removableCount: number;
+    keepCount: number;
+    unknownCount: number;
+    reductionPercent: number;
+  };
+  removable: Array<{ testKey: string; testAdi: string; reason: string }>;
+  keep: Array<{ testKey: string; testAdi: string; reason: string }>;
+}
+
+interface OverrideData {
+  reports: OverrideReport[];
+  grandTotal: {
+    totalCases: number;
+    totalStaticTests: number;
+    totalRemovable: number;
+    totalKeep: number;
+    totalUnknown: number;
+    overallReductionPercent: number;
+  };
+}
+
 export default function TestDurumuPage() {
   const [data, setData] = useState<PipelineData | null>(null);
   const [loading, setLoading] = useState(true);
   const [filling, setFilling] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [overrideData, setOverrideData] = useState<OverrideData | null>(null);
+  const [overrideLoading, setOverrideLoading] = useState(false);
+  const [overrideMsg, setOverrideMsg] = useState<string | null>(null);
+  const [overrideApplying, setOverrideApplying] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -53,6 +85,44 @@ export default function TestDurumuPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  async function handleOverrideAnalyze() {
+    setOverrideLoading(true);
+    setOverrideMsg(null);
+    try {
+      const res = await fetch("/api/admin/cases/analyze-overrides");
+      const json = (await res.json()) as OverrideData;
+      setOverrideData(json);
+    } catch (e) {
+      setOverrideMsg("Override analizi başarısız: " + String(e));
+    } finally {
+      setOverrideLoading(false);
+    }
+  }
+
+  async function handleOverrideApply() {
+    setOverrideApplying(true);
+    setOverrideMsg(null);
+    try {
+      const res = await fetch("/api/admin/cases/apply-overrides", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ dryRun: false }),
+      });
+      const json = await res.json();
+      if (json.dryRun === false) {
+        setOverrideMsg(
+          `${json.totalMigrated} vaka güncellendi · ${json.totalRemoved} test temizlendi · ${json.totalKept} test korundu.`
+        );
+      } else {
+        setOverrideMsg(json.message || String(json.error));
+      }
+    } catch (e) {
+      setOverrideMsg("Override uygulama başarısız: " + String(e));
+    } finally {
+      setOverrideApplying(false);
+    }
+  }
 
   async function handleFill() {
     setFilling(true);
@@ -201,6 +271,114 @@ export default function TestDurumuPage() {
               </div>
             ))}
           </div>
+        )}
+      </div>
+
+      {/* ── Phase 2: Override Analizi ── */}
+      <hr className="mt-8 border-hairline-soft" />
+      <div className="mt-6">
+        <h2 className="text-heading-4 font-semibold text-ink">
+          Override Analizi (Faz 2)
+        </h2>
+        <p className="mt-1 text-sm text-steel">
+          Her vakanın statikTestler alanını referans kütüphanesiyle karşılaştırır.
+          Normal değerler otomatik üretilebildiği için statikTestler&apos;den
+          çıkarılabilir.
+        </p>
+
+        <div className="mt-4 flex items-center gap-3">
+          <button
+            className="btn-accent"
+            onClick={handleOverrideAnalyze}
+            disabled={overrideLoading}
+          >
+            {overrideLoading ? "Analiz ediliyor…" : "Override analizi yap"}
+          </button>
+          {overrideData && (
+            <button
+              className="btn-secondary text-xs"
+              onClick={handleOverrideApply}
+              disabled={overrideApplying}
+            >
+              {overrideApplying
+                ? "Uygulanıyor…"
+                : `Temizliği uygula (${overrideData.grandTotal.totalRemovable} test)`}
+            </button>
+          )}
+        </div>
+
+        {overrideMsg && (
+          <div className="mt-3 rounded-lg border border-hairline bg-surface-soft p-3 text-sm text-ink">
+            {overrideMsg}
+          </div>
+        )}
+
+        {overrideData && (
+          <>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+              <Card
+                label="Taranan vaka"
+                value={overrideData.grandTotal.totalCases}
+              />
+              <Card
+                label="Toplam statik test"
+                value={overrideData.grandTotal.totalStaticTests}
+              />
+              <Card
+                label="Silinebilir (ref var)"
+                value={overrideData.grandTotal.totalRemovable}
+                accent="orange"
+              />
+              <Card
+                label="Azalma"
+                value={`%${overrideData.grandTotal.overallReductionPercent}`}
+                accent="brand"
+              />
+            </div>
+
+            <div className="mt-6 space-y-4">
+              {overrideData.reports
+                .filter((r) => r.totalStaticTests > 0)
+                .map((r) => (
+                  <div
+                    key={r.vakaId}
+                    className="rounded-lg border border-hairline-soft bg-surface-soft p-4"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <span className="text-sm font-medium text-ink">
+                          {r.hastalikAdi}
+                        </span>
+                        <span className="ml-2 text-xs text-steel">
+                          {r.vakaId}
+                        </span>
+                      </div>
+                      <div className="flex gap-2 text-xs">
+                        {r.summary.removableCount > 0 && (
+                          <span className="rounded-full bg-clinical-orange/15 px-2 py-0.5 text-clinical-orange">
+                            {r.summary.removableCount} silinebilir
+                          </span>
+                        )}
+                        <span className="rounded-full bg-surface px-2 py-0.5 text-steel">
+                          {r.summary.keepCount} korunacak
+                        </span>
+                      </div>
+                    </div>
+
+                    {r.removable.length > 0 && (
+                      <div className="mt-2 text-xs text-steel">
+                        <span className="font-medium text-clinical-orange">
+                          Referansla karşılanabilir:{" "}
+                        </span>
+                        {r.removable
+                          .map((x) => `${x.testAdi} (${x.reason})`)
+                          .join(" · ")}
+                      </div>
+                    )}
+                  </div>
+                ))}
+            </div>
+          </>
         )}
       </div>
     </div>

@@ -1,0 +1,749 @@
+{
+  "$schema": "TIP-AI CDM v2 — Lab Reference Library",
+  "$description": "Global test referans kütüphanesi. tip alanı her test için sabittir, vaka override edemez.",
+  "tests": {
+    "CBC": {
+      "testAdi": "Hemogram",
+      "tip": "json",
+      "birim": "panel",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": {
+        "erkek": { "WBC": 7.2, "RBC": 5.0, "HGB": 14.8, "HCT": 44, "MCV": 90, "PLT": 250, "NEUT": 58, "LYMPH": 32, "EOS": 2 },
+        "kadin": { "WBC": 7.0, "RBC": 4.5, "HGB": 13.2, "HCT": 40, "MCV": 89, "PLT": 270, "NEUT": 56, "LYMPH": 34, "EOS": 2 }
+      },
+      "yorumMetni": "Hemogram normal sınırlarda."
+    },
+    "WBC": {
+      "testAdi": "Lökosit",
+      "tip": "numeric",
+      "birim": "K/uL",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": { "tumHastalar": { "min": 4.0, "max": 11.0, "tipikDeger": 7.0 } },
+      "kritikEsikler": { "ust": 30 },
+      "yorumMetni": "Lökosit: {deger} K/uL (Normal: 4.0-11.0)"
+    },
+    "RBC": {
+      "testAdi": "Eritrosit",
+      "tip": "numeric",
+      "birim": "M/uL",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": {
+        "erkek": { "min": 4.5, "max": 5.9, "tipikDeger": 5.2 },
+        "kadin": { "min": 4.2, "max": 5.4, "tipikDeger": 4.8 }
+      },
+      "kritikEsikler": { "alt": 2.0 },
+      "yorumMetni": "Eritrosit: {deger} M/uL (Normal: {ref})"
+    },
+    "HGB": {
+      "testAdi": "Hemoglobin",
+      "tip": "numeric",
+      "birim": "g/dL",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": {
+        "erkek": { "min": 13.5, "max": 17.0, "tipikDeger": 15.0 },
+        "kadin": { "min": 12.0, "max": 15.5, "tipikDeger": 13.5 }
+      },
+      "kritikEsikler": { "alt": 7.0 },
+      "yorumMetni": "Hemoglobin: {deger} g/dL (Normal: {ref})"
+    },
+    "HCT": {
+      "testAdi": "Hematokrit",
+      "tip": "numeric",
+      "birim": "%",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": {
+        "erkek": { "min": 39, "max": 50, "tipikDeger": 45 },
+        "kadin": { "min": 36, "max": 45, "tipikDeger": 40 }
+      },
+      "kritikEsikler": { "alt": 20 },
+      "yorumMetni": "Hematokrit: {deger}% (Normal: {ref})"
+    },
+    "MCV": {
+      "testAdi": "MCV",
+      "tip": "numeric",
+      "birim": "fL",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": { "tumHastalar": { "min": 80, "max": 100, "tipikDeger": 90 } },
+      "yorumMetni": "MCV: {deger} fL (Normal: 80-100)"
+    },
+    "PLT": {
+      "testAdi": "Trombosit",
+      "tip": "numeric",
+      "birim": "K/uL",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": { "tumHastalar": { "min": 150, "max": 450, "tipikDeger": 250 } },
+      "kritikEsikler": { "alt": 20, "ust": 1000 },
+      "yorumMetni": "Trombosit: {deger} K/uL (Normal: 150-450)"
+    },
+    "NEUT": {
+      "testAdi": "Nötrofil",
+      "tip": "numeric",
+      "birim": "%",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": { "tumHastalar": { "min": 40, "max": 75, "tipikDeger": 58 } },
+      "yorumMetni": "Nötrofil: {deger}% (Normal: 40-75)"
+    },
+    "LYMPH": {
+      "testAdi": "Lenfosit",
+      "tip": "numeric",
+      "birim": "%",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": { "tumHastalar": { "min": 20, "max": 45, "tipikDeger": 33 } },
+      "yorumMetni": "Lenfosit: {deger}% (Normal: 20-45)"
+    },
+    "EOS": {
+      "testAdi": "Eozinofil",
+      "tip": "numeric",
+      "birim": "%",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 6, "tipikDeger": 2 } },
+      "yorumMetni": "Eozinofil: {deger}% (Normal: 0-6)"
+    },
+    "FERITIN": {
+      "testAdi": "Ferritin",
+      "tip": "numeric",
+      "birim": "ng/mL",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": {
+        "erkek": { "min": 30, "max": 300, "tipikDeger": 120 },
+        "kadin": { "min": 15, "max": 150, "tipikDeger": 60 }
+      },
+      "yorumMetni": "Ferritin: {deger} ng/mL (Normal: {ref})"
+    },
+    "DEMIR": {
+      "testAdi": "Serum Demir",
+      "tip": "numeric",
+      "birim": "mcg/dL",
+      "kategori": "Hematoloji",
+      "varsayilanDeger": { "tumHastalar": { "min": 60, "max": 170, "tipikDeger": 100 } },
+      "yorumMetni": "Serum Demir: {deger} mcg/dL (Normal: 60-170)"
+    },
+    "PT": {
+      "testAdi": "Protrombin Zamanı",
+      "tip": "numeric",
+      "birim": "sn",
+      "kategori": "Koagülasyon",
+      "varsayilanDeger": { "tumHastalar": { "min": 11, "max": 14, "tipikDeger": 12.5 } },
+      "kritikEsikler": { "ust": 30 },
+      "yorumMetni": "PT: {deger} sn (Normal: 11-14)"
+    },
+    "PTT": {
+      "testAdi": "aPTT",
+      "tip": "numeric",
+      "birim": "sn",
+      "kategori": "Koagülasyon",
+      "varsayilanDeger": { "tumHastalar": { "min": 25, "max": 38, "tipikDeger": 31 } },
+      "kritikEsikler": { "ust": 80 },
+      "yorumMetni": "aPTT: {deger} sn (Normal: 25-38)"
+    },
+    "INR": {
+      "testAdi": "INR",
+      "tip": "numeric",
+      "birim": "",
+      "kategori": "Koagülasyon",
+      "varsayilanDeger": { "tumHastalar": { "min": 0.9, "max": 1.2, "tipikDeger": 1.0 } },
+      "kritikEsikler": { "ust": 4.0 },
+      "yorumMetni": "INR: {deger} (Normal: 0.9-1.2)"
+    },
+    "FIBRINOGEN": {
+      "testAdi": "Fibrinojen",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Koagülasyon",
+      "varsayilanDeger": { "tumHastalar": { "min": 200, "max": 400, "tipikDeger": 300 } },
+      "kritikEsikler": { "alt": 100 },
+      "yorumMetni": "Fibrinojen: {deger} mg/dL (Normal: 200-400)"
+    },
+    "DDIMER": {
+      "testAdi": "D-Dimer",
+      "tip": "numeric",
+      "birim": "ng/mL",
+      "kategori": "Koagülasyon",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 500, "tipikDeger": 150 } },
+      "yorumMetni": "D-Dimer: {deger} ng/mL (Normal: <500)"
+    },
+    "TROPONIN": {
+      "testAdi": "Troponin I",
+      "tip": "numeric",
+      "birim": "ng/mL",
+      "kategori": "Kardiyak",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 0.04, "tipikDeger": 0.01 } },
+      "kritikEsikler": { "ust": 1.0 },
+      "yorumMetni": "Troponin I: {deger} ng/mL (Normal: <0.04)"
+    },
+    "CKMB": {
+      "testAdi": "CK-MB",
+      "tip": "numeric",
+      "birim": "ng/mL",
+      "kategori": "Kardiyak",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 5, "tipikDeger": 2 } },
+      "kritikEsikler": { "ust": 25 },
+      "yorumMetni": "CK-MB: {deger} ng/mL (Normal: <5)"
+    },
+    "BNP": {
+      "testAdi": "BNP",
+      "tip": "numeric",
+      "birim": "pg/mL",
+      "kategori": "Kardiyak",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 100, "tipikDeger": 35 } },
+      "kritikEsikler": { "ust": 500 },
+      "yorumMetni": "BNP: {deger} pg/mL (Normal: <100)"
+    },
+    "MYOGLOBIN": {
+      "testAdi": "Miyoglobin",
+      "tip": "numeric",
+      "birim": "ng/mL",
+      "kategori": "Kardiyak",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 90, "tipikDeger": 30 } },
+      "yorumMetni": "Miyoglobin: {deger} ng/mL (Normal: <90)"
+    },
+    "KREATININ_KINAZ": {
+      "testAdi": "Kreatinin Kinaz",
+      "tip": "numeric",
+      "birim": "U/L",
+      "kategori": "Kardiyak",
+      "varsayilanDeger": { "tumHastalar": { "min": 30, "max": 200, "tipikDeger": 100 } },
+      "yorumMetni": "CK: {deger} U/L (Normal: 30-200)"
+    },
+    "ALT": {
+      "testAdi": "ALT",
+      "tip": "numeric",
+      "birim": "U/L",
+      "kategori": "Karaciğer",
+      "varsayilanDeger": { "tumHastalar": { "min": 10, "max": 40, "tipikDeger": 25 } },
+      "kritikEsikler": { "ust": 1000 },
+      "yorumMetni": "ALT: {deger} U/L (Normal: 10-40)"
+    },
+    "AST": {
+      "testAdi": "AST",
+      "tip": "numeric",
+      "birim": "U/L",
+      "kategori": "Karaciğer",
+      "varsayilanDeger": { "tumHastalar": { "min": 10, "max": 40, "tipikDeger": 24 } },
+      "kritikEsikler": { "ust": 1000 },
+      "yorumMetni": "AST: {deger} U/L (Normal: 10-40)"
+    },
+    "ALP": {
+      "testAdi": "Alkalen Fosfataz",
+      "tip": "numeric",
+      "birim": "U/L",
+      "kategori": "Karaciğer",
+      "varsayilanDeger": { "tumHastalar": { "min": 40, "max": 130, "tipikDeger": 85 } },
+      "yorumMetni": "ALP: {deger} U/L (Normal: 40-130)"
+    },
+    "GGT": {
+      "testAdi": "GGT",
+      "tip": "numeric",
+      "birim": "U/L",
+      "kategori": "Karaciğer",
+      "varsayilanDeger": { "tumHastalar": { "min": 5, "max": 40, "tipikDeger": 22 } },
+      "yorumMetni": "GGT: {deger} U/L (Normal: 5-40)"
+    },
+    "TBIL": {
+      "testAdi": "Total Bilirubin",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Karaciğer",
+      "varsayilanDeger": { "tumHastalar": { "min": 0.3, "max": 1.2, "tipikDeger": 0.7 } },
+      "kritikEsikler": { "ust": 15 },
+      "yorumMetni": "Total Bilirubin: {deger} mg/dL (Normal: 0.3-1.2)"
+    },
+    "DBIL": {
+      "testAdi": "Direkt Bilirubin",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Karaciğer",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 0.3, "tipikDeger": 0.1 } },
+      "yorumMetni": "Direkt Bilirubin: {deger} mg/dL (Normal: <0.3)"
+    },
+    "ALBUMIN": {
+      "testAdi": "Albumin",
+      "tip": "numeric",
+      "birim": "g/dL",
+      "kategori": "Karaciğer",
+      "varsayilanDeger": { "tumHastalar": { "min": 3.5, "max": 5.0, "tipikDeger": 4.2 } },
+      "kritikEsikler": { "alt": 2.0 },
+      "yorumMetni": "Albumin: {deger} g/dL (Normal: 3.5-5.0)"
+    },
+    "KREATININ": {
+      "testAdi": "Kreatinin",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Böbrek",
+      "varsayilanDeger": {
+        "erkek": { "min": 0.7, "max": 1.3, "tipikDeger": 1.0 },
+        "kadin": { "min": 0.6, "max": 1.1, "tipikDeger": 0.85 }
+      },
+      "kritikEsikler": { "ust": 7.0 },
+      "yorumMetni": "Kreatinin: {deger} mg/dL (Normal: {ref})"
+    },
+    "BUN": {
+      "testAdi": "BUN",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Böbrek",
+      "varsayilanDeger": { "tumHastalar": { "min": 7, "max": 20, "tipikDeger": 13 } },
+      "kritikEsikler": { "ust": 80 },
+      "yorumMetni": "BUN: {deger} mg/dL (Normal: 7-20)"
+    },
+    "URE": {
+      "testAdi": "Üre (BUN)",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Böbrek",
+      "varsayilanDeger": { "tumHastalar": { "min": 7, "max": 20, "tipikDeger": 13 } },
+      "kritikEsikler": { "ust": 80 },
+      "yorumMetni": "Üre: {deger} mg/dL (Normal: 7-20)"
+    },
+    "GFR": {
+      "testAdi": "eGFR",
+      "tip": "numeric",
+      "birim": "mL/dk",
+      "kategori": "Böbrek",
+      "varsayilanDeger": { "tumHastalar": { "min": 90, "max": 120, "tipikDeger": 105 } },
+      "kritikEsikler": { "alt": 15 },
+      "yorumMetni": "eGFR: {deger} mL/dk (Normal: >90)"
+    },
+    "URIC_ACID": {
+      "testAdi": "Ürik Asit",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Böbrek",
+      "varsayilanDeger": {
+        "erkek": { "min": 3.5, "max": 7.2, "tipikDeger": 5.5 },
+        "kadin": { "min": 2.6, "max": 6.0, "tipikDeger": 4.5 }
+      },
+      "yorumMetni": "Ürik Asit: {deger} mg/dL (Normal: {ref})"
+    },
+    "NA": {
+      "testAdi": "Sodyum",
+      "tip": "numeric",
+      "birim": "mmol/L",
+      "kategori": "Elektrolit",
+      "varsayilanDeger": { "tumHastalar": { "min": 135, "max": 145, "tipikDeger": 140 } },
+      "kritikEsikler": { "alt": 120, "ust": 160 },
+      "yorumMetni": "Na: {deger} mmol/L (Normal: 135-145)"
+    },
+    "K": {
+      "testAdi": "Potasyum",
+      "tip": "numeric",
+      "birim": "mmol/L",
+      "kategori": "Elektrolit",
+      "varsayilanDeger": { "tumHastalar": { "min": 3.5, "max": 5.1, "tipikDeger": 4.2 } },
+      "kritikEsikler": { "alt": 2.5, "ust": 6.5 },
+      "yorumMetni": "K: {deger} mmol/L (Normal: 3.5-5.1)"
+    },
+    "CL": {
+      "testAdi": "Klor",
+      "tip": "numeric",
+      "birim": "mmol/L",
+      "kategori": "Elektrolit",
+      "varsayilanDeger": { "tumHastalar": { "min": 98, "max": 107, "tipikDeger": 103 } },
+      "yorumMetni": "Cl: {deger} mmol/L (Normal: 98-107)"
+    },
+    "CA": {
+      "testAdi": "Kalsiyum",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Elektrolit",
+      "varsayilanDeger": { "tumHastalar": { "min": 8.5, "max": 10.5, "tipikDeger": 9.5 } },
+      "kritikEsikler": { "alt": 6.5, "ust": 13 },
+      "yorumMetni": "Ca: {deger} mg/dL (Normal: 8.5-10.5)"
+    },
+    "MG": {
+      "testAdi": "Magnezyum",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Elektrolit",
+      "varsayilanDeger": { "tumHastalar": { "min": 1.7, "max": 2.2, "tipikDeger": 2.0 } },
+      "kritikEsikler": { "alt": 1.0 },
+      "yorumMetni": "Mg: {deger} mg/dL (Normal: 1.7-2.2)"
+    },
+    "PHOS": {
+      "testAdi": "Fosfor",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Elektrolit",
+      "varsayilanDeger": { "tumHastalar": { "min": 2.5, "max": 4.5, "tipikDeger": 3.5 } },
+      "yorumMetni": "Fosfor: {deger} mg/dL (Normal: 2.5-4.5)"
+    },
+    "GLUKOZ": {
+      "testAdi": "Glukoz",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Metabolik",
+      "varsayilanDeger": { "tumHastalar": { "min": 70, "max": 100, "tipikDeger": 88 } },
+      "kritikEsikler": { "alt": 40, "ust": 400 },
+      "yorumMetni": "Glukoz: {deger} mg/dL (Normal: 70-100)"
+    },
+    "HBA1C": {
+      "testAdi": "HbA1c",
+      "tip": "numeric",
+      "birim": "%",
+      "kategori": "Metabolik",
+      "varsayilanDeger": { "tumHastalar": { "min": 4.0, "max": 5.7, "tipikDeger": 5.1 } },
+      "kritikEsikler": { "ust": 14 },
+      "yorumMetni": "HbA1c: {deger}% (Normal: <5.7)"
+    },
+    "LACTATE": {
+      "testAdi": "Laktat",
+      "tip": "numeric",
+      "birim": "mmol/L",
+      "kategori": "Metabolik",
+      "varsayilanDeger": { "tumHastalar": { "min": 0.5, "max": 2.2, "tipikDeger": 1.2 } },
+      "kritikEsikler": { "ust": 4.0 },
+      "yorumMetni": "Laktat: {deger} mmol/L (Normal: 0.5-2.2)"
+    },
+    "AMMONIA": {
+      "testAdi": "Amonyak",
+      "tip": "numeric",
+      "birim": "mcg/dL",
+      "kategori": "Metabolik",
+      "varsayilanDeger": { "tumHastalar": { "min": 15, "max": 45, "tipikDeger": 28 } },
+      "kritikEsikler": { "ust": 100 },
+      "yorumMetni": "Amonyak: {deger} mcg/dL (Normal: 15-45)"
+    },
+    "CHOL": {
+      "testAdi": "Total Kolesterol",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Lipid",
+      "varsayilanDeger": { "tumHastalar": { "min": 125, "max": 200, "tipikDeger": 175 } },
+      "yorumMetni": "Total Kolesterol: {deger} mg/dL (Normal: <200)"
+    },
+    "LDL": {
+      "testAdi": "LDL",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Lipid",
+      "varsayilanDeger": { "tumHastalar": { "min": 60, "max": 130, "tipikDeger": 100 } },
+      "yorumMetni": "LDL: {deger} mg/dL (Normal: <130)"
+    },
+    "HDL": {
+      "testAdi": "HDL",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Lipid",
+      "varsayilanDeger": {
+        "erkek": { "min": 35, "max": 55, "tipikDeger": 45 },
+        "kadin": { "min": 45, "max": 65, "tipikDeger": 55 }
+      },
+      "yorumMetni": "HDL: {deger} mg/dL (Normal: {ref})"
+    },
+    "TRIG": {
+      "testAdi": "Trigliserit",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "Lipid",
+      "varsayilanDeger": { "tumHastalar": { "min": 50, "max": 150, "tipikDeger": 110 } },
+      "yorumMetni": "Trigliserit: {deger} mg/dL (Normal: <150)"
+    },
+    "CRP": {
+      "testAdi": "CRP",
+      "tip": "numeric",
+      "birim": "mg/L",
+      "kategori": "Enflamasyon",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 5, "tipikDeger": 1.5 } },
+      "kritikEsikler": { "ust": 200 },
+      "yorumMetni": "CRP: {deger} mg/L (Normal: <5)"
+    },
+    "ESR": {
+      "testAdi": "Sedimentasyon",
+      "tip": "numeric",
+      "birim": "mm/saat",
+      "kategori": "Enflamasyon",
+      "varsayilanDeger": {
+        "erkek": { "min": 0, "max": 15, "tipikDeger": 8 },
+        "kadin": { "min": 0, "max": 20, "tipikDeger": 12 }
+      },
+      "yorumMetni": "Sedimentasyon: {deger} mm/saat (Normal: {ref})"
+    },
+    "PROCT": {
+      "testAdi": "Prokalsitonin",
+      "tip": "numeric",
+      "birim": "ng/mL",
+      "kategori": "Enflamasyon",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 0.5, "tipikDeger": 0.1 } },
+      "kritikEsikler": { "ust": 10 },
+      "yorumMetni": "Prokalsitonin: {deger} ng/mL (Normal: <0.5)"
+    },
+    "AMILAZ": {
+      "testAdi": "Amilaz",
+      "tip": "numeric",
+      "birim": "U/L",
+      "kategori": "Pankreas",
+      "varsayilanDeger": { "tumHastalar": { "min": 30, "max": 110, "tipikDeger": 65 } },
+      "kritikEsikler": { "ust": 500 },
+      "yorumMetni": "Amilaz: {deger} U/L (Normal: 30-110)"
+    },
+    "LIPAZ": {
+      "testAdi": "Lipaz",
+      "tip": "numeric",
+      "birim": "U/L",
+      "kategori": "Pankreas",
+      "varsayilanDeger": { "tumHastalar": { "min": 10, "max": 60, "tipikDeger": 30 } },
+      "kritikEsikler": { "ust": 300 },
+      "yorumMetni": "Lipaz: {deger} U/L (Normal: 10-60)"
+    },
+    "TSH": {
+      "testAdi": "TSH",
+      "tip": "numeric",
+      "birim": "mIU/L",
+      "kategori": "Tiroid",
+      "varsayilanDeger": { "tumHastalar": { "min": 0.4, "max": 4.0, "tipikDeger": 2.1 } },
+      "kritikEsikler": { "ust": 30 },
+      "yorumMetni": "TSH: {deger} mIU/L (Normal: 0.4-4.0)"
+    },
+    "FT4": {
+      "testAdi": "Serbest T4",
+      "tip": "numeric",
+      "birim": "ng/dL",
+      "kategori": "Tiroid",
+      "varsayilanDeger": { "tumHastalar": { "min": 0.8, "max": 1.8, "tipikDeger": 1.3 } },
+      "yorumMetni": "Serbest T4: {deger} ng/dL (Normal: 0.8-1.8)"
+    },
+    "FT3": {
+      "testAdi": "Serbest T3",
+      "tip": "numeric",
+      "birim": "pg/mL",
+      "kategori": "Tiroid",
+      "varsayilanDeger": { "tumHastalar": { "min": 2.3, "max": 4.2, "tipikDeger": 3.2 } },
+      "yorumMetni": "Serbest T3: {deger} pg/mL (Normal: 2.3-4.2)"
+    },
+    "BHCG": {
+      "testAdi": "Beta-HCG",
+      "tip": "numeric",
+      "birim": "mIU/mL",
+      "kategori": "Endokrin",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 5, "tipikDeger": 1 } },
+      "yorumMetni": "Beta-HCG: {deger} mIU/mL (Normal: <5)"
+    },
+    "PH": {
+      "testAdi": "pH (ABG)",
+      "tip": "numeric",
+      "birim": "",
+      "kategori": "ABG",
+      "varsayilanDeger": { "tumHastalar": { "min": 7.35, "max": 7.45, "tipikDeger": 7.40 } },
+      "kritikEsikler": { "alt": 7.20, "ust": 7.60 },
+      "yorumMetni": "pH: {deger} (Normal: 7.35-7.45)"
+    },
+    "PCO2": {
+      "testAdi": "pCO2",
+      "tip": "numeric",
+      "birim": "mmHg",
+      "kategori": "ABG",
+      "varsayilanDeger": { "tumHastalar": { "min": 35, "max": 45, "tipikDeger": 40 } },
+      "kritikEsikler": { "alt": 25, "ust": 65 },
+      "yorumMetni": "pCO2: {deger} mmHg (Normal: 35-45)"
+    },
+    "PO2": {
+      "testAdi": "pO2",
+      "tip": "numeric",
+      "birim": "mmHg",
+      "kategori": "ABG",
+      "varsayilanDeger": { "tumHastalar": { "min": 80, "max": 100, "tipikDeger": 92 } },
+      "kritikEsikler": { "alt": 55 },
+      "yorumMetni": "pO2: {deger} mmHg (Normal: 80-100)"
+    },
+    "HCO3": {
+      "testAdi": "HCO3",
+      "tip": "numeric",
+      "birim": "mmol/L",
+      "kategori": "ABG",
+      "varsayilanDeger": { "tumHastalar": { "min": 22, "max": 26, "tipikDeger": 24 } },
+      "kritikEsikler": { "alt": 15, "ust": 35 },
+      "yorumMetni": "HCO3: {deger} mmol/L (Normal: 22-26)"
+    },
+    "U_PH": {
+      "testAdi": "İdrar pH",
+      "tip": "numeric",
+      "birim": "",
+      "kategori": "İdrar",
+      "varsayilanDeger": { "tumHastalar": { "min": 5.0, "max": 8.0, "tipikDeger": 6.0 } },
+      "yorumMetni": "İdrar pH: {deger} (Normal: 5.0-8.0)"
+    },
+    "U_SG": {
+      "testAdi": "İdrar Dansite",
+      "tip": "numeric",
+      "birim": "",
+      "kategori": "İdrar",
+      "varsayilanDeger": { "tumHastalar": { "min": 1.005, "max": 1.030, "tipikDeger": 1.015 } },
+      "yorumMetni": "İdrar Dansite: {deger} (Normal: 1.005-1.030)"
+    },
+    "U_PROTEIN": {
+      "testAdi": "İdrar Protein",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "İdrar",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 15, "tipikDeger": 5 } },
+      "yorumMetni": "İdrar Protein: {deger} mg/dL (Normal: <15)"
+    },
+    "U_GLUKOZ": {
+      "testAdi": "İdrar Glukoz",
+      "tip": "numeric",
+      "birim": "mg/dL",
+      "kategori": "İdrar",
+      "varsayilanDeger": { "tumHastalar": { "min": 0, "max": 15, "tipikDeger": 0 } },
+      "yorumMetni": "İdrar Glukoz: {deger} mg/dL (Normal: <15)"
+    },
+    "ABG": {
+      "testAdi": "Arteriyel Kan Gazı",
+      "tip": "json",
+      "birim": "panel",
+      "kategori": "ABG",
+      "varsayilanDeger": {
+        "tumHastalar": { "pH": 7.40, "pCO2": 40, "pO2": 92, "HCO3": 24 }
+      },
+      "yorumMetni": "Kan gazı normal sınırlarda."
+    },
+    "ELEKTROLIT": {
+      "testAdi": "Elektrolit Paneli",
+      "tip": "json",
+      "birim": "panel",
+      "kategori": "Elektrolit",
+      "varsayilanDeger": {
+        "tumHastalar": { "Na": 140, "K": 4.2, "Cl": 103, "Ca": 9.5, "Mg": 2.0 }
+      },
+      "yorumMetni": "Elektrolit paneli normal sınırlarda."
+    },
+    "KOLESTEROL": {
+      "testAdi": "Lipid Paneli",
+      "tip": "json",
+      "birim": "panel",
+      "kategori": "Lipid",
+      "varsayilanDeger": {
+        "tumHastalar": { "Total": 185, "LDL": 110, "HDL": 50, "TG": 130 }
+      },
+      "yorumMetni": "Lipid paneli normal sınırlarda."
+    },
+    "KARACIGER_ENZIM": {
+      "testAdi": "Karaciğer Enzimleri",
+      "tip": "json",
+      "birim": "panel",
+      "kategori": "Karaciğer",
+      "varsayilanDeger": {
+        "tumHastalar": { "ALT": 25, "AST": 28, "ALP": 85, "GGT": 30, "TBil": 0.7 }
+      },
+      "yorumMetni": "Karaciğer enzimleri normal sınırlarda."
+    },
+    "IDRAR": {
+      "testAdi": "Tam İdrar Tetkiki",
+      "tip": "json",
+      "birim": "panel",
+      "kategori": "İdrar",
+      "varsayilanDeger": {
+        "tumHastalar": { "dansite": 1.015, "pH": 6.0, "protein": "negatif", "glukoz": "negatif", "keton": "negatif", "bilirubin": "negatif", "urobilinojen": "normal", "nitrit": "negatif", "lökosit_esteraz": "negatif" }
+      },
+      "yorumMetni": "Tam idrar tetkiki normal."
+    },
+    "EKG": {
+      "testAdi": "EKG (12 Derivasyon)",
+      "tip": "text",
+      "birim": "rapor",
+      "kategori": "Kardiyak",
+      "varsayilanDeger": {
+        "tumHastalar": "Sinüs ritmi, hız 78/dk, normal aks, ST/T segmentleri normal, patolojik bulgu yok."
+      },
+      "yorumMetni": "EKG normal sinüs ritmi."
+    },
+    "AKCIGER_GRAFISI": {
+      "testAdi": "PA Akciğer Grafisi",
+      "tip": "text",
+      "birim": "rapor",
+      "kategori": "Radyoloji",
+      "varsayilanDeger": {
+        "tumHastalar": "PA akciğer grafisi: Her iki akciğerde infiltrasyon, kitle, konsolidasyon saptanmadı. KVS normal. Diyafragmalar serbest."
+      },
+      "yorumMetni": "PA Akciğer grafisi normal."
+    },
+    "BT_TORAKS": {
+      "testAdi": "Toraks BT",
+      "tip": "text",
+      "birim": "rapor",
+      "kategori": "Radyoloji",
+      "varsayilanDeger": {
+        "tumHastalar": "Toraks BT: Her iki akciğer parankimi normal. Mediastinal yapılar doğal. Plevral kalınlaşma veya efüzyon izlenmedi. Lenfadenopati saptanmadı."
+      },
+      "yorumMetni": "Toraks BT normal."
+    },
+    "BT_ABDOMEN": {
+      "testAdi": "BT Abdomen",
+      "tip": "text",
+      "birim": "rapor",
+      "kategori": "Radyoloji",
+      "varsayilanDeger": {
+        "tumHastalar": "BT Abdomen: Karaciğer, dalak, pankreas, sürrenal bezler, böbrekler normal boyut ve konturda. Kitle, organomegali, intraabdominal serbest sıvı saptanmadı."
+      },
+      "yorumMetni": "BT Abdomen normal."
+    },
+    "BT_KRANIYAL": {
+      "testAdi": "BT Kraniyal",
+      "tip": "text",
+      "birim": "rapor",
+      "kategori": "Radyoloji",
+      "varsayilanDeger": {
+        "tumHastalar": "BT Kraniyal: Beyin parankimi normal görünümde. Orta hat yapıları simetrik. Kanama, kitle etkisi, herniasyon bulgusu saptanmadı. Ventriküller normal genişlikte."
+      },
+      "yorumMetni": "BT Kraniyal normal."
+    },
+    "USG_ABDOMEN": {
+      "testAdi": "USG Abdomen",
+      "tip": "text",
+      "birim": "rapor",
+      "kategori": "Radyoloji",
+      "varsayilanDeger": {
+        "tumHastalar": "USG Abdomen: Karaciğer normal ekojenitede, safra kesesi duvarı normal, safra yolları dilate değil. Pankreas normal. Dalak ve böbrekler doğal."
+      },
+      "yorumMetni": "USG Abdomen normal."
+    },
+    "PELVIK_USG": {
+      "testAdi": "Pelvik USG",
+      "tip": "text",
+      "birim": "rapor",
+      "kategori": "Radyoloji",
+      "varsayilanDeger": {
+        "tumHastalar": "Pelvik USG: Uterus ve overler normal boyut ve görünümde. Kistik veya solid lezyon saptanmadı. Endometriyum normal kalınlıkta."
+      },
+      "yorumMetni": "Pelvik USG normal."
+    },
+    "MAMOGRAFI": {
+      "testAdi": "Mamografi",
+      "tip": "text",
+      "birim": "rapor",
+      "kategori": "Radyoloji",
+      "varsayilanDeger": {
+        "tumHastalar": "Bilateral mamografi: Meme paterni heterojen dens. Kitle, mikrokalsifikasyon veya yapısal distorsiyon saptanmadı. BIRADS 1 (negatif)."
+      },
+      "yorumMetni": "Mamografi normal, BIRADS 1."
+    },
+    "MEME_USG": {
+      "testAdi": "Meme Ultrasonografisi",
+      "tip": "text",
+      "birim": "rapor",
+      "kategori": "Radyoloji",
+      "varsayilanDeger": {
+        "tumHastalar": "Meme USG: Meme parankimi normal. Kistik veya solid lezyon saptanmadı. Aksiller lenf nodları doğal."
+      },
+      "yorumMetni": "Meme USG normal."
+    },
+    "BIYOPSI": {
+      "testAdi": "Biyopsi",
+      "tip": "text",
+      "birim": "rapor",
+      "kategori": "Patoloji",
+      "varsayilanDeger": {
+        "tumHastalar": "Biyopsi: Yeterli materyal elde edildi. Histopatolojik inceleme normal bulgular gösterdi. Malignite bulgusu saptanmadı."
+      },
+      "yorumMetni": "Biyopsi sonucu normal."
+    },
+    "GOZ_BASINCI": {
+      "testAdi": "Göz İçi Basıncı",
+      "tip": "numeric",
+      "birim": "mmHg",
+      "kategori": "Göz",
+      "varsayilanDeger": { "tumHastalar": { "min": 10, "max": 21, "tipikDeger": 15 } },
+      "kritikEsikler": { "ust": 30 },
+      "yorumMetni": "GİB: {deger} mmHg (Normal: 10-21)"
+    }
+  }
+}

@@ -94,6 +94,7 @@ export function navAllowedForRole(role: AdminRole, href: string): boolean {
   if (href.startsWith("/admin/panel/analitik")) return perms.has("analytics.read");
   if (href.startsWith("/admin/panel/ayarlar")) return perms.has("settings.read");
   if (href.startsWith("/admin/panel/logs")) return perms.has("logs.read");
+  if (href.startsWith("/admin/panel/kural-motoru")) return perms.has("system.migrate");
   if (href.startsWith("/admin/panel/yedekler")) return perms.has("backups.read");
   if (href.startsWith("/admin/panel/kullanicilar")) return perms.has("users.manage");
   if (href.includes("/oyna/")) return perms.has("play");

@@ -15,6 +15,7 @@ const NAV: { href: string; label: string; roles: Role[] }[] = [
   { href: "/admin/panel/kullanicilar", label: "Kullanıcılar", roles: ["admin"] },
   { href: "/admin/panel/ayarlar", label: "Ayarlar", roles: ["admin"] },
   { href: "/admin/panel/logs", label: "Loglar", roles: ["admin"] },
+  { href: "/admin/panel/kural-motoru", label: "Kural Motoru", roles: ["admin"] },
   { href: "/admin/panel/yedekler", label: "Yedekler", roles: ["admin"] },
 ];
 

@@ -67,6 +67,8 @@ export interface AdminVaka {
   statikTestler: Record<string, TestSonucu>;
   /** Pipeline (lab motoru) tarafından üretilip kalıcılaştırılan sonuçlar */
   generatedTests?: Record<string, TestSonucu>;
+  /** Vaka özel override'lar — sadece referans kütüphanesinden sapan testler (CDM v2) */
+  testOverrides?: Record<string, TestSonucu>;
   hastaYanitlari: Record<string, string>;
   idealYol: string[];
   egitimNotu: string;
@@ -304,6 +306,7 @@ export function normalizeAdminVaka(c: Partial<AdminVaka> & { id: string }): Admi
     },
     statikTestler: c.statikTestler || {},
     generatedTests: c.generatedTests || {},
+    testOverrides: c.testOverrides,
     hastaYanitlari: c.hastaYanitlari || {},
     idealYol: c.idealYol || [],
     egitimNotu: c.egitimNotu || "",
