@@ -12,7 +12,7 @@ import {
   Hasta,
   humanizeKey,
 } from "@/lib/types";
-import { normalizeSoru, normalizeTest } from "@/lib/nlp/normalize";
+import { normalizeSoru } from "@/lib/nlp/normalize";
 import { degerlendir } from "@/lib/scoring/degerlendir";
 import { birlesikTestKatalogu, TEST_VISIBILITY_MAP, MOTOR_CAPABLE_KEYS } from "@/lib/data";
 import { aksiyonRelevantMi, CHIP_KATEGORI_ETIKETLERI } from "@/lib/data/case-generator";
@@ -105,8 +105,6 @@ export default function VakaWorkspace({
   const [faz, setFaz] = useState<WorkspaceFaz>(initialSnapshot?.faz || "anamnez");
   const [taniInput, setTaniInput] = useState(initialSnapshot?.taniInput || "");
   const [tedaviInput, setTedaviInput] = useState(initialSnapshot?.tedaviInput || "");
-  const [showTestDropdown, setShowTestDropdown] = useState(false);
-  const [testTab, setTestTab] = useState<"recommended" | "all">("recommended");
   const [sonuc, setSonuc] = useState<DegerlendirmeSonuc | null>(null);
   const [testArama, setTestArama] = useState("");
   const [chipArama, setChipArama] = useState("");
@@ -221,7 +219,6 @@ export default function VakaWorkspace({
             { id: `${Date.now()}-err`, rol: "sistem", metin: `⚠ "${testKey}" testi sistemde kayıtlı değil. "Tüm Test Kataloğu" listesinden seçim yapabilirsiniz.`, zaman: Date.now() },
           ];
         });
-        setShowTestDropdown(false);
         return;
       }
       // Motor sonucunu kullan
@@ -267,33 +264,12 @@ export default function VakaWorkspace({
         testAdi: statik.testAdi,
       },
     ]);
-    setShowTestDropdown(false);
     setTestArama("");
 
     // Cemicegek modunda: test istendiğinde parent'a haber ver
     if (mod === "cemicegek" && !effectiveRaporHazir) {
       setTimeout(() => onTestIstendi?.(testKey), 500);
     }
-  };
-
-  const serbestTestIstey = () => {
-    if (!testArama.trim()) return;
-    const testKey = normalizeTest(testArama);
-    if (testKey) {
-      testIstey(testKey);
-    } else {
-      setMesajlar((prev) => [
-        ...prev,
-        {
-          id: `${Date.now()}-nt`,
-          rol: "sistem",
-          metin: `"${testArama}" testi tanınmadı. Lütfen dropdown'dan seçin veya farklı bir isim deneyin.`,
-          zaman: Date.now(),
-        },
-      ]);
-    }
-    setTestArama("");
-    setShowTestDropdown(false);
   };
 
   const tamamlama = () => {
@@ -322,15 +298,6 @@ export default function VakaWorkspace({
     return s;
   }, [vaka.statikTestler]);
 
-  const visibleDefaultTests = useMemo(
-    () =>
-      birlesikTestKatalogu.filter((t) => {
-        const v = TEST_VISIBILITY_MAP[t.key];
-        return v?.visibility === "visible_default";
-      }),
-    []
-  );
-
   const visibleAllNonHidden = useMemo(
     () =>
       birlesikTestKatalogu.filter((t) => {
@@ -340,25 +307,12 @@ export default function VakaWorkspace({
     []
   );
 
-  const visibleDefaultWithData = useMemo(
-    () => visibleDefaultTests.filter((t) => hasDataLocal.has(t.key)),
-    [visibleDefaultTests, hasDataLocal]
-  );
-
   const visibleAllWithData = useMemo(
     () => visibleAllNonHidden.filter((t) => hasDataLocal.has(t.key)),
     [visibleAllNonHidden, hasDataLocal]
   );
 
-  const recommendedTests = useMemo(() => {
-    const expected = new Set(
-      (vaka.rubric?.beklenenTestler || []).map((e) => e.key)
-    );
-    return visibleDefaultWithData.filter((t) => expected.has(t.key));
-  }, [visibleDefaultWithData, vaka.rubric]);
-
-  const displayTests =
-    testTab === "recommended" ? recommendedTests : visibleAllWithData;
+  const displayTests = visibleAllWithData;
 
   const filtreliTestler = displayTests.filter(
     (t) =>
@@ -787,118 +741,112 @@ export default function VakaWorkspace({
                 Test İste
               </h3>
 
-              {/* Serbest metin test arama */}
+              {/* Test arama + inline filtreli liste */}
               <div className="mb-3 flex gap-2">
-                <input
-                  type="text"
-                  value={testArama}
-                  onChange={(e) => setTestArama(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && serbestTestIstey()}
-                  placeholder="Test adı yaz (örn: EKG, troponin)…"
-                  className="h-9 flex-1 rounded-md border border-hairline bg-surface px-3 text-sm text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none"
-                />
-                <button onClick={serbestTestIstey} className="btn-accent px-3 py-1.5 text-xs">
-                  İste
-                </button>
-              </div>
-
-              {/* Dropdown — Tüm testler kategori bazında */}
-              <div className="relative">
-                <button
-                   onClick={() => setShowTestDropdown(!showTestDropdown)}
-                   className="btn-secondary w-full justify-center text-sm"
-                 >
-                   {testTab === "recommended"
-                     ? `📋 Önerilen Testler (${recommendedTests.length})`
-                     : `📋 Tüm Testler (${visibleAllWithData.length})`}{" "}
-                   ▾
-                 </button>
-                 {showTestDropdown && (
-                   <div className="absolute z-20 mt-2 max-h-96 w-full overflow-y-auto rounded-lg border border-hairline bg-canvas shadow-card scrollbar-thin">
-                     {/* Sekme barı */}
-                     <div className="sticky top-0 flex border-b border-hairline bg-surface-soft px-2 py-1.5 gap-1">
-                       <button
-                         onClick={() => setTestTab("recommended")}
-                         className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                           testTab === "recommended"
-                             ? "bg-brand text-canvas"
-                             : "text-steel hover:text-ink"
-                         }`}
-                       >
-                         Önerilen ({recommendedTests.length})
-                       </button>
-                       <button
-                         onClick={() => setTestTab("all")}
-                         className={`rounded-md px-3 py-1 text-xs font-medium transition-colors ${
-                           testTab === "all"
-                             ? "bg-brand text-canvas"
-                             : "text-steel hover:text-ink"
-                         }`}
-                       >
-                         Tümü ({visibleAllWithData.length})
-                       </button>
-                       <span className="ml-auto text-[10px] text-muted self-center">
-                         {testTab === "all" && `${visibleAllNonHidden.length - visibleAllWithData.length} gizli`}
-                       </span>
-                     </div>
-                     {Object.entries(testlerKategoriyeGore).map(([kategori, testler]) => (
-                       <div key={kategori}>
-                         <div className="sticky top-0 bg-surface-soft px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted">
-                           {kategori}
-                         </div>
-                         {testler.map((test) => {
-                           const istendi = testIstekleri.some((t) => t.testKey === test.key);
-                           const hasSonuc = !!vaka.statikTestler?.[test.key];
-                           const tier = TEST_VISIBILITY_MAP[test.key]?.tier;
-                           return (
-                             <button
-                               key={test.key}
-                               onClick={() => testIstey(test.key)}
-                               disabled={istendi}
-                               className={`flex w-full items-center justify-between border-b border-hairline-soft px-4 py-2.5 text-left text-sm last:border-0 hover:bg-surface transition-colors ${
-                                 istendi ? "opacity-40 cursor-not-allowed" : "text-ink"
-                               }`}
-                             >
-                               <div className="min-w-0">
-                                 <div className="font-medium flex items-center gap-1.5">
-                                   {test.ad}
-                                   {tier === "core" && (
-                                     <span className="rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-medium text-brand-deep">
-                                       çekirdek
-                                     </span>
-                                   )}
-                                   {tier === "branch" && (
-                                     <span className="rounded-full bg-clinical-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-clinical-blue">
-                                       branş
-                                     </span>
-                                   )}
-                                 </div>
-                                 <div className="mt-0.5 flex flex-wrap items-center gap-1">
-                                   {istendi && (
-                                     <span className="text-[10px] text-brand">✓ İstendi</span>
-                                   )}
-                                   {debugMode && (
-                                     <span
-                                       className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
-                                         hasSonuc
-                                           ? "bg-brand/15 text-brand-deep"
-                                           : "bg-clinical-orange/15 text-clinical-orange"
-                                       }`}
-                                     >
-                                       {hasSonuc ? "sonuç var" : "sonuç yok"}
-                                     </span>
-                                   )}
-                                 </div>
-                               </div>
-                               {!istendi && <span className="text-brand">+</span>}
-                             </button>
-                           );
-                         })}
-                       </div>
-                     ))}
-                  </div>
+                <div className="relative flex-1">
+                  <svg className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted" viewBox="0 0 16 16" fill="none" stroke="currentColor" strokeWidth="1.5">
+                    <circle cx="7" cy="7" r="4.5"/>
+                    <line x1="10.5" y1="10.5" x2="14" y2="14"/>
+                  </svg>
+                  <input
+                    type="text"
+                    value={testArama}
+                    onChange={(e) => setTestArama(e.target.value)}
+                    placeholder="Test ara…"
+                    className="h-9 w-full rounded-md border border-hairline bg-surface pl-8 pr-3 text-sm text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none"
+                  />
+                </div>
+                {testArama.trim() && (
+                  <button
+                    onClick={() => setTestArama("")}
+                    className="btn-ghost px-2 text-xs text-muted hover:text-ink"
+                    title="Temizle"
+                  >
+                    ✕
+                  </button>
                 )}
               </div>
+
+              {/* Kategori bazında tüm testler — canlı filtreli */}
+              <div className="-mx-2 max-h-[calc(100vh-28rem)] min-h-0 flex-1 overflow-y-auto scrollbar-thin rounded-lg border border-hairline bg-canvas">
+                {filtreliTestler.length === 0 ? (
+                  <div className="px-4 py-8 text-center text-sm text-muted">
+                    {testArama.trim()
+                      ? `"${testArama}" ile eşleşen test bulunamadı.`
+                      : "Hiç test yok."}
+                  </div>
+                ) : (
+                  Object.entries(testlerKategoriyeGore).map(([kategori, testler]) => (
+                    <div key={kategori}>
+                      <div className="sticky top-0 z-10 bg-surface-soft px-4 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted border-b border-hairline-soft">
+                        {kategori}
+                      </div>
+                      {testler.map((test) => {
+                        const istendi = testIstekleri.some((t) => t.testKey === test.key);
+                        const hasSonuc = !!vaka.statikTestler?.[test.key];
+                        const tier = TEST_VISIBILITY_MAP[test.key]?.tier;
+                        const beklenti = test.kategori === "Beklenti";
+                        return (
+                          <button
+                            key={test.key}
+                            onClick={() => testIstey(test.key)}
+                            disabled={istendi}
+                            className={`flex w-full items-center justify-between border-b border-hairline-soft px-4 py-2 text-left text-sm last:border-0 transition-colors ${
+                              istendi
+                                ? "opacity-40 cursor-not-allowed bg-surface-soft"
+                                : "hover:bg-surface text-ink"
+                            }`}
+                          >
+                            <div className="min-w-0">
+                              <div className="font-medium flex items-center gap-1.5">
+                                {test.ad}
+                                {tier === "core" && (
+                                  <span className="rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-medium text-brand-deep">
+                                    çekirdek
+                                  </span>
+                                )}
+                                {tier === "branch" && (
+                                  <span className="rounded-full bg-clinical-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-clinical-blue">
+                                    branş
+                                  </span>
+                                )}
+                              </div>
+                              {beklenti && (
+                                <div className="mt-0.5 flex flex-wrap items-center gap-1">
+                                  {debugMode && (
+                                    <span
+                                      className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${
+                                        hasSonuc
+                                          ? "bg-brand/15 text-brand-deep"
+                                          : "bg-clinical-orange/15 text-clinical-orange"
+                                      }`}
+                                    >
+                                      {hasSonuc ? "sonuç var" : "sonuç yok"}
+                                    </span>
+                                  )}
+                                </div>
+                              )}
+                            </div>
+                            <div className="flex shrink-0 items-center gap-1.5">
+                              {istendi && (
+                                <span className="text-[10px] text-brand-deep font-medium">✓</span>
+                              )}
+                              {!istendi && (
+                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/10 text-xs font-semibold text-brand-deep hover:bg-brand/20 transition-colors">
+                                  +
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))
+                )}
+              </div>
+              <p className="mt-1 text-[10px] text-muted text-right">
+                {visibleAllWithData.length} test
+              </p>
             </div>
 
             {/* Debug: tanı için tüm test envanteri (sonuçlu + sonuçsuz) */}
