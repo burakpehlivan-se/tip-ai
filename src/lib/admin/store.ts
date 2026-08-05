@@ -27,14 +27,34 @@ import {
 } from "./paths";
 import { seedCasesFromTemplates } from "./seed";
 import { upgradeAllCasesToCdm } from "../cdm/migrate";
+import { logger } from "../logger";
 
 function readJson<T>(file: string, fallback: T): T {
   try {
     if (!fs.existsSync(file)) return fallback;
     return JSON.parse(fs.readFileSync(file, "utf8")) as T;
   } catch {
+    // Bozuk JSON sessizce fallback'e düşer; üzerine yazılırsa veri kaybı olur.
+    logger.error("JSON dosyası okunamadı (bozuk veya erişilemez)", { file });
     return fallback;
   }
+}
+
+// ─── Yazma serileştirme ───
+// JSON file-store tek süreç için tasarlanmıştır. Mutasyonlar (load → mutate → write)
+// senkron olduğu için Node tek iş parçacığında kendiliğinden atomiktir; kilit,
+// gelecekteki async mutasyonları ve compound operasyonları (undo/backup) güvenceye alır.
+// DİKKAT: Çok işlemli (cluster / çok replika) çalıştırma bu store ile güvenli DEĞİLDİR —
+// dosya kilidi (flock) veya SQLite geçişi gerekir.
+let writeChain: Promise<void> = Promise.resolve();
+
+export function withStoreLock<T>(fn: () => T | Promise<T>): Promise<T> {
+  const run = writeChain.then(() => fn());
+  writeChain = run.then(
+    () => undefined,
+    () => undefined
+  );
+  return run;
 }
 
 function writeJsonAtomic(file: string, data: unknown): void {
@@ -224,84 +244,89 @@ export function deleteByPath(store: CasesStore, pathStr: string): boolean {
  * Seçici undo: yalnızca bu log'un patch'lerini tersine çevirir.
  * Sonraki log'lar (farklı alanlar) etkilenmez.
  */
-export function undoLog(logId: string, actor: string): { ok: boolean; error?: string; log?: AuditLog } {
-  const logsStore = loadLogsStore();
-  const log = logsStore.logs.find((l) => l.id === logId);
-  if (!log) return { ok: false, error: "Log bulunamadı." };
-  if (log.undone) return { ok: false, error: "Bu işlem zaten geri alınmış." };
-  if (log.action === "undo" || log.action === "seed" || log.action === "restore_backup") {
-    return { ok: false, error: "Bu log türü geri alınamaz." };
-  }
-  if (!log.patches.length) return { ok: false, error: "Geri alınacak patch yok." };
-
-  const cases = loadCasesStore();
-  const reversePatches: AuditPatch[] = [];
-
-  for (const p of log.patches) {
-    // Özel: case silme/ekleme
-    if (p.path.startsWith("__case_create__:")) {
-      const caseId = p.path.replace("__case_create__:", "");
-      const beforeCase = cases.cases.find((c) => c.id === caseId);
-      cases.cases = cases.cases.filter((c) => c.id !== caseId);
-      reversePatches.push({
-        path: p.path,
-        caseId,
-        before: beforeCase ?? null,
-        after: null,
-      });
-      continue;
+export async function undoLog(
+  logId: string,
+  actor: string
+): Promise<{ ok: boolean; error?: string; log?: AuditLog }> {
+  return withStoreLock(() => {
+    const logsStore = loadLogsStore();
+    const log = logsStore.logs.find((l) => l.id === logId);
+    if (!log) return { ok: false, error: "Log bulunamadı." };
+    if (log.undone) return { ok: false, error: "Bu işlem zaten geri alınmış." };
+    if (log.action === "undo" || log.action === "seed" || log.action === "restore_backup") {
+      return { ok: false, error: "Bu log türü geri alınamaz." };
     }
-    if (p.path.startsWith("__case_delete__:")) {
-      const restored = p.before as AdminVaka | null;
-      if (restored) {
-        cases.cases.push(restored);
+    if (!log.patches.length) return { ok: false, error: "Geri alınacak patch yok." };
+
+    const cases = loadCasesStore();
+    const reversePatches: AuditPatch[] = [];
+
+    for (const p of log.patches) {
+      // Özel: case silme/ekleme
+      if (p.path.startsWith("__case_create__:")) {
+        const caseId = p.path.replace("__case_create__:", "");
+        const beforeCase = cases.cases.find((c) => c.id === caseId);
+        cases.cases = cases.cases.filter((c) => c.id !== caseId);
         reversePatches.push({
           path: p.path,
-          caseId: restored.id,
-          before: null,
-          after: restored,
+          caseId,
+          before: beforeCase ?? null,
+          after: null,
         });
+        continue;
       }
-      continue;
+      if (p.path.startsWith("__case_delete__:")) {
+        const restored = p.before as AdminVaka | null;
+        if (restored) {
+          cases.cases.push(restored);
+          reversePatches.push({
+            path: p.path,
+            caseId: restored.id,
+            before: null,
+            after: restored,
+          });
+        }
+        continue;
+      }
+
+      const current = getByPath(cases, p.path);
+      // before'a geri dön
+      setByPath(cases, p.path, clone(p.before));
+      reversePatches.push({
+        path: p.path,
+        caseId: p.caseId,
+        testKey: p.testKey,
+        field: p.field,
+        before: current,
+        after: clone(p.before),
+      });
     }
 
-    const current = getByPath(cases, p.path);
-    // before'a geri dön
-    setByPath(cases, p.path, clone(p.before));
-    reversePatches.push({
-      path: p.path,
-      caseId: p.caseId,
-      testKey: p.testKey,
-      field: p.field,
-      before: current,
-      after: clone(p.before),
+    // changeCount undo için de artar (yedek sayacı)
+    cases.changeCount += 1;
+    saveCasesStore(cases);
+
+    log.undone = true;
+    const undoLogEntry = appendLog({
+      action: "undo",
+      actor,
+      message: `Geri alındı: ${log.message}`,
+      patches: reversePatches,
+      undoOf: log.id,
     });
-  }
+    log.undoneBy = undoLogEntry.id;
+    // appendLog yeniden yazdı; undone flag'i kaydet
+    const again = loadLogsStore();
+    const target = again.logs.find((l) => l.id === logId);
+    if (target) {
+      target.undone = true;
+      target.undoneBy = undoLogEntry.id;
+      saveLogsStore(again);
+    }
 
-  // changeCount undo için de artar (yedek sayacı)
-  cases.changeCount += 1;
-  saveCasesStore(cases);
-
-  log.undone = true;
-  const undoLogEntry = appendLog({
-    action: "undo",
-    actor,
-    message: `Geri alındı: ${log.message}`,
-    patches: reversePatches,
-    undoOf: log.id,
+    maybeAutoBackup(cases, actor, "auto-every-10");
+    return { ok: true, log: undoLogEntry };
   });
-  log.undoneBy = undoLogEntry.id;
-  // appendLog yeniden yazdı; undone flag'i kaydet
-  const again = loadLogsStore();
-  const target = again.logs.find((l) => l.id === logId);
-  if (target) {
-    target.undone = true;
-    target.undoneBy = undoLogEntry.id;
-    saveLogsStore(again);
-  }
-
-  maybeAutoBackup(cases, actor, "auto-every-10");
-  return { ok: true, log: undoLogEntry };
 }
 
 export function loadBackupsIndex(): BackupsIndex {
@@ -352,38 +377,43 @@ export function maybeAutoBackup(store: CasesStore, actor: string, reason = "auto
   return null;
 }
 
-export function restoreBackup(backupId: string, actor: string): { ok: boolean; error?: string } {
-  const index = loadBackupsIndex();
-  const meta = index.backups.find((b) => b.id === backupId);
-  if (!meta) return { ok: false, error: "Yedek bulunamadı." };
-  const file = path.join(backupsDir(), meta.filename);
-  if (!fs.existsSync(file)) return { ok: false, error: "Yedek dosyası eksik." };
+export async function restoreBackup(
+  backupId: string,
+  actor: string
+): Promise<{ ok: boolean; error?: string }> {
+  return withStoreLock(() => {
+    const index = loadBackupsIndex();
+    const meta = index.backups.find((b) => b.id === backupId);
+    if (!meta) return { ok: false, error: "Yedek bulunamadı." };
+    const file = path.join(backupsDir(), meta.filename);
+    if (!fs.existsSync(file)) return { ok: false, error: "Yedek dosyası eksik." };
 
-  // restore öncesi güvenlik yedeği
-  createBackup("pre-restore", actor);
+    // restore öncesi güvenlik yedeği
+    createBackup("pre-restore", actor);
 
-  const snapshot = readJson<CasesStore>(file, null as unknown as CasesStore);
-  if (!snapshot || !Array.isArray(snapshot.cases)) {
-    return { ok: false, error: "Yedek bozuk." };
-  }
-  const beforeCount = loadCasesStore().cases.length;
-  snapshot.updatedAt = Date.now();
-  // changeCount'u koru / arttır
-  snapshot.changeCount = (loadCasesStore().changeCount || 0) + 1;
-  saveCasesStore(snapshot);
-  appendLog({
-    action: "restore_backup",
-    actor,
-    message: `Yedek geri yüklendi: ${backupId} (${meta.caseCount} vaka, önceki ${beforeCount}).`,
-    patches: [
-      {
-        path: "__full_store__",
-        before: { note: "full snapshot restored", backupId },
-        after: { caseCount: snapshot.cases.length },
-      },
-    ],
+    const snapshot = readJson<CasesStore>(file, null as unknown as CasesStore);
+    if (!snapshot || !Array.isArray(snapshot.cases)) {
+      return { ok: false, error: "Yedek bozuk." };
+    }
+    const beforeCount = loadCasesStore().cases.length;
+    snapshot.updatedAt = Date.now();
+    // changeCount'u koru / arttır
+    snapshot.changeCount = (loadCasesStore().changeCount || 0) + 1;
+    saveCasesStore(snapshot);
+    appendLog({
+      action: "restore_backup",
+      actor,
+      message: `Yedek geri yüklendi: ${backupId} (${meta.caseCount} vaka, önceki ${beforeCount}).`,
+      patches: [
+        {
+          path: "__full_store__",
+          before: { note: "full snapshot restored", backupId },
+          after: { caseCount: snapshot.cases.length },
+        },
+      ],
+    });
+    return { ok: true };
   });
-  return { ok: true };
 }
 
 export function recordMutation(

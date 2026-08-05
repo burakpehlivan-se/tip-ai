@@ -11,6 +11,14 @@ const SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
 export { getAdminCredentials };
 
 function secret(): string {
+  if (process.env.NODE_ENV === "production") {
+    if (!process.env.ADMIN_SESSION_SECRET) {
+      throw new Error(
+        "ADMIN_SESSION_SECRET production ortamında zorunludur (oturum imzalama)."
+      );
+    }
+    return process.env.ADMIN_SESSION_SECRET;
+  }
   return (
     process.env.ADMIN_SESSION_SECRET ||
     process.env.ADMIN_PASSWORD ||

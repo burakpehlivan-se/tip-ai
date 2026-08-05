@@ -7,37 +7,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-model Session {
-  id        String           @id @default(uuid())
-  studentId String           @default("")
-  vakaId    String
-  vakaData  String           @default("")
-  durum     String           @default("aktif")
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  actions   SessionAction[]
-}
-
-model SessionAction {
-  id        String   @id @default(uuid())
-  sessionId String
-  action    String
-  rawText   String   @default("")
-  phase     String   @default("anamnez")
-  createdAt DateTime @default(now())
-  session   Session  @relation(fields: [sessionId], references: [id])
-}
-
-model StudentProgress {
-  id        String   @id @default(uuid())
-  studentId String
-  vakaId    String
-  score     Int      @default(0)
-  maxScore  Int      @default(0)
-  feedback  String   @default("")
-  createdAt DateTime @default(now())
-}
-
 model AdminUser {
   id        String   @id @default(uuid())
   username  String   @unique
@@ -54,20 +23,4 @@ model AuditLog {
   detail    String   @default("")
   ip        String   @default("")
   createdAt DateTime @default(now())
-}
-
-model AdminOverride {
-  id        String   @id @default(uuid())
-  caseKey   String   // hangi vaka için
-  field     String   // hangi alan
-  value     String   // yeni değer (JSON)
-  createdBy String   @default("admin")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-}
-
-model Settings {
-  key       String   @id
-  value     String   @default("")
-  updatedAt DateTime @updatedAt
 }

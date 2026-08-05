@@ -16,14 +16,13 @@
     "pipeline:validate": "npx tsx scripts/validate-vakalar.ts",
     "pipeline:validate:json": "npx tsx scripts/validate-vakalar.ts --json",
     "pipeline:run": "npx tsx scripts/fill-tests.ts && npx tsx scripts/validate-vakalar.ts",
-    "etl:mimic-demo": "npx tsx scripts/etl-mimic-demo.ts",
     "postinstall": "prisma generate",
-    "db:push": "prisma db push"
+    "db:push": "prisma db push",
+    "test": "vitest run"
   },
   "dependencies": {
     "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
-    "better-sqlite3": "^12.11.1",
     "next": "14.2.15",
     "pdfkit": "^0.19.1",
     "prisma": "^5.22.0",
@@ -32,7 +31,6 @@
   },
   "devDependencies": {
     "@types/bcryptjs": "^2.4.6",
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^20",
     "@types/pdfkit": "^0.17.6",
     "@types/react": "^18",
@@ -42,6 +40,7 @@
     "eslint-config-next": "14.2.15",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.13",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.10"
   }
 }

@@ -70,7 +70,13 @@ export function verifyPasswordHash(password: string, stored: string): boolean {
 }
 
 function ensureBootstrapAdmin(store: UsersStore): UsersStore {
-  const creds = getAdminCredentials();
+  let creds: { username: string; password: string };
+  try {
+    creds = getAdminCredentials();
+  } catch {
+    // Env eksikse mevcut kullanıcılar çalışmaya devam eder; yeni seed yapılmaz.
+    return store;
+  }
   let dirty = false;
 
   // Mevcut bootstrap kullanıcıyı superAdmin kilitle

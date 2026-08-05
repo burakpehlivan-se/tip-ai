@@ -14,7 +14,7 @@ export async function POST(
   const denied = requirePermission(session, "logs.undo");
   if (denied) return denied;
 
-  const result = undoLog(params.id, session!.username);
+  const result = await undoLog(params.id, session!.username);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

@@ -34,4 +34,5 @@ next-env.d.ts
 
 # DB + runtime data (root level only)
 /data/
+/prisma/data/
 !/src/lib/data/

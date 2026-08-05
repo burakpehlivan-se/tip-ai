@@ -6,7 +6,21 @@ import {
   getReferenceEntry,
   getAllTestKeys,
 } from "./lab-reference-library";
-import { getActiveRules, getActiveAliases } from "./admin/rule-engine-store";
+
+// ═══════════════════════════════════════════════════
+// Rule engine erişimi — yalnızca sunucu (Node) tarafında
+// ═══════════════════════════════════════════════════
+// rule-engine-store fs kullanır; client bundle'a girmemelidir.
+// Client'ta (tarayıcı) FALLBACK_RULES kullanılır, sunucuda admin
+// tarafından yönetilen gerçek kurallar okunur.
+function loadRuleStore(): typeof import("./admin/rule-engine-store") | null {
+  if (typeof process === "undefined" || !process.versions?.node) return null;
+  try {
+    return require("./admin/rule-engine-store") as typeof import("./admin/rule-engine-store");
+  } catch {
+    return null;
+  }
+}
 
 // ═══════════════════════════════════════════════════
 // Layer 2: Rule Engine — disease → test tendency mapping
@@ -166,8 +180,10 @@ const FALLBACK_RULES: Record<string, DiseaseRule[]> = {
 };
 
 function getMergedRules(): Record<string, DiseaseRule[]> {
+  const store = loadRuleStore();
+  if (!store) return FALLBACK_RULES;
   try {
-    const active = getActiveRules();
+    const active = store.getActiveRules();
     if (!active || active.length === 0) return FALLBACK_RULES;
 
     const merged: Record<string, DiseaseRule[]> = {};
@@ -186,8 +202,10 @@ function getMergedRules(): Record<string, DiseaseRule[]> {
 }
 
 function getDiseaseAliases(): Record<string, string> {
+  const store = loadRuleStore();
+  if (!store) return {};
   try {
-    return getActiveAliases();
+    return store.getActiveAliases();
   } catch {
     return {};
   }

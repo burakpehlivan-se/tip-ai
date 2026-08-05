@@ -14,7 +14,7 @@ export async function POST(
   const denied = requirePermission(session, "backups.restore");
   if (denied) return denied;
 
-  const result = restoreBackup(params.id, session!.username);
+  const result = await restoreBackup(params.id, session!.username);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

@@ -1,4 +1,4 @@
-import { TipAiCdmDocument, TIP_AI_CDM_VERSION } from "./types";
+import { TipAiCdmDocument, TIP_AI_CDM_VERSION, DEFAULT_CDM_PUANLAMA } from "./types";
 
 /** TIP-AI CDM v1 örnek: Kronik Böbrek Hastalığı (yazar şablonu) */
 export const EXAMPLE_CDM_KBH: TipAiCdmDocument = {
@@ -100,6 +100,7 @@ export const EXAMPLE_CDM_KBH: TipAiCdmDocument = {
       "KBH Evre 3",
       "KBH Evre 4",
     ],
+    puanlama: { ...DEFAULT_CDM_PUANLAMA },
   },
   labs: {
     statikTestler: {
