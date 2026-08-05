@@ -3,6 +3,9 @@ import Link from "next/link";
 export default function HomePage() {
   return (
     <div className="min-h-screen bg-canvas">
+      <a href="#ana-icerik" className="skip-link">
+        İçeriğe atla
+      </a>
       {/* Disclaimer Banner */}
       <div className="bg-canvas-dark text-on-dark text-center text-sm font-medium py-2.5 px-4">
         ⚕️ Bu platform eğitim amaçlıdır, klinik karar desteği değildir. Gerçek hasta verisi içermez.
@@ -34,7 +37,7 @@ export default function HomePage() {
       </nav>
 
       {/* Hero */}
-      <section className="relative overflow-hidden">
+      <section id="ana-icerik" className="relative overflow-hidden" tabIndex={-1}>
         <div className="absolute inset-0 bg-gradient-to-b from-brand-soft/10 via-canvas to-canvas" />
         <div className="relative mx-auto max-w-4xl px-6 pt-32 pb-24 text-center">
           <div className="badge badge-brand mb-6">

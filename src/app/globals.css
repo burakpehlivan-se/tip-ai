@@ -11,12 +11,12 @@
   --color-ink: #0a0a0a;
   --color-charcoal: #1c1c1e;
   --color-slate: #3a3a3c;
-  --color-steel: #5a5a5c;
-  --color-stone: #888888;
-  --color-muted: #a8a8aa;
-  --color-brand: #00d4a4;
-  --color-brand-deep: #00b48a;
-  --color-brand-soft: #7cebcb;
+  --color-steel: #4b4b4e;
+  --color-stone: #6b6b6f;
+  --color-muted: #71717a;
+  --color-brand: #14b8a6;
+  --color-brand-deep: #0f766e;
+  --color-brand-soft: #99f6e4;
   --color-clinical-red: #d45656;
   --color-clinical-orange: #f59e0b;
   --color-clinical-blue: #3772cf;
@@ -32,13 +32,41 @@
   body {
     background-color: var(--color-canvas);
     color: var(--color-ink);
-    font-family: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: var(--font-noto), -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+      sans-serif;
     font-size: 16px;
     line-height: 1.5;
   }
 
+  h1,
+  h2,
+  h3,
+  h4,
+  h5 {
+    font-family: var(--font-figtree), var(--font-noto), sans-serif;
+  }
+
   * {
     border-color: var(--color-hairline);
+  }
+
+  /* WCAG 2.4.7 — klavye odak göstergesi her etkileşimli öğede görünür */
+  :focus-visible {
+    outline: 3px solid var(--color-brand-deep);
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  /* Kullanıcı hareket azaltma tercih ediyorsa geçiş/animasyonları kapat */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+      scroll-behavior: auto !important;
+    }
   }
 }
 
@@ -93,6 +121,11 @@
 
   .badge-steel {
     @apply bg-surface text-steel;
+  }
+
+  /* Skip link (WCAG 2.4.1) — odaklanana kadar görünmez */
+  .skip-link {
+    @apply fixed left-4 top-4 z-[100] -translate-y-24 rounded-md bg-ink px-4 py-2 text-sm font-medium text-white transition-transform focus:translate-y-0;
   }
 }
 
