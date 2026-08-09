@@ -1,14 +1,15 @@
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { loadCasesStore } from "@/lib/admin/store";
+import { getRequestId, logger } from "@/lib/logger";
 
 /**
  * Public vaka kataloğu. Cevap anahtarı, test sonuçları, rubrik ve ideal yol
  * yalnızca sunucu tarafında tutulur; bu uç yalnızca listeleme metadatası döner.
  */
-export async function GET() {
+export async function GET(req: NextRequest) {
   try {
     const store = loadCasesStore();
     // Öğrenciye yalnızca aktif + (isteğe bağlı) onaylı taslak olmayan vakalar
@@ -35,7 +36,10 @@ export async function GET() {
       total: templates.length,
     });
   } catch (e) {
-    console.error(e);
+    logger.exception("Vaka şablonları yüklenemedi", e, {
+      requestId: getRequestId(req),
+      route: "/api/cases/templates",
+    });
     return NextResponse.json({ error: "Şablonlar yüklenemedi", templates: [] }, { status: 500 });
   }
 }

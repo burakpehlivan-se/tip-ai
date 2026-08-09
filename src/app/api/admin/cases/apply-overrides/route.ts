@@ -8,6 +8,7 @@ import {
   analyzeVakaOverrides,
   applyOverrideMigration,
 } from "@/lib/pipeline/override-migrator";
+import { getRequestId, logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
@@ -122,7 +123,10 @@ export async function POST(req: NextRequest) {
         : `${results.length} vaka güncellendi.`,
     });
   } catch (err) {
-    console.error("apply-overrides failed:", err);
+    logger.exception("Override migration başarısız", err, {
+      requestId: getRequestId(req),
+      route: "/api/admin/cases/apply-overrides",
+    });
     return NextResponse.json(
       { error: "Migration başarısız." },
       { status: 500 }

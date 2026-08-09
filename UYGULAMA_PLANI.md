@@ -113,7 +113,7 @@ NFR: her parçalama önce testle kilitlenir (Faz 4) · refactor'dur, feature de�
 | 4 Test Altyapısı | ✅ 4.1–4.6: vitest + 22 test (CDM, store, scoring, lab-motor) |
 | 5 Client/Server | 🟡 5.1 runtime izolasyon tamam (guarded loader) · 5.2 fs:false KALDI (Faz 8'e devredildi) |
 | 6 CI | ✅ 6.1–6.2 tamam (`.github/workflows/ci.yml`) |
-| 7 Observability | 🟡 7.1 logger + 7.3 kritik catch'ler tamam · 7.2/7.4 ayrı iş |
+| 7 Observability | 🟡 7.1 structured logger + requestId, 7.3 kritik catch'ler tamam · 7.2/7.4 ayrı iş |
 | 8 God Dosyalar | ⏳ Planlandı — ayrı oturum |
 
 ## Ek Bulgular (uygulama sırasında)

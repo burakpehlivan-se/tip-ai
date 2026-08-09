@@ -10,6 +10,7 @@ import {
   checkAllPedagogicConsistency,
   formatPedagogicReportText,
 } from "@/lib/pipeline/pedagogic-checker";
+import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
@@ -55,7 +56,10 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ grandTotal, reports: filtered });
   } catch (err) {
-    console.error("pedagogic-check failed:", err);
+    logger.exception("Pedagojik tutarlılık taraması başarısız", err, {
+      requestId: getRequestId(req),
+      route: "/api/admin/cases/pedagogic-check",
+    });
     return NextResponse.json({ error: "Pedagojik tutarlılık taraması başarısız." }, { status: 500 });
   }
 }

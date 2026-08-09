@@ -15,6 +15,7 @@ import {
   resetToDefaults,
 } from "@/lib/admin/rule-engine-store";
 import { RuleEntry, DiseaseAlias } from "@/lib/admin/rule-engine-types";
+import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
@@ -83,7 +84,10 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: `Bilinmeyen aksiyon: ${action}` }, { status: 400 });
     }
   } catch (err) {
-    console.error("rule-engine API failed:", err);
+    logger.exception("Kural motoru işlemi başarısız", err, {
+      requestId: getRequestId(req),
+      route: "/api/admin/rule-engine",
+    });
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "İşlem başarısız." },
       { status: 500 }

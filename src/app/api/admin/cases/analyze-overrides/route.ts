@@ -9,6 +9,7 @@ import {
   analyzeAllVakasOverrides,
   buildOverrideMigrationSummary,
 } from "@/lib/pipeline/override-migrator";
+import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
@@ -38,7 +39,10 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({ reports, grandTotal });
   } catch (err) {
-    console.error("analyze-overrides failed:", err);
+    logger.exception("Override analizi başarısız", err, {
+      requestId: getRequestId(req),
+      route: "/api/admin/cases/analyze-overrides",
+    });
     return NextResponse.json({ error: "Override analizi başarısız." }, { status: 500 });
   }
 }
