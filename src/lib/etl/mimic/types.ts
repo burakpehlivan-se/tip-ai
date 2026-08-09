@@ -10,6 +10,8 @@ export interface MimicPatient {
   /** ISO date or year-only synthetic */
   dob?: string;
   anchor_age?: number;
+  /** Yaşın kaynak kalitesi; MIMIC-III'de 89+ değerleri de-identification nedeniyle sınırlıdır. */
+  age_quality?: "derived" | "capped_89_plus" | "unknown";
 }
 
 export interface MimicAdmission {
@@ -78,7 +80,7 @@ export interface MimicProcedure {
 
 /** Tek yatış/epizod — 1 TIP-AI vakası adayı */
 export interface MimicEpisodeBundle {
-  source: "mimic-iv" | "mimic-demo" | "fixture" | "omop-export";
+  source: "mimic-iii" | "mimic-iv" | "mimic-demo" | "fixture" | "omop-export";
   subject_id: string;
   hadm_id: string;
   patient: MimicPatient;
@@ -99,6 +101,8 @@ export interface DiseaseMapping {
   poliklinikIcon: string;
   /** ICD-10 prefix veya tam kod (büyük harf) */
   icd10Prefixes: string[];
+  /** ICD-9 prefix veya tam kod (MIMIC-III için isteğe bağlı) */
+  icd9Prefixes?: string[];
   kabulEdilenTani: string[];
   /** Öncelik: düşük sayı = daha spesifik / tercih */
   priority: number;

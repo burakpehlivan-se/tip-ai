@@ -4,7 +4,7 @@
  * - LOINC / label keywords → kanonik testKey
  */
 
-import { DiseaseMapping } from "./types";
+import { DiseaseMapping, MimicDiagnosis } from "./types";
 import { canonicalizeTestKey, testAdiForKey } from "../../cdm/vocabulary";
 
 export const DISEASE_MAPPINGS: DiseaseMapping[] = [
@@ -35,6 +35,7 @@ export const DISEASE_MAPPINGS: DiseaseMapping[] = [
     poliklinikAd: "Kardiyoloji",
     poliklinikIcon: "❤️",
     icd10Prefixes: ["I50"],
+    icd9Prefixes: ["428"],
     kabulEdilenTani: ["Kalp Yetmezliği", "Konjestif Kalp Yetmezliği", "KY"],
     priority: 5,
   },
@@ -75,6 +76,7 @@ export const DISEASE_MAPPINGS: DiseaseMapping[] = [
     poliklinikAd: "Göğüs Hastalıkları",
     poliklinikIcon: "🫁",
     icd10Prefixes: ["J18", "J15", "J13", "J14"],
+    icd9Prefixes: ["480", "481", "482", "483", "484", "485", "486"],
     kabulEdilenTani: ["Pnömoni", "Toplum Kazanılmış Pnömoni", "TKP"],
     priority: 15,
   },
@@ -85,6 +87,7 @@ export const DISEASE_MAPPINGS: DiseaseMapping[] = [
     poliklinikAd: "Göğüs Hastalıkları",
     poliklinikIcon: "🫁",
     icd10Prefixes: ["J44"],
+    icd9Prefixes: ["491", "492", "496"],
     kabulEdilenTani: ["KOAH", "KOAH Akut Ekspazerbasyonu"],
     priority: 16,
   },
@@ -95,6 +98,7 @@ export const DISEASE_MAPPINGS: DiseaseMapping[] = [
     poliklinikAd: "Nefroloji",
     poliklinikIcon: "🫘",
     icd10Prefixes: ["N18"],
+    icd9Prefixes: ["585"],
     kabulEdilenTani: ["Kronik Böbrek Hastalığı", "KBH", "CKD", "KBH Evre 3"],
     priority: 20,
   },
@@ -105,6 +109,7 @@ export const DISEASE_MAPPINGS: DiseaseMapping[] = [
     poliklinikAd: "Nefroloji",
     poliklinikIcon: "🫘",
     icd10Prefixes: ["N17"],
+    icd9Prefixes: ["584"],
     kabulEdilenTani: ["Akut Böbrek Hasarı", "ABH", "AKI"],
     priority: 21,
   },
@@ -115,6 +120,7 @@ export const DISEASE_MAPPINGS: DiseaseMapping[] = [
     poliklinikAd: "Enfeksiyon Hastalıkları",
     poliklinikIcon: "🦠",
     icd10Prefixes: ["N39.0", "N30", "N10"],
+    icd9Prefixes: ["5990", "595", "590"],
     kabulEdilenTani: ["İYE", "İdrar Yolu Enfeksiyonu", "Sistit", "Piyelonefrit"],
     priority: 25,
   },
@@ -125,6 +131,7 @@ export const DISEASE_MAPPINGS: DiseaseMapping[] = [
     poliklinikAd: "Hematoloji",
     poliklinikIcon: "🩸",
     icd10Prefixes: ["D50"],
+    icd9Prefixes: ["280"],
     kabulEdilenTani: ["Demir Eksikliği Anemisi", "IDA", "Anemi"],
     priority: 30,
   },
@@ -206,14 +213,24 @@ export function mapLoincOrLabelToTestKey(opts: {
 }
 
 export function resolveDiseaseFromIcd(
-  codes: string[]
+  codes: Array<string | Pick<MimicDiagnosis, "icd_code" | "icd_version">>
 ): DiseaseMapping | null {
-  const upper = codes.map((c) => c.toUpperCase().replace(/\s/g, ""));
+  const normalized = codes.map((entry) =>
+    typeof entry === "string"
+      ? { code: entry.toUpperCase().replace(/\s/g, ""), version: 10 as const }
+      : {
+          code: entry.icd_code.toUpperCase().replace(/\s/g, ""),
+          version: entry.icd_version ?? 10,
+        }
+  );
   let best: DiseaseMapping | null = null;
   for (const m of DISEASE_MAPPINGS) {
-    for (const prefix of m.icd10Prefixes) {
-      const p = prefix.toUpperCase();
-      if (upper.some((c) => c.startsWith(p) || c.replace(".", "").startsWith(p.replace(".", "")))) {
+    for (const entry of normalized) {
+      const prefixes = entry.version === 9 ? m.icd9Prefixes || [] : m.icd10Prefixes;
+      if (prefixes.some((prefix) => {
+        const p = prefix.toUpperCase();
+        return entry.code.startsWith(p) || entry.code.replace(".", "").startsWith(p.replace(".", ""));
+      })) {
         if (!best || m.priority < best.priority) best = m;
       }
     }

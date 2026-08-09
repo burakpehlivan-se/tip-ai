@@ -79,6 +79,33 @@ export const LAB_KAYNAKLARI: LabKaynak[] = [
       "(src/lib/etl/mimic). Rubrik/presentation AI+uzman post-process. Fixture demo: npm run etl:mimic-demo",
   },
   {
+    id: "mimic-iii-episode-etl",
+    ad: "MIMIC-III v1.4 — yatış epizodu ETL",
+    kisaAd: "MIMIC-III",
+    durum: "planlanan",
+    rol: "ICD-9 tanı, laboratuvar, ilaç ve prosedür satırlarını yatış bazında TIP-AI CDM v1 taslağına dönüştürür",
+    url: "https://physionet.org/content/mimiciii/1.4/",
+    ekUrl: [
+      { etiket: "MIMIC-III tabloları", url: "https://mimic.mit.edu/docs/III/tables/" },
+      { etiket: "DIAGNOSES_ICD", url: "https://mimic.mit.edu/docs/iii/tables/diagnoses_icd.html" },
+      { etiket: "LABEVENTS", url: "https://mimic.mit.edu/docs/III/tables/labevents/" },
+    ],
+    lisans: "PhysioNet Credentialed Health Data License 1.5.0 — credentialing, CITI Data or Specimens Only Research ve DUA gerekir",
+    tablolar: [
+      "PATIENTS.csv",
+      "ADMISSIONS.csv",
+      "DIAGNOSES_ICD.csv",
+      "D_ICD_DIAGNOSES.csv",
+      "LABEVENTS.csv",
+      "D_LABITEMS.csv",
+      "PRESCRIPTIONS.csv",
+      "PROCEDURES_ICD.csv",
+    ],
+    not:
+      "Ham CSV ve source kimlikleri repoya/UI'a girmez. Adapter yalnızca aynı subject_id+hadm_id satırlarını alır; " +
+      "HADM_ID'siz outpatient lab'ları dışarıda bırakır ve çıktı taslak + uzman onayı durumunda kalır.",
+  },
+  {
     id: "ai-readi-lab-docs",
     ad: "AI-READI — Clinical Lab Tests (diyabet odaklı OMOP)",
     kisaAd: "AI-READI",

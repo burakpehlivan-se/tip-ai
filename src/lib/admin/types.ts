@@ -16,7 +16,7 @@ export type VakaEtiket =
 export interface AdminCondition {
   code: string;
   ad: string;
-  system?: "local" | "icd10" | "snomed" | "atc" | "loinc";
+  system?: "local" | "icd9" | "icd10" | "snomed" | "atc" | "loinc";
   primary?: boolean;
 }
 

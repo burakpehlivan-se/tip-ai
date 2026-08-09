@@ -28,7 +28,7 @@ export type CdmSoruKategori =
   | "RedFlag"
   | "Diger";
 
-export type CdmKodSistemi = "local" | "icd10" | "snomed" | "atc" | "loinc";
+export type CdmKodSistemi = "local" | "icd9" | "icd10" | "snomed" | "atc" | "loinc";
 
 /** OMOP condition_occurrence benzeri */
 export interface CdmCondition {

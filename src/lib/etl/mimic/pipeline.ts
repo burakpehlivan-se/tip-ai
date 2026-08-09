@@ -18,6 +18,7 @@ import {
   TipAiCdmDocument,
   TIP_AI_CDM_VERSION,
 } from "../../cdm/types";
+import { createHmac } from "crypto";
 import { validateVakaDocument, VakaValidationResult } from "../../cdm/validate-report";
 import {
   ageToRange,
@@ -51,8 +52,8 @@ export interface EtlResult {
   validation: VakaValidationResult;
   meta: {
     source: string;
-    subject_id: string;
-    hadm_id: string;
+    /** Kaynak kimliklerini ifşa etmeyen, tekrar üretilebilir epizod anahtarı. */
+    episodeId: string;
     diseaseMapping: DiseaseMapping | null;
     labMapped: number;
     labUnmapped: number;
@@ -197,8 +198,22 @@ function mapVitals(vitals: MimicVital[]): TipAiCdmDocument["vitals"] {
   };
 }
 
-function slugId(poliklinikKey: string, hastalikKey: string, subject: string, hadm: string): string {
-  return `${poliklinikKey}::${hastalikKey}-mimic-${subject}-${hadm}`.toLowerCase();
+function sourceEpisodeToken(bundle: MimicEpisodeBundle): string {
+  const salt = process.env.MIMIC_EPISODE_HASH_SALT;
+  const realDataset = bundle.source !== "fixture";
+  if (realDataset && !salt) {
+    throw new Error(
+      "MIMIC_EPISODE_HASH_SALT is required for non-fixture MIMIC/OMOP imports"
+    );
+  }
+  return createHmac("sha256", salt || "tip-ai-fixture-only-not-for-production")
+    .update(`${bundle.source}:${bundle.subject_id}:${bundle.hadm_id}`)
+    .digest("hex")
+    .slice(0, 16);
+}
+
+function slugId(poliklinikKey: string, hastalikKey: string, episodeToken: string): string {
+  return `${poliklinikKey}::${hastalikKey}-mimic-${episodeToken}`.toLowerCase();
 }
 
 /**
@@ -214,8 +229,7 @@ export function etlMimicEpisodeToCdm(
 
   // ── Step 1–2: disease from ICD ──
   steps.push("select_episode");
-  const icdCodes = bundle.diagnoses.map((d) => d.icd_code);
-  const disease = resolveDiseaseFromIcd(icdCodes);
+  const disease = resolveDiseaseFromIcd(bundle.diagnoses);
   steps.push(disease ? `map_dx:${disease.hastalikKey}` : "map_dx:unknown");
 
   const hastalikKey = disease?.hastalikKey || "genel-vaka";
@@ -262,7 +276,7 @@ export function etlMimicEpisodeToCdm(
     .map((d, i) => ({
       code: d.icd_code.toUpperCase().replace(/\s/g, ""),
       ad: d.long_title || d.icd_code,
-      system: "icd10" as const,
+      system: d.icd_version === 9 ? "icd9" : "icd10",
       primary: i === 0,
     }));
 
@@ -334,7 +348,8 @@ export function etlMimicEpisodeToCdm(
     }
   }
 
-  const id = slugId(poliklinikKey, hastalikKey, bundle.subject_id, bundle.hadm_id);
+  const episodeToken = sourceEpisodeToken(bundle);
+  const id = slugId(poliklinikKey, hastalikKey, episodeToken);
 
   // Yanıt iskeleti
   const hastaYanitlari: Record<string, string> = {
@@ -359,7 +374,7 @@ export function etlMimicEpisodeToCdm(
       poliklinikKey,
       poliklinikAd,
       poliklinikIcon,
-      poliklinikAciklama: `MIMIC ETL · ${bundle.source} · subject ${bundle.subject_id} / hadm ${bundle.hadm_id}`,
+      poliklinikAciklama: `MIMIC ETL · ${bundle.source} · kaynak epizod tanımlayıcıları dışa aktarılmaz`,
       hastalikKey,
       hastalikAdi,
       seviye: opts.seviye || "orta",
@@ -383,7 +398,7 @@ export function etlMimicEpisodeToCdm(
             `Kaynak: ${bundle.source}`,
             `Epizod: ${bundle.admission.admission_type || "admission"}`,
           ]
-        : [`MIMIC subject ${bundle.subject_id}`],
+        : [`MIMIC kaynağı: ${bundle.source}`],
       semptomSablon: applyTemplates
         ? `{{yas}} yaş {{cinsiyet}}, ${template.anaSikayetStub.toLowerCase()}`
         : "{{yas}} yaş {{cinsiyet}}",
@@ -408,7 +423,7 @@ export function etlMimicEpisodeToCdm(
         prosedurler,
         onemliNotlar: [
           "İlaç/prosedür listesi MIMIC epizodundan sadeleştirilmiştir.",
-          "Eğitim amaçlıdır; gerçek hasta verisi değildir (fixture/demo) veya credentialed kullanım kurallarına tabidir.",
+          "Kaynak epizod kimlikleri dışa aktarılmaz; veri kullanımı ilgili lisans ve erişim kurallarına tabidir.",
         ],
       },
     },
@@ -423,8 +438,7 @@ export function etlMimicEpisodeToCdm(
     validation,
     meta: {
       source: bundle.source,
-      subject_id: bundle.subject_id,
-      hadm_id: bundle.hadm_id,
+      episodeId: episodeToken,
       diseaseMapping: disease,
       labMapped: mapped,
       labUnmapped: unmapped,
