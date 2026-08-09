@@ -61,8 +61,21 @@ function writeJsonAtomic(file: string, data: unknown): void {
   const dir = path.dirname(file);
   if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
   const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), "utf8");
+  const handle = fs.openSync(tmp, "w");
+  try {
+    fs.writeFileSync(handle, JSON.stringify(data, null, 2), "utf8");
+    fs.fsyncSync(handle);
+  } finally {
+    fs.closeSync(handle);
+  }
   fs.renameSync(tmp, file);
+  // rename sonrası dizin fsync'i, güç kesintisinde metadata dayanıklılığını artırır.
+  const dirHandle = fs.openSync(dir, "r");
+  try {
+    fs.fsyncSync(dirHandle);
+  } finally {
+    fs.closeSync(dirHandle);
+  }
 }
 
 export function loadCasesStore(): CasesStore {

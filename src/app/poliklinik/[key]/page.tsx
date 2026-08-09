@@ -2,38 +2,60 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
-import { vakaUret, poliklinikGetir, AdminTestOverrides } from "@/lib/data/case-generator";
-import { fetchAdminTestOverrides } from "@/lib/data/admin-overrides";
-import VakaWorkspace from "@/components/vaka/VakaWorkspace";
+import { useParams, useRouter } from "next/navigation";
+import VakaWorkspace, { CompletedAttempt } from "@/components/vaka/VakaWorkspace";
 import { Vaka } from "@/lib/types";
+import { publicAttemptToVaka } from "@/lib/student/public-case";
 
 export default function PoliklinikPage() {
   const params = useParams();
+  const router = useRouter();
   const poliklinikKey = params.key as string;
   const [vaka, setVaka] = useState<Vaka | null>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
-  const [adminTests, setAdminTests] = useState<AdminTestOverrides>({});
+  const [girisKontrol, setGirisKontrol] = useState(true);
+  const poliklinik = { ad: poliklinikKey, icon: "🏥" };
 
-  const poliklinik = poliklinikGetir(poliklinikKey);
+  // Giriş kapısı — poliklinikler yalnızca girişli kullanıcılar içindir
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/student/me")
+      .then((r) => {
+        if (cancelled) return;
+        if (!r.ok) {
+          router.replace(
+            `/giris?sonraki=${encodeURIComponent(`/poliklinik/${poliklinikKey}`)}`
+          );
+        } else {
+          setGirisKontrol(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setGirisKontrol(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [router, poliklinikKey]);
 
   const uret = useCallback(
-    async (forceRefresh = false) => {
-      const overrides = forceRefresh
-        ? await fetchAdminTestOverrides(true)
-        : adminTests && Object.keys(adminTests).length
-          ? adminTests
-          : await fetchAdminTestOverrides();
-      if (forceRefresh || !Object.keys(adminTests).length) setAdminTests(overrides);
-      return vakaUret(poliklinikKey, { adminTests: overrides });
+    async () => {
+      const response = await fetch("/api/student/attempts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ poliklinikKey }),
+      });
+      if (!response.ok) throw new Error("Vaka hazırlanamadı.");
+      const { vaka: remote } = await response.json();
+      return publicAttemptToVaka(remote);
     },
-    [poliklinikKey, adminTests]
+    [poliklinikKey]
   );
 
   useEffect(() => {
     let cancelled = false;
     setYukleniyor(true);
-    uret(true).then((yeniVaka) => {
+    uret().then((yeniVaka) => {
       if (!cancelled) {
         setVaka(yeniVaka);
         setYukleniyor(false);
@@ -46,20 +68,34 @@ export default function PoliklinikPage() {
 
   const yeniVakaAl = () => {
     setYukleniyor(true);
-    uret(true).then((yeni) => {
+    uret().then((yeni) => {
       setVaka(yeni);
       setYukleniyor(false);
     });
   };
 
-  if (!poliklinik) {
+  async function attemptAction(type: "ask" | "test" | "complete", payload: Record<string, string>) {
+    if (!vaka) return null;
+    try {
+      const response = await fetch(`/api/student/attempts/${vaka.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type, ...payload }),
+      });
+      if (!response.ok) return null;
+      return response.json();
+    } catch {
+      return null;
+    }
+  }
+
+  if (girisKontrol) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas">
         <div className="text-center">
-          <p className="text-lg text-steel mb-4">Poliklinik bulunamadı.</p>
-          <Link href="/vakalar" className="btn-primary">
-            ← Polikliniklere Dön
-          </Link>
+          <div className="mb-4 text-5xl">{poliklinik.icon}</div>
+          <p className="text-lg font-medium text-ink mb-2">{poliklinik.ad} Polikliniği</p>
+          <p className="text-sm text-steel">Oturum kontrol ediliyor...</p>
         </div>
       </div>
     );
@@ -98,7 +134,13 @@ export default function PoliklinikPage() {
         </button>
       </div>
 
-      <VakaWorkspace vaka={vaka} key={vaka.id} />
+      <VakaWorkspace
+        vaka={vaka}
+        key={vaka.id}
+        onAsk={async (action) => (await attemptAction("ask", { action }))?.yanit || "Yanıt alınamadı."}
+        onTestRequest={async (testKey) => (await attemptAction("test", { testKey }))?.sonuc || null}
+        onEvaluate={async (attempt: CompletedAttempt) => (await attemptAction("complete", { taniGirildi: attempt.taniGirildi }))?.sonuc || null}
+      />
     </div>
   );
 }

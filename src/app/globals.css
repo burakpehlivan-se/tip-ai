@@ -3,6 +3,9 @@
 @tailwind utilities;
 
 :root {
+  /* Sistem fontları build'i harici font CDN'inden bağımsız kılar. */
+  --font-noto: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-figtree: "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
   --color-canvas: #ffffff;
   --color-surface: #f7f7f7;
   --color-surface-soft: #fafafa;
@@ -17,8 +20,8 @@
   --color-brand: #14b8a6;
   --color-brand-deep: #0f766e;
   --color-brand-soft: #99f6e4;
-  --color-clinical-red: #d45656;
-  --color-clinical-orange: #f59e0b;
+  --color-clinical-red: #b33939;
+  --color-clinical-orange: #b45309;
   --color-clinical-blue: #3772cf;
 }
 

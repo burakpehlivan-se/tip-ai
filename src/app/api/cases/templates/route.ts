@@ -5,8 +5,8 @@ import { NextResponse } from "next/server";
 import { loadCasesStore } from "@/lib/admin/store";
 
 /**
- * Public (öğrenci tarafı) — admin deposundaki vaka test şablonlarını okur.
- * Auth gerekmez; sadece eğitim şablonları.
+ * Public vaka kataloğu. Cevap anahtarı, test sonuçları, rubrik ve ideal yol
+ * yalnızca sunucu tarafında tutulur; bu uç yalnızca listeleme metadatası döner.
  */
 export async function GET() {
   try {
@@ -19,18 +19,12 @@ export async function GET() {
       poliklinikKey: c.poliklinikKey,
       poliklinikAd: c.poliklinikAd,
       poliklinikIcon: c.poliklinikIcon,
+      poliklinikAciklama: c.poliklinikAciklama,
       hastalikKey: c.hastalikKey,
       hastalikAdi: c.hastalikAdi,
       seviye: c.seviye,
       yasAraligi: c.yasAraligi,
       cinsiyetTercih: c.cinsiyetTercih,
-      anaSikayet: c.anaSikayet,
-      ozetBilgiler: c.ozetBilgiler,
-      rubric: c.rubric,
-      statikTestler: c.statikTestler,
-      hastaYanitlari: c.hastaYanitlari,
-      idealYol: c.idealYol,
-      egitimNotu: c.egitimNotu,
       etiketler: c.etiketler || [],
       durum: c.durum || "aktif",
       updatedAt: c.updatedAt,

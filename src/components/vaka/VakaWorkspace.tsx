@@ -15,7 +15,7 @@ import {
 import { normalizeSoru } from "@/lib/nlp/normalize";
 import { degerlendir } from "@/lib/scoring/degerlendir";
 import { birlesikTestKatalogu, TEST_VISIBILITY_MAP, MOTOR_CAPABLE_KEYS } from "@/lib/data";
-import { aksiyonRelevantMi, CHIP_KATEGORI_ETIKETLERI } from "@/lib/data/case-generator";
+import { CHIP_KATEGORI_ETIKETLERI } from "@/lib/data/chip-labels";
 import ResmiRapor from "./ResmiRapor";
 import { getLabResult } from "@/lib/lab-motor";
 import Link from "next/link";
@@ -32,6 +32,12 @@ export interface WorkspaceSnapshot {
   tedaviInput: string;
 }
 
+export interface CompletedAttempt {
+  sorulanAksiyonlar: string[];
+  istenenTestler: string[];
+  taniGirildi: string;
+}
+
 interface Props {
   vaka: Vaka;
   mod?: "normal" | "cemicegek";
@@ -46,7 +52,11 @@ interface Props {
   embed?: boolean;
   /** Admin debug: beklenen tanı/red flag/test sonuçları hemen görünür */
   debugMode?: boolean;
-  onComplete?: (sonuc: DegerlendirmeSonuc) => void;
+  onComplete?: (sonuc: DegerlendirmeSonuc, attempt: CompletedAttempt) => void;
+  /** Öğrenci modunda cevap/test/puan sunucudaki vaka oturumundan gelir. */
+  onAsk?: (action: string) => Promise<string>;
+  onTestRequest?: (testKey: string) => Promise<TestSonucu | null>;
+  onEvaluate?: (attempt: CompletedAttempt) => Promise<DegerlendirmeSonuc | null>;
 }
 
 function defaultMesajlar(vaka: Vaka): ChatMesaj[] {
@@ -85,6 +95,9 @@ export default function VakaWorkspace({
   embed = false,
   debugMode = false,
   onComplete,
+  onAsk,
+  onTestRequest,
+  onEvaluate,
 }: Props) {
   // Debug modda sonuçlar her zaman açık
   const effectiveRaporHazir = debugMode ? true : raporHazir;
@@ -111,6 +124,7 @@ export default function VakaWorkspace({
   const [acikKategoriler, setAcikKategoriler] = useState<Set<ChipKategorisi>>(new Set<ChipKategorisi>(["anamnez-agri"]));
   const [kaynaklarAcik, setKaynaklarAcik] = useState(false);
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
+  const drawerKapatBtnRef = useRef<HTMLButtonElement>(null);
   const [showKatDropdown, setShowKatDropdown] = useState(false);
   const [mobilPanel, setMobilPanel] = useState<"hasta" | "sohbet" | "testler">("sohbet");
   const [debugDetayAcik, setDebugDetayAcik] = useState(false);
@@ -168,11 +182,24 @@ export default function VakaWorkspace({
     }
   }, [faz]);
 
-  const soruSor = () => {
+  // Soru drawer açılınca odak modala taşın; ESC ile kapat
+  useEffect(() => {
+    if (!showSoruDrawer) return;
+    drawerKapatBtnRef.current?.focus();
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setShowSoruDrawer(false);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [showSoruDrawer]);
+
+  const soruSor = async () => {
     if (!input.trim()) return;
 
     const normalized = normalizeSoru(input);
-    const hastaYanit = vaka.hastaYanitlari[normalized] || vaka.hastaYanitlari["OZEL"];
+    const hastaYanit = onAsk
+      ? await onAsk(normalized)
+      : vaka.hastaYanitlari[normalized] || vaka.hastaYanitlari["OZEL"];
 
     const yeniMesajlar: ChatMesaj[] = [
       { id: `${Date.now()}-q`, rol: "ogrenci", metin: input, zaman: Date.now() },
@@ -188,10 +215,12 @@ export default function VakaWorkspace({
     setInput("");
   };
 
-  const chipSor = (chip: SoruChipi) => {
+  const chipSor = async (chip: SoruChipi) => {
     // Chip seçildiğinde direkt hasta yanıtını ver — NLP'e gitme
     const normalized = chip.aksiyon;
-    const hastaYanit = vaka.hastaYanitlari[normalized] || vaka.hastaYanitlari["OZEL"];
+    const hastaYanit = onAsk
+      ? await onAsk(normalized)
+      : vaka.hastaYanitlari[normalized] || vaka.hastaYanitlari["OZEL"];
 
     const yeniMesajlar: ChatMesaj[] = [
       { id: `${Date.now()}-q`, rol: "ogrenci", metin: chip.etiket, zaman: Date.now() },
@@ -205,11 +234,11 @@ export default function VakaWorkspace({
     }
   };
 
-  const testIstey = (testKey: string) => {
-    let statik = vaka.statikTestler[testKey];
+  const testIstey = async (testKey: string) => {
+    let statik = onTestRequest ? await onTestRequest(testKey) : vaka.statikTestler[testKey];
       if (!statik) {
       // Lab motoru ile üretmeyi dene
-      const motorSonuc = vaka.profile ? getLabResult(testKey, vaka.profile, vaka.statikTestler) : null;
+      const motorSonuc = !onTestRequest && vaka.profile ? getLabResult(testKey, vaka.profile, vaka.statikTestler) : null;
       if (!motorSonuc) {
         setMesajlar((prev) => {
           const alreadyWarned = prev.some((m) => m.id.endsWith("-err") && m.metin.includes(testKey));
@@ -284,11 +313,13 @@ export default function VakaWorkspace({
     ]);
   };
 
-  const vakaTamamla = () => {
+  const vakaTamamla = async () => {
     const istenenTestKeyleri = testIstekleri.map((t) => t.testKey);
-    const deg = degerlendir(vaka, sorulanAksiyonlar, istenenTestKeyleri, taniInput);
+    const attempt = { sorulanAksiyonlar, istenenTestler: istenenTestKeyleri, taniGirildi: taniInput };
+    const deg = onEvaluate ? await onEvaluate(attempt) : degerlendir(vaka, sorulanAksiyonlar, istenenTestKeyleri, taniInput);
+    if (!deg) return;
     setSonuc(deg);
-    onComplete?.(deg);
+    onComplete?.(deg, attempt);
   };
 
   // ── hasData + visibility filtreli test kataloğu ──
@@ -439,14 +470,14 @@ export default function VakaWorkspace({
       {!embed && (
       <div className="flex h-12 lg:h-14 items-center justify-between border-b border-hairline bg-canvas px-3 lg:px-4">
         <div className="flex items-center gap-1.5 lg:gap-2 min-w-0">
-          <Link href="/vakalar" className="text-steel hover:text-ink transition-colors shrink-0">
+          <Link href="/vakalar" aria-label="Vakalara dön" className="text-steel hover:text-ink transition-colors shrink-0">
             <svg className="w-5 h-5 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
           </Link>
           <span className="text-sm lg:text-base font-semibold text-ink truncate">{vaka.alan} · {vaka.hasta.yas} yaş</span>
         </div>
         <div className="hidden sm:flex items-center gap-1 rounded-lg bg-surface p-0.5">
           {(["anamnez","test","tani","tedavi"] as const).map((f) => (
-            <button key={f} onClick={() => setFaz(f)} className={`px-2.5 lg:px-3 py-1 rounded-md text-[11px] lg:text-xs font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
+            <button key={f} aria-pressed={faz === f} onClick={() => setFaz(f)} className={`px-2.5 lg:px-3 py-1 rounded-md text-[11px] lg:text-xs font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
               {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
             </button>
           ))}
@@ -461,7 +492,7 @@ export default function VakaWorkspace({
         </span>
         <div className="hidden sm:flex items-center gap-1 rounded-lg bg-surface p-0.5">
           {(["anamnez","test","tani","tedavi"] as const).map((f) => (
-            <button key={f} onClick={() => setFaz(f)} className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
+            <button key={f} aria-pressed={faz === f} onClick={() => setFaz(f)} className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
               {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
             </button>
           ))}
@@ -471,7 +502,7 @@ export default function VakaWorkspace({
       {/* Mobil faz sekmeleri (sm altı) */}
       <div className="flex sm:hidden shrink-0 border-b border-hairline bg-canvas px-1 overflow-x-auto scrollbar-none">
         {(["anamnez","test","tani","tedavi"] as const).map((f) => (
-          <button key={f} onClick={() => setFaz(f)} className={`shrink-0 px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${faz === f ? "border-ink text-ink" : "border-transparent text-steel"}`}>
+          <button key={f} aria-pressed={faz === f} onClick={() => setFaz(f)} className={`shrink-0 px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${faz === f ? "border-ink text-ink" : "border-transparent text-steel"}`}>
             {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
           </button>
         ))}
@@ -640,7 +671,12 @@ export default function VakaWorkspace({
 
           {/* Soru Drawer (overlay) */}
           {showSoruDrawer && (
-            <div className="fixed inset-0 z-50 flex justify-end">
+            <div
+              className="fixed inset-0 z-50 flex justify-end"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Tüm sorular"
+            >
               <div className="absolute inset-0 bg-black/20" onClick={() => setShowSoruDrawer(false)} />
               <div className="relative w-full max-w-md bg-canvas shadow-xl border-l border-hairline overflow-y-auto">
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline bg-canvas px-4 py-3">
@@ -653,7 +689,7 @@ export default function VakaWorkspace({
                       </button>
                     ))}
                   </div>
-                  <button onClick={() => setShowSoruDrawer(false)} className="rounded-full p-1 hover:bg-surface text-steel shrink-0">✕</button>
+                  <button ref={drawerKapatBtnRef} onClick={() => setShowSoruDrawer(false)} aria-label="Soru panelini kapat" className="rounded-full p-1 hover:bg-surface text-steel shrink-0">✕</button>
                 </div>
                 <div className="p-4 space-y-3">
                   <input type="text" value={chipArama} onChange={(e) => setChipArama(e.target.value)}
@@ -983,15 +1019,15 @@ export default function VakaWorkspace({
 
       {/* Mobile Bottom Tabs */}
       <div className="flex border-t border-hairline bg-canvas xl:hidden">
-        <button onClick={() => setMobilPanel("hasta")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "hasta" ? "text-brand" : "text-steel"}`}>
+        <button aria-pressed={mobilPanel === "hasta"} onClick={() => setMobilPanel("hasta")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "hasta" ? "text-brand" : "text-steel"}`}>
           <span className="text-base">👤</span>
           <span className="text-[10px] font-medium">Hasta</span>
         </button>
-        <button onClick={() => setMobilPanel("sohbet")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "sohbet" ? "text-brand" : "text-steel"}`}>
+        <button aria-pressed={mobilPanel === "sohbet"} onClick={() => setMobilPanel("sohbet")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "sohbet" ? "text-brand" : "text-steel"}`}>
           <span className="text-base">💬</span>
           <span className="text-[10px] font-medium">Sohbet</span>
         </button>
-        <button onClick={() => setMobilPanel("testler")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "testler" ? "text-brand" : "text-steel"}`}>
+        <button aria-pressed={mobilPanel === "testler"} onClick={() => setMobilPanel("testler")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "testler" ? "text-brand" : "text-steel"}`}>
           <span className="text-base">🧪</span>
           <span className="text-[10px] font-medium">Testler</span>
         </button>
@@ -1005,7 +1041,7 @@ function MesajBalonu({ msg, vaka, hastaneAdi }: { msg: ChatMesaj; vaka: Vaka; ha
     const isWarning = msg.metin.startsWith("⚠️");
     const isComplete = msg.metin.startsWith("✅");
     return (
-      <div className="flex justify-center">
+      <div className="flex flex-col items-center">
         <div className={`rounded-lg px-4 py-2 text-xs whitespace-pre-line ${
           isWarning
             ? "bg-clinical-orange/15 text-clinical-orange border border-clinical-orange/30"
@@ -1016,7 +1052,7 @@ function MesajBalonu({ msg, vaka, hastaneAdi }: { msg: ChatMesaj; vaka: Vaka; ha
           {msg.metin}
         </div>
         {msg.testSonucu && (
-          <div className="mx-auto mt-2 w-full max-w-[85%]">
+          <div className="mt-2 w-full max-w-[85%]">
             <ResmiRapor sonuc={msg.testSonucu} hasta={vaka.hasta} hastaneAdi={hastaneAdi} />
           </div>
         )}
@@ -1076,6 +1112,7 @@ function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi; hasta
     <div className="overflow-hidden rounded-lg border border-hairline bg-canvas">
       <button
         onClick={() => setExpanded(!expanded)}
+        aria-expanded={expanded}
         className="flex w-full items-center justify-between border-b border-hairline-soft px-4 py-3 text-left hover:bg-surface-soft transition-colors"
       >
         <div>
@@ -1148,6 +1185,7 @@ function DebugTestKarti({
       <button
         type="button"
         onClick={() => setExpanded((v) => !v)}
+        aria-expanded={expanded}
         className="flex w-full items-start justify-between gap-2 px-3 py-2.5 text-left hover:bg-surface-soft/80 transition-colors"
       >
         <div className="min-w-0">

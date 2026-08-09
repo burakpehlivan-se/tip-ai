@@ -2,14 +2,18 @@
 
 import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
-import { vakaUret, AdminTestOverrides } from "@/lib/data/case-generator";
-import { fetchAdminTestOverrides } from "@/lib/data/admin-overrides";
-import VakaWorkspace, { WorkspaceSnapshot } from "./VakaWorkspace";
+import VakaWorkspace, { CompletedAttempt, WorkspaceSnapshot } from "./VakaWorkspace";
 import { Vaka, DegerlendirmeSonuc } from "@/lib/types";
+import { publicAttemptToVaka } from "@/lib/student/public-case";
 
-async function uretVaka(overrides?: AdminTestOverrides): Promise<Vaka> {
-  const adminTests = overrides || (await fetchAdminTestOverrides());
-  return vakaUret(undefined, { adminTests });
+async function uretVaka(): Promise<Vaka> {
+  const response = await fetch("/api/student/attempts", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ poliklinikKey: "*" }),
+  });
+  if (!response.ok) throw new Error("Vaka hazırlanamadı.");
+  return publicAttemptToVaka((await response.json()).vaka);
 }
 
 /** Fallback — admin ayarlarından override edilir */
@@ -82,6 +86,15 @@ export default function CemicegekSimulator() {
     setBanner(msg);
     setTimeout(() => setBanner(null), 5500);
   };
+
+  const actionIstek = useCallback(async (id: string, type: "ask" | "test" | "complete", payload: Record<string, string>) => {
+    const response = await fetch(`/api/student/attempts/${id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, ...payload }),
+    });
+    return response.ok ? response.json() : null;
+  }, []);
 
   const ilkHastayiGetir = useCallback(async () => {
     const vaka = await uretVaka();
@@ -510,6 +523,9 @@ export default function CemicegekSimulator() {
         onSnapshotChange={onSnapshotChange}
         initialSnapshot={restoreSnapshot}
         hastaneAdi="ÇEMİÇGEZEK DEVLET HASTANESİ"
+        onAsk={async (action) => (await actionIstek(aktif.id, "ask", { action }))?.yanit || "Yanıt alınamadı."}
+        onTestRequest={async (testKey) => (await actionIstek(aktif.id, "test", { testKey }))?.sonuc || null}
+        onEvaluate={async (attempt: CompletedAttempt) => (await actionIstek(aktif.id, "complete", { taniGirildi: attempt.taniGirildi }))?.sonuc || null}
       />
     </div>
   );

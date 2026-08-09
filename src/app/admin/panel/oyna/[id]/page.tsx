@@ -4,10 +4,8 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import VakaWorkspace from "@/components/vaka/VakaWorkspace";
-import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 import { AdminVaka } from "@/lib/admin/types";
 import { DegerlendirmeSonuc, Vaka } from "@/lib/types";
-import { CHIP_HAVUZU } from "@/lib/data/case-generator";
 
 export default function AdminOynaPage() {
   const params = useParams();
@@ -44,9 +42,14 @@ export default function AdminOynaPage() {
         const d = await r.json();
         if (!r.ok) throw new Error(d.error || "Yüklenemedi");
         setAdminCase(d.case);
-        const playable = adminVakaToPlayable(d.case);
-        playable.soruChipleri = [...CHIP_HAVUZU];
-        setPlayVaka(playable);
+      })
+      .catch((e) => setError(e.message));
+
+    fetch(`/api/admin/cases/${encodeURIComponent(id)}/playable`)
+      .then(async (r) => {
+        const d = await r.json();
+        if (!r.ok) throw new Error(d.error || "Oynanabilir vaka yüklenemedi");
+        setPlayVaka(d.vaka);
       })
       .catch((e) => setError(e.message));
 
@@ -59,11 +62,14 @@ export default function AdminOynaPage() {
     load();
   }, [load]);
 
-  function yenidenBaslat() {
-    if (!adminCase) return;
-    const playable = adminVakaToPlayable(adminCase);
-    playable.soruChipleri = [...CHIP_HAVUZU];
-    setPlayVaka(playable);
+  async function yenidenBaslat() {
+    const response = await fetch(`/api/admin/cases/${encodeURIComponent(id)}/playable`);
+    const data = await response.json();
+    if (!response.ok) {
+      setError(data.error || "Vaka yeniden başlatılamadı");
+      return;
+    }
+    setPlayVaka(data.vaka);
     setLastSonuc(null);
   }
 
