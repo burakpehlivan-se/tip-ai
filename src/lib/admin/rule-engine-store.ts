@@ -8,6 +8,7 @@ import {
   DEFAULT_RULES,
   DEFAULT_ALIASES,
 } from "./rule-engine-types";
+import { logger } from "../logger";
 
 function rulesPath(): string {
   return path.join(adminDataDir(), "rule-engine.json");
@@ -17,7 +18,10 @@ function readJsonAtomic<T>(file: string, fallback: T): T {
   try {
     if (!fs.existsSync(file)) return fallback;
     return JSON.parse(fs.readFileSync(file, "utf8")) as T;
-  } catch {
+  } catch (error) {
+    logger.exception("Kural motoru yapılandırması okunamadı; varsayılan kurallar kullanılıyor", error, {
+      file,
+    });
     return fallback;
   }
 }

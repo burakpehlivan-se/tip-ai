@@ -33,9 +33,9 @@ function readJson<T>(file: string, fallback: T): T {
   try {
     if (!fs.existsSync(file)) return fallback;
     return JSON.parse(fs.readFileSync(file, "utf8")) as T;
-  } catch {
+  } catch (error) {
     // Bozuk JSON sessizce fallback'e düşer; üzerine yazılırsa veri kaybı olur.
-    logger.error("JSON dosyası okunamadı (bozuk veya erişilemez)", { file });
+    logger.exception("JSON dosyası okunamadı (bozuk veya erişilemez)", error, { file });
     return fallback;
   }
 }
