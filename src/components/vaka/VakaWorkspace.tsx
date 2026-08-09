@@ -737,7 +737,7 @@ export default function VakaWorkspace({
                     const rel = vaka.relevantAksiyonlar?.includes(chip.aksiyon);
                     return (
                       <button key={`${chip.aksiyon}-${i}`} onClick={() => chipSor(chip)} disabled={soruldu || islemYukleniyor}
-                        className={`rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-all ${
+                        className={`rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-[background-color,border-color,color] ${
                           soruldu
                             ? "cursor-default border-hairline bg-surface text-muted/60 line-through"
                             : rel
@@ -796,7 +796,7 @@ export default function VakaWorkspace({
                             const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
                             return (
                               <button key={i} onClick={() => { chipSor(chip); if (!soruldu) setShowSoruDrawer(false); }} disabled={soruldu || islemYukleniyor}
-                                className={`rounded-full border px-2.5 py-1.5 text-xs font-medium transition-all ${
+                                className={`rounded-full border px-2.5 py-1.5 text-xs font-medium transition-[background-color,border-color,color] ${
                                   soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
                                 }`}>{chip.etiket}</button>
                             );
@@ -1486,8 +1486,11 @@ function SonucEkrani({
                   return (
                     <div key={i} className="flex items-center gap-3">
                       <div className="w-40 flex-shrink-0 text-xs font-medium text-ink">{k.etiket}</div>
-                      <div className="flex-1 rounded-full bg-surface">
-                        <div className={`h-2 rounded-full transition-all ${renk}`} style={{ width: `${oran}%` }} />
+                      <div className="flex-1 overflow-hidden rounded-full bg-surface">
+                        <div
+                          className={`h-2 w-full origin-left rounded-full transition-transform motion-reduce:transition-none ${renk}`}
+                          style={{ transform: `scaleX(${oran / 100})` }}
+                        />
                       </div>
                       <div className="w-20 flex-shrink-0 text-right text-xs text-steel">
                         {k.soruldu}/{k.beklenen} ({oran}%)
