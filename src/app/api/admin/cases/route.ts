@@ -12,6 +12,7 @@ import {
 } from "@/lib/admin/store";
 import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
 import { Seviye } from "@/lib/types";
+import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
@@ -119,7 +120,11 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json({ ok: true, case: vaka, log: result.log, backup: result.backup });
-  } catch {
+  } catch (error) {
+    logger.exception("Vaka oluşturulamadı", error, {
+      requestId: getRequestId(req),
+      route: "/api/admin/cases",
+    });
     return NextResponse.json({ error: "Vaka oluşturulamadı." }, { status: 500 });
   }
 }

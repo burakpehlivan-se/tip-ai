@@ -11,6 +11,7 @@ import {
   recordMutation,
 } from "@/lib/admin/store";
 import { AdminVaka } from "@/lib/admin/types";
+import { getRequestId, logger } from "@/lib/logger";
 
 function decodeId(raw: string): string {
   return decodeURIComponent(raw);
@@ -112,7 +113,11 @@ export async function PATCH(
 
     const updated = result.store.cases.find((c) => c.id === id);
     return NextResponse.json({ ok: true, case: updated, log: result.log, backup: result.backup });
-  } catch {
+  } catch (error) {
+    logger.exception("Vaka güncellenemedi", error, {
+      requestId: getRequestId(req),
+      route: "/api/admin/cases/[id]",
+    });
     return NextResponse.json({ error: "Güncelleme başarısız." }, { status: 500 });
   }
 }

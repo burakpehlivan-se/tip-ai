@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
 import { addFeedback, getCaseById, listFeedbacks } from "@/lib/admin/store";
+import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
@@ -54,7 +55,11 @@ export async function POST(req: NextRequest) {
     );
 
     return NextResponse.json({ ok: true, feedback: fb });
-  } catch {
+  } catch (error) {
+    logger.exception("Geri bildirim kaydedilemedi", error, {
+      requestId: getRequestId(req),
+      route: "/api/admin/feedback",
+    });
     return NextResponse.json({ error: "Feedback kaydedilemedi." }, { status: 500 });
   }
 }

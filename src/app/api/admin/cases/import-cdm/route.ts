@@ -10,6 +10,7 @@ import {
   validateCdmDocument,
   TipAiCdmDocument,
 } from "@/lib/cdm";
+import { getRequestId, logger } from "@/lib/logger";
 
 /**
  * POST /api/admin/cases/import-cdm
@@ -137,6 +138,10 @@ export async function POST(req: NextRequest) {
       backup: result.backup,
     });
   } catch (e) {
+    logger.exception("CDM içe aktarma işlemi başarısız", e, {
+      requestId: getRequestId(req),
+      route: "/api/admin/cases/import-cdm",
+    });
     return NextResponse.json(
       { error: e instanceof Error ? e.message : "Import başarısız" },
       { status: 500 }

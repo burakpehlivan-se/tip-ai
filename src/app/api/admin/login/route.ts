@@ -9,6 +9,7 @@ import {
   sessionCookieOptions,
   SESSION_COOKIE,
 } from "@/lib/admin/auth";
+import { getRequestId, logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
   try {
@@ -42,7 +43,11 @@ export async function POST(req: NextRequest) {
     });
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
     return res;
-  } catch {
+  } catch (error) {
+    logger.exception("Yönetici oturum açma isteği işlenemedi", error, {
+      requestId: getRequestId(req),
+      route: "/api/admin/login",
+    });
     return NextResponse.json({ error: "İstek işlenemedi." }, { status: 500 });
   }
 }

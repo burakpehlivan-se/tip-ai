@@ -10,6 +10,7 @@ import {
   recordMutation,
 } from "@/lib/admin/store";
 import { TestSonucu } from "@/lib/types";
+import { getRequestId, logger } from "@/lib/logger";
 
 function decodeId(raw: string): string {
   return decodeURIComponent(raw);
@@ -87,7 +88,11 @@ export async function POST(
       log: result.log,
       backup: result.backup,
     });
-  } catch {
+  } catch (error) {
+    logger.exception("Vaka testi kaydedilemedi", error, {
+      requestId: getRequestId(req),
+      route: "/api/admin/cases/[id]/tests",
+    });
     return NextResponse.json({ error: "Test kaydedilemedi." }, { status: 500 });
   }
 }
@@ -164,7 +169,11 @@ export async function PATCH(
       log: result.log,
       backup: result.backup,
     });
-  } catch {
+  } catch (error) {
+    logger.exception("Vaka test alanı güncellenemedi", error, {
+      requestId: getRequestId(req),
+      route: "/api/admin/cases/[id]/tests",
+    });
     return NextResponse.json({ error: "Alan güncellenemedi." }, { status: 500 });
   }
 }

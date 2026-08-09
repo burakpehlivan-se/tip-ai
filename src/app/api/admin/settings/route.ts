@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
 import { loadSettings, saveSettings } from "@/lib/admin/store";
+import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
@@ -37,7 +38,11 @@ export async function PUT(req: NextRequest) {
     );
     const saved = saveSettings(next, session!.username);
     return NextResponse.json({ ok: true, settings: saved });
-  } catch {
+  } catch (error) {
+    logger.exception("Ayarlar kaydedilemedi", error, {
+      requestId: getRequestId(req),
+      route: "/api/admin/settings",
+    });
     return NextResponse.json({ error: "Ayarlar kaydedilemedi." }, { status: 500 });
   }
 }

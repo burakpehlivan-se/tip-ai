@@ -13,6 +13,7 @@ import {
   ExportFormat,
 } from "@/lib/admin/export-cases";
 import { adminCasesToCdmBundle } from "@/lib/cdm";
+import { getRequestId, logger } from "@/lib/logger";
 
 /**
  * GET /api/admin/cases/export?format=json|pdf|cdm&poliklinik=<key>
@@ -93,6 +94,10 @@ export async function GET(req: NextRequest) {
       },
     });
   } catch (e) {
+    logger.exception("Vaka dışa aktarma işlemi başarısız", e, {
+      requestId: getRequestId(req),
+      route: "/api/admin/cases/export",
+    });
     const msg = e instanceof Error ? e.message : "Export başarısız";
     return NextResponse.json({ error: msg }, { status: 500 });
   }
