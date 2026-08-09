@@ -120,3 +120,26 @@ NFR: her parçalama önce testle kilitlenir (Faz 4) · refactor'dur, feature de�
 1. `EXAMPLE_CDM_KBH` fixture'ı `rubric.puanlama` içermiyordu (geçersiz örnek belge) — düzeltildi
 2. `rule-engine-store` client'ta HER ZAMAN fallback'e düşüyordu (fs stub) — admin kural değişiklikleri yalnızca sunucu tarafında etkili; runtime izolasyonu netleştirildi
 3. Testler 3 gerçek tutarsızlığı ortaya çıkardı: AuditAction tipi, RubrikAksiyon aciklama zorunluluğu, "synthetic" source etiketi
+
+---
+
+## Backend Geliştirme Backlog'u — 2026-08-10
+
+Kaynak: üretim hazırlığı denetimi. Bu bölüm MIMIC-III veri kaynağı entegrasyonundan bağımsızdır; veri kaynağı erişimi gelene kadar uygulamanın güvenlik, güvenilirlik ve operasyon temelini güçlendirmek için sıraya alınmıştır.
+
+| Öncelik | Geliştirme | Kabul kriteri / NFR |
+|---|---|---|
+| P0 | Öğrenci kayıt, öğrenci giriş ve misafir deneme uçlarına kalıcı rate-limit ekle | IP + kullanıcı adı penceresi; aşımda `429`; misafir başına açık deneme limiti ve istek gövdesi limiti; loglarda sır/şifre yok. |
+| P0 | Dev sunucusu ve build artefact yaşam döngüsünü ayır | Aktif `next dev` sürecinde build/cache temizliği sayfaları 500'e düşürmez; geliştirici runbook'u temiz başlatma adımını içerir. |
+| P1 | Öğrenci oturum imzalama sırrını admin sırrından ayır | `STUDENT_SESSION_SECRET` gerçek token üretim/doğrulamada kullanılır; production'da zorunlu; bağımsız rotasyon testi geçer. |
+| P1 | JSON file-store için kalıcı veri geçiş planı | Önce SQLite/Postgres hedef şeması, migrasyon, geri dönüş ve yedek geri-yükleme tatbikatı; çoklu replika desteği ancak geçişten sonra. |
+| P1 | Kritik öğrenci yolculuğuna E2E test ekle | Kayıt → giriş → vaka → soru/test → tanı → ilerleme senaryosu; admin dışı yetki kontrolü; CI'da çalışır. |
+| P1 | Vaka/test kalite kuralı uyuşmazlığını kapat | `BT_TORAKS` için işaretlenen 6 vakada klinik karar belgelenir; eksik veri varsa onaylı içerik eklenir, gereksiz test ise tarama kuralı düzeltilir. |
+| P2 | Health/readiness endpoint, metrik ve alarm temeli | Uygulama/dosya-store erişilebilirliğini raporlayan sağlık ucu; hata oranı/latency ölçümü; deploy ve rollback runbook'u. |
+| P2 | API DTO ve tip güvenliğini sıkılaştır | Route body'leri şema ile doğrulanır; `any` ve `@ts-ignore` kritik akışlardan kaldırılır. |
+
+### Önceliklendirme gerekçesi
+
+- Açık öğrenci kaydı ve misafir denemesi artık anonim yazma yüzeyi oluşturur; bu nedenle P0 abuse koruması, yeni kullanıcı deneyimi geliştirmelerinden önce gelir.
+- Vaka içeriği eğitim amaçlıdır; veri/rubrik tutarsızlıkları otomatik değer üretmek yerine klinik onayla çözülmelidir.
+- Her backend fazı sonunda `npm test`, `npm run lint`, `npx tsc --noEmit` ve ilgili API/E2E senaryosu geçmelidir.
