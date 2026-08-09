@@ -624,8 +624,8 @@ export default function VakaWorkspace({
                 Bilinen Bilgiler
               </h4>
               <ul className="space-y-2">
-                {vaka.hasta.ozetBilgiler.map((bilgi, i) => (
-                  <li key={i} className="flex items-start gap-2 text-sm text-steel">
+                {vaka.hasta.ozetBilgiler.map((bilgi) => (
+                  <li key={bilgi} className="flex items-start gap-2 text-sm text-steel">
                     <span className="text-brand mt-0.5">•</span>
                     <span>{bilgi}</span>
                   </li>
@@ -664,9 +664,9 @@ export default function VakaWorkspace({
                 </button>
                 {kaynaklarAcik && (
                   <div className="mt-3 space-y-2.5">
-                    {vaka.kaynaklar.map((k, i) => (
+                    {vaka.kaynaklar.map((k) => (
                       <div
-                        key={i}
+                        key={k}
                         className="rounded-md border border-hairline bg-canvas px-3 py-2.5 text-[11px] text-steel leading-relaxed break-words"
                       >
                         <KaynakMetni metin={k} />
@@ -732,11 +732,11 @@ export default function VakaWorkspace({
               if (chips.length === 0) return null;
               return (
                 <div className="mx-auto max-w-2xl flex flex-wrap gap-1 pt-1.5 max-h-24 overflow-y-auto scrollbar-thin">
-                  {chips.map((chip, i) => {
+                  {chips.map((chip) => {
                     const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
                     const rel = vaka.relevantAksiyonlar?.includes(chip.aksiyon);
                     return (
-                      <button key={`${chip.aksiyon}-${i}`} onClick={() => chipSor(chip)} disabled={soruldu || islemYukleniyor}
+                      <button key={chip.aksiyon} onClick={() => chipSor(chip)} disabled={soruldu || islemYukleniyor}
                         className={`rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-[background-color,border-color,color] ${
                           soruldu
                             ? "cursor-default border-hairline bg-surface text-muted/60 line-through"
@@ -792,10 +792,10 @@ export default function VakaWorkspace({
                       <div key={kat}>
                         <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">{CHIP_KATEGORI_ETIKETLERI[kat]} ({chips.length})</div>
                         <div className="flex flex-wrap gap-1.5">
-                          {chips.map((chip, i) => {
+                          {chips.map((chip) => {
                             const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
                             return (
-                              <button key={i} onClick={() => { chipSor(chip); if (!soruldu) setShowSoruDrawer(false); }} disabled={soruldu || islemYukleniyor}
+                              <button key={chip.aksiyon} onClick={() => { chipSor(chip); if (!soruldu) setShowSoruDrawer(false); }} disabled={soruldu || islemYukleniyor}
                                 className={`rounded-full border px-2.5 py-1.5 text-xs font-medium transition-[background-color,border-color,color] ${
                                   soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
                                 }`}>{chip.etiket}</button>
@@ -1418,8 +1418,8 @@ function SonucEkrani({
           <div className="mb-8">
             <h3 className="mb-4 text-lg font-semibold text-ink">✅ Güçlü Yönler</h3>
             <div className="space-y-2">
-              {sonuc.gucluYonler.map((yon, i) => (
-                <div key={i} className="rounded-lg bg-brand/10 px-4 py-3 text-sm text-brand-deep">
+              {sonuc.gucluYonler.map((yon) => (
+                <div key={yon} className="rounded-lg bg-brand/10 px-4 py-3 text-sm text-brand-deep">
                   {yon}
                 </div>
               ))}
@@ -1432,8 +1432,8 @@ function SonucEkrani({
           <div className="mb-8">
             <h3 className="mb-4 text-lg font-semibold text-ink">⚠️ Geliştirilecek Yönler</h3>
             <div className="space-y-2">
-              {sonuc.zayifYonler.map((yon, i) => (
-                <div key={i} className="rounded-lg bg-clinical-red/10 px-4 py-3 text-sm text-clinical-red">
+              {sonuc.zayifYonler.map((yon) => (
+                <div key={yon} className="rounded-lg bg-clinical-red/10 px-4 py-3 text-sm text-clinical-red">
                   {yon}
                 </div>
               ))}
@@ -1446,8 +1446,8 @@ function SonucEkrani({
           <div className="mb-8">
             <h3 className="mb-4 text-lg font-semibold text-clinical-red">🚨 Atlanan Red Flag'ler</h3>
             <div className="space-y-2">
-              {sonuc.atlananRedFlagler.map((rf, i) => (
-                <div key={i} className="rounded-lg border border-clinical-red/20 bg-clinical-red/5 px-4 py-3 text-sm text-clinical-red">
+              {sonuc.atlananRedFlagler.map((rf) => (
+                <div key={rf} className="rounded-lg border border-clinical-red/20 bg-clinical-red/5 px-4 py-3 text-sm text-clinical-red">
                   {rf}
                 </div>
               ))}
@@ -1480,11 +1480,11 @@ function SonucEkrani({
             <div className="space-y-2">
               {sonuc.anamnezAnalizi.kategoriBazinda
                 .filter((k) => k.beklenen > 0)
-                .map((k, i) => {
+                .map((k) => {
                   const oran = Math.round((k.soruldu / k.beklenen) * 100);
                   const renk = oran >= 80 ? "bg-brand" : oran >= 50 ? "bg-clinical-orange" : "bg-clinical-red";
                   return (
-                    <div key={i} className="flex items-center gap-3">
+                    <div key={k.kategori} className="flex items-center gap-3">
                       <div className="w-40 flex-shrink-0 text-xs font-medium text-ink">{k.etiket}</div>
                       <div className="flex-1 overflow-hidden rounded-full bg-surface">
                         <div
@@ -1504,8 +1504,8 @@ function SonucEkrani({
                 <div className="text-xs font-semibold text-muted">Sorulmayan kritik sorular:</div>
                 {sonuc.anamnezAnalizi.kategoriBazinda
                   .filter((k) => k.eksik.length > 0)
-                  .map((k, i) => (
-                    <div key={i} className="flex items-start gap-2 text-xs text-clinical-red/80">
+                  .map((k) => (
+                    <div key={k.kategori} className="flex items-start gap-2 text-xs text-clinical-red/80">
                       <span className="mt-0.5">•</span>
                       <span>
                         <strong>{k.etiket}:</strong> {k.eksik.join(", ")}
@@ -1521,8 +1521,8 @@ function SonucEkrani({
         <div className="mb-8">
           <h3 className="mb-4 text-lg font-semibold text-ink">📋 İdeal Klinik Yaklaşım</h3>
           <div className="card-feature space-y-2">
-            {sonuc.idealYol.map((adim, i) => (
-              <div key={i} className="text-sm text-steel" style={{ lineHeight: "1.6" }}>
+            {sonuc.idealYol.map((adim) => (
+              <div key={adim} className="text-sm text-steel" style={{ lineHeight: "1.6" }}>
                 {adim}
               </div>
             ))}
@@ -1562,8 +1562,8 @@ function SonucEkrani({
                       </tr>
                     </thead>
                     <tbody>
-                      {sonuc.tedavi.ilaclar.map((ilac, i) => (
-                        <tr key={i} className="border-b border-hairline-soft last:border-0 hover:bg-surface transition-colors">
+                      {sonuc.tedavi.ilaclar.map((ilac) => (
+                        <tr key={`${ilac.ad}-${ilac.doz}-${ilac.yol}`} className="border-b border-hairline-soft last:border-0 hover:bg-surface transition-colors">
                           <td className="px-4 py-2.5 font-medium text-ink">{ilac.ad}</td>
                           <td className="px-4 py-2.5 text-steel">{ilac.doz}</td>
                           <td className="px-4 py-2.5 text-steel">{ilac.yol}</td>
@@ -1580,8 +1580,8 @@ function SonucEkrani({
                 <div className="border-t border-hairline px-4 py-3">
                   <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Prosedürler</div>
                   <ul className="space-y-1">
-                    {sonuc.tedavi.prosedurler.map((p, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-steel">
+                    {sonuc.tedavi.prosedurler.map((p) => (
+                      <li key={p} className="flex items-start gap-2 text-sm text-steel">
                         <span className="mt-1 text-[10px] text-brand">●</span>
                         <span>{p}</span>
                       </li>
@@ -1595,8 +1595,8 @@ function SonucEkrani({
                 <div className="border-t border-hairline bg-surface-soft px-4 py-3">
                   <div className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">Önemli Notlar</div>
                   <ul className="space-y-1">
-                    {sonuc.tedavi.notlar.map((n, i) => (
-                      <li key={i} className="flex items-start gap-2 text-sm text-steel">
+                    {sonuc.tedavi.notlar.map((n) => (
+                      <li key={n} className="flex items-start gap-2 text-sm text-steel">
                         <span className="mt-1 text-[10px] text-clinical-orange">!</span>
                         <span>{n}</span>
                       </li>
