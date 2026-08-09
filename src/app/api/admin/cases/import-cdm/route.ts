@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
       route: "/api/admin/cases/import-cdm",
     });
     return NextResponse.json(
-      { error: e instanceof Error ? e.message : "Import başarısız" },
+      { error: "CDM içe aktarma işlemi tamamlanamadı." },
       { status: 500 }
     );
   }

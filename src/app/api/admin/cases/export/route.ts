@@ -98,7 +98,6 @@ export async function GET(req: NextRequest) {
       requestId: getRequestId(req),
       route: "/api/admin/cases/export",
     });
-    const msg = e instanceof Error ? e.message : "Export başarısız";
-    return NextResponse.json({ error: msg }, { status: 500 });
+    return NextResponse.json({ error: "Vaka dışa aktarılamadı." }, { status: 500 });
   }
 }

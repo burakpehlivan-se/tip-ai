@@ -89,7 +89,7 @@ export async function POST(req: NextRequest) {
       route: "/api/admin/rule-engine",
     });
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "İşlem başarısız." },
+      { error: "Kural motoru işlemi şu anda tamamlanamadı." },
       { status: 500 }
     );
   }
