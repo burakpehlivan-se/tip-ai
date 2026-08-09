@@ -5,49 +5,56 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import VakaWorkspace, { CompletedAttempt } from "@/components/vaka/VakaWorkspace";
 import { Vaka } from "@/lib/types";
-import { publicAttemptToVaka } from "@/lib/student/public-case";
+import { AttemptResumeSnapshot, publicAttemptToVaka, resumableAttemptToSnapshot } from "@/lib/student/public-case";
 
 export default function DenemePage() {
   const router = useRouter();
   const [vaka, setVaka] = useState<Vaka | null>(null);
+  const [resumeSnapshot, setResumeSnapshot] = useState<AttemptResumeSnapshot | null>(null);
   const [hata, setHata] = useState("");
   const [yukleniyor, setYukleniyor] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
-    // Girişli kullanıcılar deneme sayfası yerine polikliniklere gider
-    fetch("/api/student/me")
-      .then((r) => {
+    const yukle = async () => {
+      try {
+        // Girişli kullanıcılar deneme sayfası yerine polikliniklere gider.
+        const oturum = await fetch("/api/student/me");
         if (cancelled) return;
-        if (r.ok) {
+        if (oturum.ok) {
           router.replace("/vakalar");
           return;
         }
-        return fetch("/api/student/attempts", {
+
+        const devamEden = await fetch("/api/student/attempts?guest=1&poliklinikKey=*");
+        const devamVerisi = await devamEden.json();
+        if (cancelled) return;
+        if (devamEden.ok && devamVerisi?.vaka) {
+          setVaka(publicAttemptToVaka(devamVerisi.vaka));
+          setResumeSnapshot(resumableAttemptToSnapshot(devamVerisi.vaka));
+          setYukleniyor(false);
+          return;
+        }
+
+        const yeniVaka = await fetch("/api/student/attempts", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ poliklinikKey: "*", guest: true }),
         });
-      })
-      .then((r) => {
-        if (cancelled || !r) return;
-        return r.json().then((data) => {
-          if (cancelled) return;
-          if (!r.ok || !data?.vaka) {
-            setHata(data?.error || "Deneme vakası yüklenemedi.");
-            setYukleniyor(false);
-            return;
-          }
-          setVaka(publicAttemptToVaka(data.vaka));
-          setYukleniyor(false);
-        });
-      })
-      .catch(() => {
+        const yeniVeri = await yeniVaka.json();
+        if (cancelled) return;
+        if (!yeniVaka.ok || !yeniVeri?.vaka) throw new Error(yeniVeri?.error || "Deneme vakası yüklenemedi.");
+        setVaka(publicAttemptToVaka(yeniVeri.vaka));
+        setResumeSnapshot(null);
+        setYukleniyor(false);
+      } catch (error) {
         if (!cancelled) {
-          setHata("Sunucuya bağlanılamadı.");
+          setHata(error instanceof Error ? error.message : "Sunucuya bağlanılamadı.");
           setYukleniyor(false);
         }
-      });
+      }
+    };
+    void yukle();
     return () => {
       cancelled = true;
     };
@@ -104,6 +111,7 @@ export default function DenemePage() {
         <VakaWorkspace
           vaka={vaka}
           key={vaka.id}
+          initialSnapshot={resumeSnapshot}
           onAsk={async (action) => (await actionIstek("ask", { action }))?.yanit || "Yanıt alınamadı."}
           onTestRequest={async (testKey) => (await actionIstek("test", { testKey }))?.sonuc || null}
           onEvaluate={async (attempt: CompletedAttempt) => (await actionIstek("complete", { taniGirildi: attempt.taniGirildi }))?.sonuc || null}

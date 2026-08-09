@@ -13,6 +13,7 @@ const ATTEMPT_TTL_MS = 1000 * 60 * 60 * 12;
 interface AttemptRecord {
   id: string;
   actor: string;
+  poliklinikKey: string;
   vaka: Vaka;
   sorulanAksiyonlar: string[];
   istenenTestler: string[];
@@ -58,6 +59,17 @@ export interface PublicAttemptCase {
   testler: Array<{ testKey: string; testAdi: string }>;
 }
 
+/**
+ * Sadece sahibinin devam ettiği oturuma gönderilen ilerleme verisi.
+ * Yeni vaka başlangıcında cevaplar ve sonuçlar asla istemciye gönderilmez.
+ */
+export interface ResumableAttemptCase extends PublicAttemptCase {
+  ilerleme: {
+    yanitlar: Array<{ aksiyon: string; yanit: string }>;
+    testSonuclari: TestSonucu[];
+  };
+}
+
 function toPublicAttempt(record: AttemptRecord): PublicAttemptCase {
   return {
     id: record.id,
@@ -70,6 +82,27 @@ function toPublicAttempt(record: AttemptRecord): PublicAttemptCase {
       testKey: test.testKey,
       testAdi: test.testAdi,
     })),
+  };
+}
+
+function attemptAnswer(record: AttemptRecord, action: string) {
+  return record.vaka.hastaYanitlari[action] || record.vaka.hastaYanitlari.OZEL || "Bu konuda ek bilgi veremiyorum.";
+}
+
+function attemptTest(record: AttemptRecord, testKey: string) {
+  const { vaka } = record;
+  return vaka.statikTestler[testKey] || (vaka.profile ? getLabResult(testKey, vaka.profile, vaka.statikTestler) : null);
+}
+
+function toResumableAttempt(record: AttemptRecord): ResumableAttemptCase {
+  return {
+    ...toPublicAttempt(record),
+    ilerleme: {
+      yanitlar: record.sorulanAksiyonlar.map((aksiyon) => ({ aksiyon, yanit: attemptAnswer(record, aksiyon) })),
+      testSonuclari: record.istenenTestler
+        .map((testKey) => attemptTest(record, testKey))
+        .filter((test): test is TestSonucu => test !== null),
+    },
   };
 }
 
@@ -89,6 +122,7 @@ export function startStudentAttempt(actor: string, poliklinikKey: string): Publi
   const record: AttemptRecord = {
     id: crypto.randomUUID(),
     actor,
+    poliklinikKey,
     vaka: adminVakaToPlayable(template),
     sorulanAksiyonlar: [],
     istenenTestler: [],
@@ -101,20 +135,33 @@ export function startStudentAttempt(actor: string, poliklinikKey: string): Publi
   return toPublicAttempt(record);
 }
 
+/** Aynı kullanıcı ve poliklinik için son 12 saatte güncellenmiş vakayı döndürür. */
+export function getActiveStudentAttempt(actor: string, poliklinikKey: string): ResumableAttemptCase | null {
+  const candidates = load().attempts.filter(
+    (attempt) =>
+      attempt.actor === actor &&
+      (poliklinikKey === "*" || attempt.poliklinikKey === poliklinikKey || attempt.vaka.profile?.poliklinikKey === poliklinikKey)
+  );
+  const latest = candidates.reduce<AttemptRecord | null>(
+    (current, attempt) => (!current || attempt.updatedAt > current.updatedAt ? attempt : current),
+    null
+  );
+  return latest ? toResumableAttempt(latest) : null;
+}
+
 export function answerStudentAttempt(id: string, actor: string, action: string): string | null {
   const found = ownAttempt(id, actor);
   if (!found) return null;
   if (!found.attempt.sorulanAksiyonlar.includes(action)) found.attempt.sorulanAksiyonlar.push(action);
   found.attempt.updatedAt = Date.now();
   save(found.store);
-  return found.attempt.vaka.hastaYanitlari[action] || found.attempt.vaka.hastaYanitlari.OZEL || "Bu konuda ek bilgi veremiyorum.";
+  return attemptAnswer(found.attempt, action);
 }
 
 export function requestStudentAttemptTest(id: string, actor: string, testKey: string): TestSonucu | null {
   const found = ownAttempt(id, actor);
   if (!found) return null;
-  const { vaka } = found.attempt;
-  const result = vaka.statikTestler[testKey] || (vaka.profile ? getLabResult(testKey, vaka.profile, vaka.statikTestler) : null);
+  const result = attemptTest(found.attempt, testKey);
   if (!result) return null;
   if (!found.attempt.istenenTestler.includes(testKey)) found.attempt.istenenTestler.push(testKey);
   found.attempt.updatedAt = Date.now();

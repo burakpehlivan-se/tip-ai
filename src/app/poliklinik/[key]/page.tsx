@@ -5,73 +5,94 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import VakaWorkspace, { CompletedAttempt } from "@/components/vaka/VakaWorkspace";
 import { Vaka } from "@/lib/types";
-import { publicAttemptToVaka } from "@/lib/student/public-case";
+import { AttemptResumeSnapshot, publicAttemptToVaka, resumableAttemptToSnapshot } from "@/lib/student/public-case";
 
 export default function PoliklinikPage() {
   const params = useParams();
   const router = useRouter();
   const poliklinikKey = params.key as string;
   const [vaka, setVaka] = useState<Vaka | null>(null);
+  const [resumeSnapshot, setResumeSnapshot] = useState<AttemptResumeSnapshot | null>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [girisKontrol, setGirisKontrol] = useState(true);
+  const [hata, setHata] = useState("");
   const poliklinik = { ad: poliklinikKey, icon: "🏥" };
 
-  // Giriş kapısı — poliklinikler yalnızca girişli kullanıcılar içindir
-  useEffect(() => {
-    let cancelled = false;
-    fetch("/api/student/me")
-      .then((r) => {
-        if (cancelled) return;
-        if (!r.ok) {
-          router.replace(
-            `/giris?sonraki=${encodeURIComponent(`/poliklinik/${poliklinikKey}`)}`
-          );
-        } else {
-          setGirisKontrol(false);
-        }
-      })
-      .catch(() => {
-        if (!cancelled) setGirisKontrol(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [router, poliklinikKey]);
-
   const uret = useCallback(
-    async () => {
+    async (devamEdeniYukle: boolean) => {
+      if (devamEdeniYukle) {
+        const devamEden = await fetch(`/api/student/attempts?poliklinikKey=${encodeURIComponent(poliklinikKey)}`);
+        const devamVerisi = await devamEden.json();
+        if (!devamEden.ok) throw new Error(devamVerisi?.error || "Vaka oturumu yüklenemedi.");
+        if (devamVerisi?.vaka) {
+          return {
+            vaka: publicAttemptToVaka(devamVerisi.vaka),
+            snapshot: resumableAttemptToSnapshot(devamVerisi.vaka),
+          };
+        }
+      }
       const response = await fetch("/api/student/attempts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ poliklinikKey }),
       });
-      if (!response.ok) throw new Error("Vaka hazırlanamadı.");
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => null);
+        throw new Error(errorData?.error || "Vaka hazırlanamadı.");
+      }
       const { vaka: remote } = await response.json();
-      return publicAttemptToVaka(remote);
+      if (!remote) throw new Error("Vaka hazırlanamadı.");
+      return { vaka: publicAttemptToVaka(remote), snapshot: null };
     },
     [poliklinikKey]
   );
 
   useEffect(() => {
     let cancelled = false;
-    setYukleniyor(true);
-    uret().then((yeniVaka) => {
-      if (!cancelled) {
-        setVaka(yeniVaka);
-        setYukleniyor(false);
+    const baslat = async () => {
+      try {
+        const oturum = await fetch("/api/student/me");
+        if (cancelled) return;
+        if (!oturum.ok) {
+          router.replace(`/giris?sonraki=${encodeURIComponent(`/poliklinik/${poliklinikKey}`)}`);
+          return;
+        }
+        setGirisKontrol(false);
+        setYukleniyor(true);
+        setHata("");
+        const yuklenen = await uret(true);
+        if (!cancelled) {
+          setVaka(yuklenen.vaka);
+          setResumeSnapshot(yuklenen.snapshot);
+          setYukleniyor(false);
+        }
+      } catch (error) {
+        if (!cancelled) {
+          setGirisKontrol(false);
+          setHata(error instanceof Error ? error.message : "Sunucuya bağlanılamadı.");
+          setYukleniyor(false);
+        }
       }
-    });
+    };
+    void baslat();
     return () => {
       cancelled = true;
     };
-  }, [poliklinikKey]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [poliklinikKey, router, uret]);
 
-  const yeniVakaAl = () => {
+  const yeniVakaAl = async () => {
+    if (yukleniyor) return;
     setYukleniyor(true);
-    uret().then((yeni) => {
-      setVaka(yeni);
+    setHata("");
+    try {
+      const yeni = await uret(false);
+      setVaka(yeni.vaka);
+      setResumeSnapshot(null);
+    } catch (error) {
+      setHata(error instanceof Error ? error.message : "Yeni vaka hazırlanamadı.");
+    } finally {
       setYukleniyor(false);
-    });
+    }
   };
 
   async function attemptAction(type: "ask" | "test" | "complete", payload: Record<string, string>) {
@@ -102,6 +123,18 @@ export default function PoliklinikPage() {
   }
 
   if (yukleniyor || !vaka) {
+    if (hata) {
+      return (
+        <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
+          <div className="max-w-sm text-center">
+            <p className="text-lg font-medium text-clinical-red">{hata}</p>
+            <button type="button" onClick={() => void yeniVakaAl()} className="btn-primary mt-5">
+              Tekrar dene
+            </button>
+          </div>
+        </div>
+      );
+    }
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas">
         <div className="text-center">
@@ -129,7 +162,7 @@ export default function PoliklinikPage() {
             {poliklinik.icon} {poliklinik.ad}
           </span>
         </div>
-        <button onClick={yeniVakaAl} className="btn-secondary text-sm">
+        <button type="button" onClick={() => void yeniVakaAl()} disabled={yukleniyor} className="btn-secondary text-sm disabled:cursor-not-allowed disabled:opacity-60">
           🔄 Yeni Hasta
         </button>
       </div>
@@ -137,6 +170,7 @@ export default function PoliklinikPage() {
       <VakaWorkspace
         vaka={vaka}
         key={vaka.id}
+        initialSnapshot={resumeSnapshot}
         onAsk={async (action) => (await attemptAction("ask", { action }))?.yanit || "Yanıt alınamadı."}
         onTestRequest={async (testKey) => (await attemptAction("test", { testKey }))?.sonuc || null}
         onEvaluate={async (attempt: CompletedAttempt) => (await attemptAction("complete", { taniGirildi: attempt.taniGirildi }))?.sonuc || null}

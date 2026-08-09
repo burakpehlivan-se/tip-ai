@@ -5,6 +5,7 @@ import path from "path";
 import {
   answerStudentAttempt,
   completeStudentAttempt,
+  getActiveStudentAttempt,
   requestStudentAttemptTest,
   startStudentAttempt,
 } from "./attempt-store";
@@ -34,5 +35,19 @@ describe("student attempt store", () => {
     const sonuc = completeStudentAttempt(vaka!.id, "ogrenci.test", "rastgele tanı");
     expect(sonuc).not.toBeNull();
     expect(completeStudentAttempt(vaka!.id, "ogrenci.test", "rastgele tanı")).toBeNull();
+  });
+
+  it("aynı kullanıcının güncel oturumunu ilerleme verisiyle sürdürür, diğer kullanıcıya göstermez", () => {
+    const vaka = startStudentAttempt("ogrenci.devam", "kardiyoloji");
+    expect(vaka).not.toBeNull();
+    answerStudentAttempt(vaka!.id, "ogrenci.devam", "VITAL_TANSIYON");
+    requestStudentAttemptTest(vaka!.id, "ogrenci.devam", vaka!.testler[0].testKey);
+
+    const resumed = getActiveStudentAttempt("ogrenci.devam", "kardiyoloji");
+    expect(resumed?.id).toBe(vaka!.id);
+    expect(resumed?.ilerleme.yanitlar[0]?.aksiyon).toBe("VITAL_TANSIYON");
+    expect(resumed?.ilerleme.testSonuclari[0]?.testKey).toBe(vaka!.testler[0].testKey);
+    expect(getActiveStudentAttempt("baska.ogrenci", "kardiyoloji")).toBeNull();
+    expect(getActiveStudentAttempt("ogrenci.devam", "noroloji")).toBeNull();
   });
 });
