@@ -155,8 +155,8 @@ export default function HomePage() {
           <p className="mt-4 text-lg text-steel">
             Deneme vakasına hemen başla; poliklinik vakaları ve ilerleme takibi için ücretsiz hesap oluştur.
           </p>
-          <Link href="/vakalar" className="btn-accent mt-8 text-base px-8 py-3">
-            Vaka Seç →
+          <Link href="/deneme" className="btn-accent mt-8 text-base px-8 py-3">
+            Deneme Vakasını Başlat →
           </Link>
         </div>
       </section>
