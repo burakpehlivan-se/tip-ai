@@ -14,6 +14,15 @@ function rulesPath(): string {
   return path.join(adminDataDir(), "rule-engine.json");
 }
 
+function defaultRuleEngineStore(): RuleEngineStore {
+  return {
+    version: 1,
+    updatedAt: Date.now(),
+    rules: DEFAULT_RULES.map((rule) => ({ ...rule })),
+    aliases: DEFAULT_ALIASES.map((alias) => ({ ...alias })),
+  };
+}
+
 function readJsonAtomic<T>(file: string, fallback: T): T {
   try {
     if (!fs.existsSync(file)) return fallback;
@@ -33,13 +42,7 @@ function writeJsonAtomic(file: string, data: unknown): void {
 }
 
 export function loadRuleEngineStore(): RuleEngineStore {
-  const empty: RuleEngineStore = {
-    version: 1,
-    updatedAt: Date.now(),
-    rules: DEFAULT_RULES,
-    aliases: DEFAULT_ALIASES,
-  };
-  return readJsonAtomic(rulesPath(), empty);
+  return readJsonAtomic(rulesPath(), defaultRuleEngineStore());
 }
 
 export function saveRuleEngineStore(store: RuleEngineStore): void {
@@ -111,12 +114,7 @@ export function deleteAlias(alias: string): void {
 }
 
 export function resetToDefaults(): RuleEngineStore {
-  const store: RuleEngineStore = {
-    version: 1,
-    updatedAt: Date.now(),
-    rules: DEFAULT_RULES,
-    aliases: DEFAULT_ALIASES,
-  };
+  const store = defaultRuleEngineStore();
   saveRuleEngineStore(store);
   return store;
 }
