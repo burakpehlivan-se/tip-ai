@@ -27,15 +27,14 @@ import {
 } from "./paths";
 import { seedCasesFromTemplates } from "./seed";
 import { upgradeAllCasesToCdm } from "../cdm/migrate";
-import { logger } from "../logger";
+import { quarantineCorruptJson } from "./json-recovery";
 
 function readJson<T>(file: string, fallback: T): T {
   try {
     if (!fs.existsSync(file)) return fallback;
     return JSON.parse(fs.readFileSync(file, "utf8")) as T;
   } catch (error) {
-    // Bozuk JSON sessizce fallback'e düşer; üzerine yazılırsa veri kaybı olur.
-    logger.exception("JSON dosyası okunamadı (bozuk veya erişilemez)", error, { file });
+    quarantineCorruptJson(file, error, "JSON veri deposu");
     return fallback;
   }
 }

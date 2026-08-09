@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
@@ -132,5 +132,23 @@ describe("admin store (temp dir)", () => {
       )
     );
     expect(order).toEqual([1, 10, 2, 20, 3, 30, 4, 40, 5, 50]);
+  });
+
+  it("bozuk JSON'u ezmek yerine karantinaya alır", async () => {
+    const { loadCasesStore } = await import("./store");
+    const casesFile = path.join(tmpDir, "data", "admin", "cases.json");
+    const brokenContent = "{ bozuk-json";
+    fs.writeFileSync(casesFile, brokenContent, "utf8");
+    const logSpy = vi.spyOn(console, "error").mockImplementation(() => undefined);
+
+    const recovered = loadCasesStore();
+    const files = fs.readdirSync(path.dirname(casesFile));
+    const quarantinedName = files.find((file) => file.startsWith("cases.json.corrupt-"));
+
+    expect(recovered.cases.length).toBeGreaterThan(0);
+    expect(quarantinedName).toBeDefined();
+    expect(fs.readFileSync(path.join(path.dirname(casesFile), quarantinedName!), "utf8")).toBe(brokenContent);
+    expect(fs.readFileSync(casesFile, "utf8")).not.toBe(brokenContent);
+    logSpy.mockRestore();
   });
 });

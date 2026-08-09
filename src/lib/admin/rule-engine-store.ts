@@ -8,7 +8,7 @@ import {
   DEFAULT_RULES,
   DEFAULT_ALIASES,
 } from "./rule-engine-types";
-import { logger } from "../logger";
+import { quarantineCorruptJson } from "./json-recovery";
 
 function rulesPath(): string {
   return path.join(adminDataDir(), "rule-engine.json");
@@ -19,9 +19,7 @@ function readJsonAtomic<T>(file: string, fallback: T): T {
     if (!fs.existsSync(file)) return fallback;
     return JSON.parse(fs.readFileSync(file, "utf8")) as T;
   } catch (error) {
-    logger.exception("Kural motoru yapılandırması okunamadı; varsayılan kurallar kullanılıyor", error, {
-      file,
-    });
+    quarantineCorruptJson(file, error, "Kural motoru yapılandırması");
     return fallback;
   }
 }

@@ -109,7 +109,7 @@ NFR: her parçalama önce testle kilitlenir (Faz 4) · refactor'dur, feature de�
 |-----|-------|
 | 1 Güvenlik | ✅ 1.1–1.5 tamam · 1.6 takip kartına işlendi (Next 16) |
 | 2 Ölü Kod | ✅ 2.1–2.3 tamam (schema 2 modele indi, better-sqlite3 kaldırıldı, script silindi) |
-| 3 Yazma Kilidi | ✅ 3.1 tamam (`withStoreLock` + undoLog/restoreBackup) · 3.2 dokümante |
+| 3 Yazma Kilidi | ✅ 3.1 tamam (`withStoreLock` + undoLog/restoreBackup) · bozuk JSON karantinaya alınır · 3.2 dokümante |
 | 4 Test Altyapısı | ✅ 4.1–4.6: vitest + 22 test (CDM, store, scoring, lab-motor) |
 | 5 Client/Server | 🟡 5.1 runtime izolasyon tamam (guarded loader) · 5.2 fs:false KALDI (Faz 8'e devredildi) |
 | 6 CI | ✅ 6.1–6.2 tamam (`.github/workflows/ci.yml`) |
