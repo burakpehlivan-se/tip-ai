@@ -137,6 +137,15 @@ export default function VakaWorkspace({
   const [islemYukleniyor, setIslemYukleniyor] = useState(false);
   const [islemHatasi, setIslemHatasi] = useState("");
 
+  const sorulanAksiyonSeti = useMemo(
+    () => new Set(sorulanAksiyonlar),
+    [sorulanAksiyonlar]
+  );
+  const relevantAksiyonSeti = useMemo(
+    () => new Set(vaka.relevantAksiyonlar),
+    [vaka.relevantAksiyonlar]
+  );
+
   const chatEndRef = useRef<HTMLDivElement>(null);
   const skipFirstSnapshot = useRef(true);
 
@@ -726,15 +735,15 @@ export default function VakaWorkspace({
               if (!aktifKat) return null;
               const all = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === aktifKat);
               // Önce vakaya relevant sorular, sonra diğerleri — kesme yok
-              const relevant = all.filter((c) => vaka.relevantAksiyonlar?.includes(c.aksiyon));
-              const rest = all.filter((c) => !vaka.relevantAksiyonlar?.includes(c.aksiyon));
+              const relevant = all.filter((c) => relevantAksiyonSeti.has(c.aksiyon));
+              const rest = all.filter((c) => !relevantAksiyonSeti.has(c.aksiyon));
               const chips = [...relevant, ...rest];
               if (chips.length === 0) return null;
               return (
                 <div className="mx-auto max-w-2xl flex flex-wrap gap-1 pt-1.5 max-h-24 overflow-y-auto scrollbar-thin">
                   {chips.map((chip) => {
-                    const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
-                    const rel = vaka.relevantAksiyonlar?.includes(chip.aksiyon);
+                    const soruldu = sorulanAksiyonSeti.has(chip.aksiyon);
+                    const rel = relevantAksiyonSeti.has(chip.aksiyon);
                     return (
                       <button key={chip.aksiyon} onClick={() => chipSor(chip)} disabled={soruldu || islemYukleniyor}
                         className={`rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-[background-color,border-color,color] ${
@@ -793,7 +802,7 @@ export default function VakaWorkspace({
                         <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">{CHIP_KATEGORI_ETIKETLERI[kat]} ({chips.length})</div>
                         <div className="flex flex-wrap gap-1.5">
                           {chips.map((chip) => {
-                            const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
+                            const soruldu = sorulanAksiyonSeti.has(chip.aksiyon);
                             return (
                               <button key={chip.aksiyon} onClick={() => { chipSor(chip); if (!soruldu) setShowSoruDrawer(false); }} disabled={soruldu || islemYukleniyor}
                                 className={`rounded-full border px-2.5 py-1.5 text-xs font-medium transition-[background-color,border-color,color] ${
