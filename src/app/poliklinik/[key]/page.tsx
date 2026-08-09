@@ -171,6 +171,7 @@ export default function PoliklinikPage() {
         vaka={vaka}
         key={vaka.id}
         initialSnapshot={resumeSnapshot}
+        onboarding={!resumeSnapshot}
         onAsk={async (action) => (await attemptAction("ask", { action }))?.yanit || "Yanıt alınamadı."}
         onTestRequest={async (testKey) => (await attemptAction("test", { testKey }))?.sonuc || null}
         onEvaluate={async (attempt: CompletedAttempt) => (await attemptAction("complete", { taniGirildi: attempt.taniGirildi }))?.sonuc || null}

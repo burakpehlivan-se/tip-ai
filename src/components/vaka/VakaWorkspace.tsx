@@ -57,6 +57,8 @@ interface Props {
   onAsk?: (action: string) => Promise<string>;
   onTestRequest?: (testKey: string) => Promise<TestSonucu | null>;
   onEvaluate?: (attempt: CompletedAttempt) => Promise<DegerlendirmeSonuc | null>;
+  /** İlk öğrenci vakasında kısa ve kapatılabilir çalışma rehberi gösterir. */
+  onboarding?: boolean;
 }
 
 function defaultMesajlar(vaka: Vaka): ChatMesaj[] {
@@ -98,6 +100,7 @@ export default function VakaWorkspace({
   onAsk,
   onTestRequest,
   onEvaluate,
+  onboarding = false,
 }: Props) {
   // Debug modda sonuçlar her zaman açık
   const effectiveRaporHazir = debugMode ? true : raporHazir;
@@ -130,6 +133,7 @@ export default function VakaWorkspace({
   const [debugDetayAcik, setDebugDetayAcik] = useState(false);
   const [debugTumSonuclarAcik, setDebugTumSonuclarAcik] = useState(false);
   const [debugTestFiltre, setDebugTestFiltre] = useState<"hepsi" | "var" | "yok">("hepsi");
+  const [onboardingKapatildi, setOnboardingKapatildi] = useState(false);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const skipFirstSnapshot = useRef(true);
@@ -192,6 +196,12 @@ export default function VakaWorkspace({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [showSoruDrawer]);
+
+  useEffect(() => {
+    if (onboarding) {
+      setOnboardingKapatildi(window.localStorage.getItem("tip-ai-ilk-vaka-rehberi-kapatildi") === "1");
+    }
+  }, [onboarding]);
 
   const soruSor = async () => {
     if (!input.trim()) return;
@@ -507,6 +517,37 @@ export default function VakaWorkspace({
           </button>
         ))}
       </div>
+
+      {onboarding && !onboardingKapatildi && (
+        <aside
+          aria-labelledby="ilk-vaka-rehberi"
+          className="shrink-0 border-b border-brand/25 bg-brand-soft/35 px-4 py-3 lg:px-6"
+        >
+          <div className="mx-auto flex max-w-6xl items-start gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 id="ilk-vaka-rehberi" className="text-sm font-semibold text-ink">
+                İlk vakan için kısa rehber
+              </h2>
+              <ol className="mt-1 flex flex-wrap gap-x-5 gap-y-1 text-xs text-steel">
+                <li><span className="font-medium text-ink">1.</span> Anamnez sorusu sor</li>
+                <li><span className="font-medium text-ink">2.</span> Gerekli tetkikleri iste</li>
+                <li><span className="font-medium text-ink">3.</span> Ön tanını girip değerlendirmeyi al</li>
+              </ol>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                window.localStorage.setItem("tip-ai-ilk-vaka-rehberi-kapatildi", "1");
+                setOnboardingKapatildi(true);
+              }}
+              className="shrink-0 rounded-md px-2 py-1 text-xs font-medium text-steel hover:bg-canvas hover:text-ink focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+              aria-label="İlk vaka rehberini kapat"
+            >
+              Kapat
+            </button>
+          </div>
+        </aside>
+      )}
 
       {/* 3-Panel Layout */}
       <div className="flex min-h-0 flex-1 overflow-hidden">

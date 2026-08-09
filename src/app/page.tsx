@@ -104,8 +104,8 @@ export default function HomePage() {
           />
           <FeatureCard
             icon="🔓"
-            title="Kayıt Yok, Ücretsiz"
-            description="E-posta vermeden, hesap açmadan, tek tıkla başla. Anonim UUID ile ilerlemen takip edilir."
+            title="Ücretsiz Deneme, Hesaplı İlerleme"
+            description="Deneme vakasını hesap açmadan çöz. Poliklinik vakalarına ve ilerleme takibine erişmek için ücretsiz bir öğrenci hesabı oluştur."
           />
         </div>
       </section>
@@ -153,7 +153,7 @@ export default function HomePage() {
             İlk vakana bugün başla
           </h2>
           <p className="mt-4 text-lg text-steel">
-            Kayıt yok, ödeme yok, bekleme yok. Tek tıkla başla.
+            Deneme vakasına hemen başla; poliklinik vakaları ve ilerleme takibi için ücretsiz hesap oluştur.
           </p>
           <Link href="/vakalar" className="btn-accent mt-8 text-base px-8 py-3">
             Vaka Seç →
