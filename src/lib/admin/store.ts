@@ -28,6 +28,7 @@ import {
 import { seedCasesFromTemplates } from "./seed";
 import { upgradeAllCasesToCdm } from "../cdm/migrate";
 import { quarantineCorruptJson } from "./json-recovery";
+import { logger } from "../logger";
 
 function readJson<T>(file: string, fallback: T): T {
   try {
@@ -366,8 +367,11 @@ export function createBackup(reason: string, actor: string): BackupMeta {
     for (const old of index.backups.slice(100)) {
       try {
         fs.unlinkSync(path.join(backupsDir(), old.filename));
-      } catch {
-        /* ignore */
+      } catch (error) {
+        logger.exception("Saklama limiti aşan yedek silinemedi", error, {
+          backupId: old.id,
+          filename: old.filename,
+        });
       }
     }
     index.backups = index.backups.slice(0, 100);
