@@ -16,16 +16,12 @@
     "pipeline:validate": "npx tsx scripts/validate-vakalar.ts",
     "pipeline:validate:json": "npx tsx scripts/validate-vakalar.ts --json",
     "pipeline:run": "npx tsx scripts/fill-tests.ts && npx tsx scripts/validate-vakalar.ts",
-    "postinstall": "prisma generate",
-    "db:push": "prisma db push",
     "test": "vitest run"
   },
   "dependencies": {
-    "@prisma/client": "^5.22.0",
     "bcryptjs": "^3.0.3",
     "next": "^16.3.0",
     "pdfkit": "^0.19.1",
-    "prisma": "^5.22.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },

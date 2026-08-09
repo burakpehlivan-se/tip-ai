@@ -17,7 +17,7 @@ Tarih: 2026-08-05 · Kaynak: teknik borç denetimi (23.2k LOC, 43 commit, 30 API
 | 1.2 | `seedDefaultAdmin` + login akışı 1.1'i kullansın; hata startup loguna düşsün | Seed env'siz çalışmaz, hata görünür |
 | 1.3 | `auth.ts` `secret()`: production'da `ADMIN_SESSION_SECRET` zorunlu (fallback yok); dev'de uyarı | Production build'de eksik secret → hata |
 | 1.4 | `prisma/data/tip-ai.db` repo'dan çıkar (`git rm --cached`) + `.gitignore`'a `prisma/data/` ekle | `git ls-files | grep .db` boş |
-| 1.5 | `.env.example` tamamla: `DATABASE_URL` + 3 admin değişkeni + açıklama | `.env.example` tüm kullanılan env'leri belgeler |
+| 1.5 | `.env.example` 3 admin değişkeni + açıklama içersin | `.env.example` kullanılan admin env'lerini belgeler |
 | 1.6 | `npm audit` bulgularını takip kartına al (Next 16 kırıcı yükseltme — Faz 7) | Rapor güncel |
 
 NFR: varsayılan credential yok · repo'da DB artefaktı yok · env doğrulaması startup'ta.
@@ -26,8 +26,8 @@ NFR: varsayılan credential yok · repo'da DB artefaktı yok · env doğrulamas�
 
 | # | Görev | Doğrula |
 |---|-------|---------|
-| 2.1 | `schema.prisma`: `Session`, `SessionAction`, `StudentProgress`, `Settings`, `AdminOverride` modellerini sil (hiç kullanılmıyor); `AdminUser`, `AuditLog` kalır | `prisma generate` başarılı; grep `prisma\.session` → boş |
-| 2.2 | `better-sqlite3` + `@types/better-sqlite3` kaldır (ölü bağımlılık) | `npm ls better-sqlite3` → empty |
+| 2.1 | Kullanılmayan Prisma auth/audit katmanını ve SQLite şemasını kaldır | `rg prisma src` boş |
+| 2.2 | `better-sqlite3`, Prisma ve ilgili araçları kaldır | `npm ls better-sqlite3 @prisma/client prisma` → empty |
 | 2.3 | `package.json`: kırık `etl:mimic-demo` script'ini kaldır (dosya yok) | `npm run` listesinde script yok |
 | 2.4 | `tsconfig.tsbuildinfo` izleme dışı kalıp `.gitignore`'da olduğunu teyit et | zaten ignore'lu |
 
@@ -108,7 +108,7 @@ NFR: her parçalama önce testle kilitlenir (Faz 4) · refactor'dur, feature de�
 | Faz | Durum |
 |-----|-------|
 | 1 Güvenlik | ✅ 1.1–1.5 tamam · 1.6 takip kartına işlendi (Next 16) |
-| 2 Ölü Kod | ✅ 2.1–2.3 tamam (schema 2 modele indi, better-sqlite3 kaldırıldı, script silindi) |
+| 2 Ölü Kod | ✅ 2.1–2.3 tamam (ölü SQLite/Prisma auth katmanı, better-sqlite3 ve kırık script kaldırıldı) |
 | 3 Yazma Kilidi | ✅ 3.1 tamam (`withStoreLock` + undoLog/restoreBackup) · bozuk JSON karantinaya alınır · 3.2 dokümante |
 | 4 Test Altyapısı | ✅ 4.1–4.6: vitest + 22 test (CDM, store, scoring, lab-motor) |
 | 5 Client/Server | 🟡 5.1 runtime izolasyon tamam (guarded loader) · 5.2 fs:false KALDI (Faz 8'e devredildi) |
