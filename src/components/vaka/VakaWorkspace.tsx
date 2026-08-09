@@ -127,6 +127,7 @@ export default function VakaWorkspace({
   const [acikKategoriler, setAcikKategoriler] = useState<Set<ChipKategorisi>>(new Set<ChipKategorisi>(["anamnez-agri"]));
   const [kaynaklarAcik, setKaynaklarAcik] = useState(false);
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
+  const soruDrawerRef = useRef<HTMLDialogElement>(null);
   const drawerKapatBtnRef = useRef<HTMLButtonElement>(null);
   const [showKatDropdown, setShowKatDropdown] = useState(false);
   const [mobilPanel, setMobilPanel] = useState<"hasta" | "sohbet" | "testler">("sohbet");
@@ -197,15 +198,13 @@ export default function VakaWorkspace({
     }
   }, [faz]);
 
-  // Soru drawer açılınca odak modala taşın; ESC ile kapat
+  // Native dialog klavye odağını sınırlar ve ESC ile iptal olayını sağlar.
   useEffect(() => {
-    if (!showSoruDrawer) return;
+    const drawer = soruDrawerRef.current;
+    if (!showSoruDrawer || !drawer) return;
+    drawer.showModal();
     drawerKapatBtnRef.current?.focus();
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setShowSoruDrawer(false);
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    return () => drawer.close();
   }, [showSoruDrawer]);
 
   useEffect(() => {
@@ -762,20 +761,23 @@ export default function VakaWorkspace({
 
           {/* Soru Drawer (overlay) */}
           {showSoruDrawer && (
-            <div
-              className="fixed inset-0 z-50 flex justify-end"
-              role="dialog"
-              aria-modal="true"
+            <dialog
+              ref={soruDrawerRef}
+              onCancel={(event) => {
+                event.preventDefault();
+                setShowSoruDrawer(false);
+              }}
               aria-label="Tüm sorular"
+              className="fixed inset-0 z-50 m-0 flex h-[100dvh] w-full max-w-none justify-end border-0 bg-transparent p-0 backdrop:bg-black/20"
             >
               <button
                 type="button"
                 tabIndex={-1}
                 aria-label="Soru panelini kapat"
                 onClick={() => setShowSoruDrawer(false)}
-                className="absolute inset-0 cursor-default border-0 bg-black/20 p-0"
+                className="absolute inset-0 cursor-default border-0 bg-transparent p-0"
               />
-              <div className="relative w-full max-w-md bg-canvas shadow-xl border-l border-hairline overflow-y-auto">
+              <div className="relative h-full w-full max-w-md overflow-y-auto border-l border-hairline bg-canvas shadow-xl">
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline bg-canvas px-4 py-3">
                   {/* Kategori seçici */}
                   <div className="flex flex-wrap gap-1">
@@ -816,7 +818,7 @@ export default function VakaWorkspace({
                   })}
                 </div>
               </div>
-            </div>
+            </dialog>
           )}
 
           {/* Input — faz bazlı */}
