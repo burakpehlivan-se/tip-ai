@@ -134,6 +134,8 @@ export default function VakaWorkspace({
   const [debugTumSonuclarAcik, setDebugTumSonuclarAcik] = useState(false);
   const [debugTestFiltre, setDebugTestFiltre] = useState<"hepsi" | "var" | "yok">("hepsi");
   const [onboardingKapatildi, setOnboardingKapatildi] = useState(false);
+  const [islemYukleniyor, setIslemYukleniyor] = useState(false);
+  const [islemHatasi, setIslemHatasi] = useState("");
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const skipFirstSnapshot = useRef(true);
@@ -204,47 +206,61 @@ export default function VakaWorkspace({
   }, [onboarding]);
 
   const soruSor = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || islemYukleniyor) return;
 
     const normalized = normalizeSoru(input);
-    const hastaYanit = onAsk
-      ? await onAsk(normalized)
-      : vaka.hastaYanitlari[normalized] || vaka.hastaYanitlari["OZEL"];
-
-    const yeniMesajlar: ChatMesaj[] = [
-      { id: `${Date.now()}-q`, rol: "ogrenci", metin: input, zaman: Date.now() },
-      { id: `${Date.now()}-a`, rol: "hasta", metin: hastaYanit, zaman: Date.now() + 1 },
-    ];
-
-    setMesajlar((prev) => [...prev, ...yeniMesajlar]);
-
-    if (normalized !== "OZEL" && !sorulanAksiyonlar.includes(normalized)) {
-      setSorulanAksiyonlar((prev) => [...prev, normalized]);
+    setIslemYukleniyor(true);
+    setIslemHatasi("");
+    try {
+      const hastaYanit = onAsk
+        ? await onAsk(normalized)
+        : vaka.hastaYanitlari[normalized] || vaka.hastaYanitlari["OZEL"];
+      const yeniMesajlar: ChatMesaj[] = [
+        { id: `${Date.now()}-q`, rol: "ogrenci", metin: input, zaman: Date.now() },
+        { id: `${Date.now()}-a`, rol: "hasta", metin: hastaYanit, zaman: Date.now() + 1 },
+      ];
+      setMesajlar((prev) => [...prev, ...yeniMesajlar]);
+      if (normalized !== "OZEL" && !sorulanAksiyonlar.includes(normalized)) {
+        setSorulanAksiyonlar((prev) => [...prev, normalized]);
+      }
+      setInput("");
+    } catch {
+      setIslemHatasi("Hasta yanıtı alınamadı. Bağlantınızı kontrol edip soruyu yeniden deneyin.");
+    } finally {
+      setIslemYukleniyor(false);
     }
-
-    setInput("");
   };
 
   const chipSor = async (chip: SoruChipi) => {
+    if (islemYukleniyor) return;
     // Chip seçildiğinde direkt hasta yanıtını ver — NLP'e gitme
     const normalized = chip.aksiyon;
-    const hastaYanit = onAsk
-      ? await onAsk(normalized)
-      : vaka.hastaYanitlari[normalized] || vaka.hastaYanitlari["OZEL"];
-
-    const yeniMesajlar: ChatMesaj[] = [
-      { id: `${Date.now()}-q`, rol: "ogrenci", metin: chip.etiket, zaman: Date.now() },
-      { id: `${Date.now()}-a`, rol: "hasta", metin: hastaYanit, zaman: Date.now() + 1 },
-    ];
-
-    setMesajlar((prev) => [...prev, ...yeniMesajlar]);
-
-    if (!sorulanAksiyonlar.includes(normalized)) {
-      setSorulanAksiyonlar((prev) => [...prev, normalized]);
+    setIslemYukleniyor(true);
+    setIslemHatasi("");
+    try {
+      const hastaYanit = onAsk
+        ? await onAsk(normalized)
+        : vaka.hastaYanitlari[normalized] || vaka.hastaYanitlari["OZEL"];
+      const yeniMesajlar: ChatMesaj[] = [
+        { id: `${Date.now()}-q`, rol: "ogrenci", metin: chip.etiket, zaman: Date.now() },
+        { id: `${Date.now()}-a`, rol: "hasta", metin: hastaYanit, zaman: Date.now() + 1 },
+      ];
+      setMesajlar((prev) => [...prev, ...yeniMesajlar]);
+      if (!sorulanAksiyonlar.includes(normalized)) {
+        setSorulanAksiyonlar((prev) => [...prev, normalized]);
+      }
+    } catch {
+      setIslemHatasi("Hasta yanıtı alınamadı. Bağlantınızı kontrol edip soruyu yeniden deneyin.");
+    } finally {
+      setIslemYukleniyor(false);
     }
   };
 
   const testIstey = async (testKey: string) => {
+    if (islemYukleniyor) return;
+    setIslemYukleniyor(true);
+    setIslemHatasi("");
+    try {
     let statik = onTestRequest ? await onTestRequest(testKey) : vaka.statikTestler[testKey];
       if (!statik) {
       // Lab motoru ile üretmeyi dene
@@ -309,6 +325,11 @@ export default function VakaWorkspace({
     if (mod === "cemicegek" && !effectiveRaporHazir) {
       setTimeout(() => onTestIstendi?.(testKey), 500);
     }
+    } catch {
+      setIslemHatasi("Test sonucu alınamadı. Bağlantınızı kontrol edip testi yeniden deneyin.");
+    } finally {
+      setIslemYukleniyor(false);
+    }
   };
 
   const tamamlama = () => {
@@ -324,12 +345,21 @@ export default function VakaWorkspace({
   };
 
   const vakaTamamla = async () => {
+    if (islemYukleniyor) return;
+    setIslemYukleniyor(true);
+    setIslemHatasi("");
+    try {
     const istenenTestKeyleri = testIstekleri.map((t) => t.testKey);
     const attempt = { sorulanAksiyonlar, istenenTestler: istenenTestKeyleri, taniGirildi: taniInput };
     const deg = onEvaluate ? await onEvaluate(attempt) : degerlendir(vaka, sorulanAksiyonlar, istenenTestKeyleri, taniInput);
     if (!deg) return;
     setSonuc(deg);
     onComplete?.(deg, attempt);
+    } catch {
+      setIslemHatasi("Değerlendirme alınamadı. Bağlantınızı kontrol edip tekrar deneyin.");
+    } finally {
+      setIslemYukleniyor(false);
+    }
   };
 
   // ── hasData + visibility filtreli test kataloğu ──
@@ -549,6 +579,17 @@ export default function VakaWorkspace({
         </aside>
       )}
 
+      {islemHatasi && (
+        <div className="shrink-0 border-b border-clinical-red/30 bg-clinical-red/5 px-4 py-2 lg:px-6" role="alert">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+            <p className="text-sm text-ink">{islemHatasi}</p>
+            <button type="button" onClick={() => setIslemHatasi("")} className="btn-ghost shrink-0 px-2 py-1 text-xs">
+              Kapat
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* 3-Panel Layout */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         {/* Sol Panel — Hasta */}
@@ -695,7 +736,7 @@ export default function VakaWorkspace({
                     const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
                     const rel = vaka.relevantAksiyonlar?.includes(chip.aksiyon);
                     return (
-                      <button key={`${chip.aksiyon}-${i}`} onClick={() => chipSor(chip)} disabled={soruldu}
+                      <button key={`${chip.aksiyon}-${i}`} onClick={() => chipSor(chip)} disabled={soruldu || islemYukleniyor}
                         className={`rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-all ${
                           soruldu
                             ? "cursor-default border-hairline bg-surface text-muted/60 line-through"
@@ -747,7 +788,7 @@ export default function VakaWorkspace({
                           {chips.map((chip, i) => {
                             const soruldu = sorulanAksiyonlar.includes(chip.aksiyon);
                             return (
-                              <button key={i} onClick={() => { chipSor(chip); if (!soruldu) setShowSoruDrawer(false); }} disabled={soruldu}
+                              <button key={i} onClick={() => { chipSor(chip); if (!soruldu) setShowSoruDrawer(false); }} disabled={soruldu || islemYukleniyor}
                                 className={`rounded-full border px-2.5 py-1.5 text-xs font-medium transition-all ${
                                   soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
                                 }`}>{chip.etiket}</button>
@@ -770,7 +811,7 @@ export default function VakaWorkspace({
                   <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && soruSor()}
                     placeholder="Hastaya soru sor…"
                     className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
-                  <button onClick={soruSor} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">Sor</button>
+                  <button onClick={soruSor} disabled={islemYukleniyor} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Gönderiliyor…" : "Sor"}</button>
                 </div>
               ) : faz === "tani" ? (
                 <div className="flex gap-2">
@@ -784,7 +825,7 @@ export default function VakaWorkspace({
                   <textarea value={tedaviInput} onChange={(e) => setTedaviInput(e.target.value)}
                     placeholder="Tedavi planınızı yazın (ilaçlar, dozlar, prosedürler)…"
                     className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none resize-none" rows={1} />
-                  <button onClick={vakaTamamla} className="btn-accent h-11 lg:h-10 px-5 shrink-0 text-sm">Puanla ✓</button>
+                  <button onClick={vakaTamamla} disabled={islemYukleniyor} className="btn-accent h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Puanlanıyor…" : "Puanla ✓"}</button>
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-2">
@@ -867,7 +908,7 @@ export default function VakaWorkspace({
                           <button
                             key={test.key}
                             onClick={() => testIstey(test.key)}
-                            disabled={istendi}
+                            disabled={istendi || islemYukleniyor}
                             className={`flex w-full items-center justify-between border-b border-hairline-soft px-4 py-2 text-left text-sm last:border-0 transition-colors ${
                               istendi
                                 ? "opacity-40 cursor-not-allowed bg-surface-soft"
@@ -1047,8 +1088,8 @@ export default function VakaWorkspace({
                       className="input mb-3 h-28 text-sm resize-none"
                       rows={5}
                     />
-                    <button onClick={vakaTamamla} className="btn-accent w-full justify-center">
-                      Vakayı Tamamla ve Puanla
+                    <button onClick={vakaTamamla} disabled={islemYukleniyor} className="btn-accent w-full justify-center">
+                      {islemYukleniyor ? "Puanlanıyor…" : "Vakayı Tamamla ve Puanla"}
                     </button>
                   </>
                 ) : null}

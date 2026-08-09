@@ -96,18 +96,17 @@ export default function PoliklinikPage() {
   };
 
   async function attemptAction(type: "ask" | "test" | "complete", payload: Record<string, string>) {
-    if (!vaka) return null;
-    try {
-      const response = await fetch(`/api/student/attempts/${vaka.id}`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ type, ...payload }),
-      });
-      if (!response.ok) return null;
-      return response.json();
-    } catch {
-      return null;
+    if (!vaka) throw new Error("Vaka oturumu bulunamadı.");
+    const response = await fetch(`/api/student/attempts/${vaka.id}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ type, ...payload }),
+    });
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || "İşlem tamamlanamadı.");
     }
+    return response.json();
   }
 
   if (girisKontrol) {
@@ -172,9 +171,21 @@ export default function PoliklinikPage() {
         key={vaka.id}
         initialSnapshot={resumeSnapshot}
         onboarding={!resumeSnapshot}
-        onAsk={async (action) => (await attemptAction("ask", { action }))?.yanit || "Yanıt alınamadı."}
-        onTestRequest={async (testKey) => (await attemptAction("test", { testKey }))?.sonuc || null}
-        onEvaluate={async (attempt: CompletedAttempt) => (await attemptAction("complete", { taniGirildi: attempt.taniGirildi }))?.sonuc || null}
+        onAsk={async (action) => {
+          const yanit = (await attemptAction("ask", { action }))?.yanit;
+          if (!yanit) throw new Error("Hasta yanıtı alınamadı.");
+          return yanit;
+        }}
+        onTestRequest={async (testKey) => {
+          const sonuc = (await attemptAction("test", { testKey }))?.sonuc;
+          if (!sonuc) throw new Error("Test sonucu alınamadı.");
+          return sonuc;
+        }}
+        onEvaluate={async (attempt: CompletedAttempt) => {
+          const sonuc = (await attemptAction("complete", { taniGirildi: attempt.taniGirildi }))?.sonuc;
+          if (!sonuc) throw new Error("Değerlendirme alınamadı.");
+          return sonuc;
+        }}
       />
     </div>
   );

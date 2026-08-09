@@ -61,13 +61,17 @@ export default function DenemePage() {
   }, [router]);
 
   async function actionIstek(type: "ask" | "test" | "complete", payload: Record<string, string>) {
-    if (!vaka) return null;
+    if (!vaka) throw new Error("Vaka oturumu bulunamadı.");
     const response = await fetch(`/api/student/attempts/${vaka.id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ type, ...payload }),
     });
-    return response.ok ? response.json() : null;
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => null);
+      throw new Error(errorData?.error || "İşlem tamamlanamadı.");
+    }
+    return response.json();
   }
 
   return (
@@ -113,9 +117,21 @@ export default function DenemePage() {
           key={vaka.id}
           initialSnapshot={resumeSnapshot}
           onboarding={!resumeSnapshot}
-          onAsk={async (action) => (await actionIstek("ask", { action }))?.yanit || "Yanıt alınamadı."}
-          onTestRequest={async (testKey) => (await actionIstek("test", { testKey }))?.sonuc || null}
-          onEvaluate={async (attempt: CompletedAttempt) => (await actionIstek("complete", { taniGirildi: attempt.taniGirildi }))?.sonuc || null}
+          onAsk={async (action) => {
+            const yanit = (await actionIstek("ask", { action }))?.yanit;
+            if (!yanit) throw new Error("Hasta yanıtı alınamadı.");
+            return yanit;
+          }}
+          onTestRequest={async (testKey) => {
+            const sonuc = (await actionIstek("test", { testKey }))?.sonuc;
+            if (!sonuc) throw new Error("Test sonucu alınamadı.");
+            return sonuc;
+          }}
+          onEvaluate={async (attempt: CompletedAttempt) => {
+            const sonuc = (await actionIstek("complete", { taniGirildi: attempt.taniGirildi }))?.sonuc;
+            if (!sonuc) throw new Error("Değerlendirme alınamadı.");
+            return sonuc;
+          }}
         />
       )}
     </div>
