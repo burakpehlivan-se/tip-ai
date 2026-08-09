@@ -3,18 +3,19 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { requirePermission } from "@/lib/admin/permissions";
 import { undoLog } from "@/lib/admin/store";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = getSessionFromRequest(req);
-  const { requirePermission } = await import("@/lib/admin/permissions");
   const denied = requirePermission(session, "logs.undo");
   if (denied) return denied;
 
-  const result = await undoLog(params.id, session!.username);
+  const { id } = await params;
+  const result = await undoLog(id, session!.username);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

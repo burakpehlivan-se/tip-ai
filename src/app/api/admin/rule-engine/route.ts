@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { requirePermission } from "@/lib/admin/permissions";
 import {
   loadRuleEngineStore,
   saveRuleEngineStore,
@@ -17,7 +18,8 @@ import { RuleEntry, DiseaseAlias } from "@/lib/admin/rule-engine-types";
 
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "system.migrate");
+  if (denied) return denied;
 
   const store = loadRuleEngineStore();
   return NextResponse.json(store);
@@ -27,7 +29,6 @@ export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
   if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
 
-  const { requirePermission } = await import("@/lib/admin/permissions");
   const denied = requirePermission(session, "system.migrate");
   if (denied) return denied;
 

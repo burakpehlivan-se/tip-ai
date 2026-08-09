@@ -3,11 +3,13 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { requirePermission } from "@/lib/admin/permissions";
 import { addFeedback, getCaseById, listFeedbacks } from "@/lib/admin/store";
 
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "feedback.write");
+  if (denied) return denied;
 
   const caseId = req.nextUrl.searchParams.get("caseId") || undefined;
   const feedbacks = listFeedbacks(caseId || undefined);
@@ -16,7 +18,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "feedback.write");
+  if (denied) return denied;
 
   try {
     const body = await req.json();
@@ -35,7 +38,7 @@ export async function POST(req: NextRequest) {
         caseId,
         hastalikKey: vaka.hastalikKey,
         poliklinikKey: vaka.poliklinikKey,
-        actor: session.username,
+        actor: session!.username,
         metin,
         vakaSnapshot: body.vakaSnapshot || {
           hastalikAdi: vaka.hastalikAdi,
@@ -47,7 +50,7 @@ export async function POST(req: NextRequest) {
         },
         debugPuan: body.debugPuan,
       },
-      session.username
+      session!.username
     );
 
     return NextResponse.json({ ok: true, feedback: fb });

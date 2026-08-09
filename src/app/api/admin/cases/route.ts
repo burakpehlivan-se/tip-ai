@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { requirePermission } from "@/lib/admin/permissions";
 import {
   clone,
   listCasesGrouped,
@@ -14,7 +15,8 @@ import { Seviye } from "@/lib/types";
 
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "cases.read");
+  if (denied) return denied;
 
   const grouped = listCasesGrouped();
   const store = loadCasesStore();
@@ -28,7 +30,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "cases.write");
+  if (denied) return denied;
 
   try {
     const body = await req.json();
@@ -99,7 +102,7 @@ export async function POST(req: NextRequest) {
     });
 
     const result = recordMutation(
-      session.username,
+      session!.username,
       "create_case",
       `"${hastalikAdi}" vakası eklendi (${id}).`,
       [

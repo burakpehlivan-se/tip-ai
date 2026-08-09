@@ -3,18 +3,19 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { requirePermission } from "@/lib/admin/permissions";
 import { restoreBackup } from "@/lib/admin/store";
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = getSessionFromRequest(req);
-  const { requirePermission } = await import("@/lib/admin/permissions");
   const denied = requirePermission(session, "backups.restore");
   if (denied) return denied;
 
-  const result = await restoreBackup(params.id, session!.username);
+  const { id } = await params;
+  const result = await restoreBackup(id, session!.username);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

@@ -10,16 +10,17 @@ import { AdminRole } from "@/lib/admin/types";
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = getSessionFromRequest(req);
   const denied = requirePermission(session, "users.manage");
   if (denied) return denied;
 
   try {
+    const { id } = await params;
     const body = await req.json();
     const user = updateUser(
-      params.id,
+      id,
       {
         role: body.role as AdminRole | undefined,
         displayName: body.displayName,
@@ -53,24 +54,25 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = getSessionFromRequest(req);
   const denied = requirePermission(session, "users.manage");
   if (denied) return denied;
 
   try {
-    if (session!.userId === params.id) {
+    const { id } = await params;
+    if (session!.userId === id) {
       return NextResponse.json(
         { error: "Kendi hesabınızı silemezsiniz." },
         { status: 400 }
       );
     }
-    deleteUser(params.id);
+    deleteUser(id);
     appendLog({
       action: "delete_user",
       actor: session!.username,
-      message: `Kullanıcı silindi: ${params.id}`,
+      message: `Kullanıcı silindi: ${id}`,
       patches: [],
     });
     return NextResponse.json({ ok: true });

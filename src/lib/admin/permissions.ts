@@ -54,7 +54,8 @@ const ADMIN_PERMS: Permission[] = [
 
 export function permissionsForRole(role: AdminRole): Set<Permission> {
   if (role === "admin") return new Set(ADMIN_PERMS);
-  return new Set(DOKTOR_PERMS);
+  if (role === "doktor") return new Set(DOKTOR_PERMS);
+  return new Set(); // ogrenci: panel erişimi yok
 }
 
 export function hasPermission(
@@ -104,9 +105,11 @@ export function navAllowedForRole(role: AdminRole, href: string): boolean {
 export const ROLE_LABELS: Record<AdminRole, string> = {
   admin: "Admin",
   doktor: "Doktor",
+  ogrenci: "Öğrenci",
 };
 
 export const ROLE_DESCRIPTIONS: Record<AdminRole, string> = {
   admin: "Tüm panel, kullanıcılar, ayarlar, yedekler, loglar",
   doktor: "Vaka düzenleme, onaylama, oynama ve doğrulama",
+  ogrenci: "Vaka çözer; ilerlemesi öğrenci panelinde takip edilir",
 };

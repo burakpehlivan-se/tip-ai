@@ -3,11 +3,13 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { requirePermission } from "@/lib/admin/permissions";
 import { getCaseById, recordPlaySession } from "@/lib/admin/store";
 
 export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "play");
+  if (denied) return denied;
 
   try {
     const body = await req.json();
@@ -20,7 +22,7 @@ export async function POST(req: NextRequest) {
         caseId,
         hastalikKey: vaka.hastalikKey,
         poliklinikKey: vaka.poliklinikKey,
-        actor: session.username,
+        actor: session!.username,
         mode: body.mode === "ogrenci" ? "ogrenci" : "admin-debug",
         toplamPuan: Number(body.toplamPuan) || 0,
         maxPuan: Number(body.maxPuan) || 0,
@@ -31,7 +33,7 @@ export async function POST(req: NextRequest) {
         eksikTestler: body.eksikTestler || [],
         anamnezCoverage: body.anamnezCoverage,
       },
-      session.username
+      session!.username
     );
     return NextResponse.json({ ok: true, session: ps });
   } catch {

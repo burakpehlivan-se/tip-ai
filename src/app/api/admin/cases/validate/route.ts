@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { requirePermission } from "@/lib/admin/permissions";
 import { loadCasesStore } from "@/lib/admin/store";
 import {
   buildValidationReport,
@@ -17,9 +18,8 @@ import {
  */
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const denied = requirePermission(session, "cases.validate");
+  if (denied) return denied;
 
   const format = (req.nextUrl.searchParams.get("format") || "json").toLowerCase();
   const statusFilter = req.nextUrl.searchParams.get("status");

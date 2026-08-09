@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { requirePermission } from "@/lib/admin/permissions";
 import {
   clone,
   getCaseById,
@@ -17,12 +18,14 @@ function decodeId(raw: string): string {
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "cases.read");
+  if (denied) return denied;
 
-  const id = decodeId(params.id);
+  const { id: rawId } = await params;
+  const id = decodeId(rawId);
   const vaka = getCaseById(id);
   if (!vaka) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
   return NextResponse.json({ case: vaka });
@@ -30,12 +33,14 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "cases.write");
+  if (denied) return denied;
 
-  const id = decodeId(params.id);
+  const { id: rawId } = await params;
+  const id = decodeId(rawId);
   const existing = getCaseById(id);
   if (!existing) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
@@ -93,7 +98,7 @@ export async function PATCH(
     }
 
     const result = recordMutation(
-      session.username,
+      session!.username,
       "update_case",
       `"${existing.hastalikAdi}" vakası güncellendi (${patches.map((p) => p.field).join(", ")}).`,
       patches,
@@ -114,17 +119,19 @@ export async function PATCH(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "cases.write");
+  if (denied) return denied;
 
-  const id = decodeId(params.id);
+  const { id: rawId } = await params;
+  const id = decodeId(rawId);
   const existing = getCaseById(id);
   if (!existing) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
   const result = recordMutation(
-    session.username,
+    session!.username,
     "delete_case",
     `"${existing.hastalikAdi}" vakası silindi (${id}).`,
     [

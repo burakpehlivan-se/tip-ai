@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { requirePermission } from "@/lib/admin/permissions";
 import {
   clone,
   getCaseById,
@@ -23,12 +24,14 @@ function formatVal(v: unknown): string {
 /** POST: test ekle veya güncelle (tam TestSonucu) */
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "cases.write");
+  if (denied) return denied;
 
-  const caseId = decodeId(params.id);
+  const { id: rawId } = await params;
+  const caseId = decodeId(rawId);
   const vaka = getCaseById(caseId);
   if (!vaka) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
@@ -57,7 +60,7 @@ export async function POST(
       : `"${vaka.hastalikAdi}" vakasının "${test.testAdi}" (${testKey}) testi güncellendi.`;
 
     const result = recordMutation(
-      session.username,
+      session!.username,
       action,
       message,
       [
@@ -92,12 +95,14 @@ export async function POST(
 /** PATCH: tek alan güncelle (sonuc.deger, yorum, vb.) */
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "cases.write");
+  if (denied) return denied;
 
-  const caseId = decodeId(params.id);
+  const { id: rawId } = await params;
+  const caseId = decodeId(rawId);
   const vaka = getCaseById(caseId);
   if (!vaka) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
@@ -124,7 +129,7 @@ export async function PATCH(
     const message = `"${vaka.hastalikAdi}" vakasının "${testKey}" testinin ${field} değeri ${formatVal(before)} → ${formatVal(after)} olarak değiştirildi.`;
 
     const result = recordMutation(
-      session.username,
+      session!.username,
       "update_test_field",
       message,
       [
@@ -167,12 +172,14 @@ export async function PATCH(
 /** DELETE: test sil */
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "cases.write");
+  if (denied) return denied;
 
-  const caseId = decodeId(params.id);
+  const { id: rawId } = await params;
+  const caseId = decodeId(rawId);
   const vaka = getCaseById(caseId);
   if (!vaka) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
@@ -185,7 +192,7 @@ export async function DELETE(
 
   const before = clone(vaka.statikTestler[testKey]);
   const result = recordMutation(
-    session.username,
+    session!.username,
     "delete_test",
     `"${vaka.hastalikAdi}" vakasından "${before.testAdi}" (${testKey}) testi silindi.`,
     [

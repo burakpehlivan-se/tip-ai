@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createSessionToken,
   loginUser,
+  isPanelRole,
   sessionCookieOptions,
   SESSION_COOKIE,
 } from "@/lib/admin/auth";
@@ -25,6 +26,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "Geçersiz kullanıcı adı veya şifre." },
         { status: 401 }
+      );
+    }
+    if (!isPanelRole(user.role)) {
+      return NextResponse.json(
+        { error: "Yönetim paneli yalnızca admin ve doktor hesaplarına açıktır." },
+        { status: 403 }
       );
     }
     const token = createSessionToken(user.username, user.role, user.userId);

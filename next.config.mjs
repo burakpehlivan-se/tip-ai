@@ -1,8 +1,9 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   output: "standalone",
+  outputFileTracingRoot: process.cwd(),
   experimental: {
-    instrumentationHook: true,
+    useTypeScriptCli: false,
   },
   webpack: (config, { isServer }) => {
     if (!isServer) {

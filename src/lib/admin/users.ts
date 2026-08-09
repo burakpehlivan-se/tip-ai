@@ -236,8 +236,8 @@ export function createUser(input: {
   if (!input.password || input.password.length < 6) {
     throw new Error("Şifre en az 6 karakter olmalı.");
   }
-  if (input.role !== "admin" && input.role !== "doktor") {
-    throw new Error("Geçersiz rol (admin | doktor).");
+  if (input.role !== "admin" && input.role !== "doktor" && input.role !== "ogrenci") {
+    throw new Error("Geçersiz rol (admin | doktor | ogrenci).");
   }
 
   const store = loadUsersStore();
@@ -256,6 +256,47 @@ export function createUser(input: {
     createdAt: now,
     updatedAt: now,
     createdBy: input.createdBy,
+  };
+  store.users.push(user);
+  saveUsersStore(store);
+  return user;
+}
+
+/**
+ * Self-registration için öğrenci hesabı oluşturur.
+ * Kullanıcı adı: küçük harf, harf/rakam/nokta/tire; boşluk ve özel karakter yasak.
+ */
+export function registerStudent(input: {
+  username: string;
+  password: string;
+  displayName?: string;
+}): AdminUser {
+  const username = input.username.trim().toLowerCase();
+  if (!/^[a-z0-9._-]{3,30}$/.test(username)) {
+    throw new Error(
+      "Kullanıcı adı 3-30 karakter olmalı; yalnızca harf, rakam, nokta ve tire kullanılabilir."
+    );
+  }
+  if (!input.password || input.password.length < 6) {
+    throw new Error("Şifre en az 6 karakter olmalı.");
+  }
+
+  const store = loadUsersStore();
+  if (store.users.some((u) => u.username.toLowerCase() === username)) {
+    throw new Error("Bu kullanıcı adı zaten kullanılıyor.");
+  }
+
+  const now = Date.now();
+  const user: AdminUser = {
+    id: `user_${now}_${createHash("sha1").update(username + now).digest("hex").slice(0, 8)}`,
+    username,
+    passwordHash: hashPassword(input.password),
+    role: "ogrenci",
+    displayName: input.displayName?.trim() || username,
+    active: true,
+    createdAt: now,
+    updatedAt: now,
+    createdBy: "self",
   };
   store.users.push(user);
   saveUsersStore(store);
@@ -304,7 +345,7 @@ export function updateUser(
   }
 
   if (patch.role && !locked) {
-    if (patch.role !== "admin" && patch.role !== "doktor") {
+    if (patch.role !== "admin" && patch.role !== "doktor" && patch.role !== "ogrenci") {
       throw new Error("Geçersiz rol.");
     }
     if (user.role === "admin" && patch.role !== "admin") {

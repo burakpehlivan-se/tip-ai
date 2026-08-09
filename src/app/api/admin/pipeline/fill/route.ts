@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { requirePermission } from "@/lib/admin/permissions";
 import { loadCasesStore, recordMutation } from "@/lib/admin/store";
 import { fillAllCases, fillCaseGeneratedTests } from "@/lib/pipeline/lab-fill";
 import { scanAllCases } from "@/lib/pipeline/case-scanner";
@@ -13,7 +14,8 @@ import { scanAllCases } from "@/lib/pipeline/case-scanner";
  */
 export async function POST(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
+  const denied = requirePermission(session, "system.migrate");
+  if (denied) return denied;
 
   let body: { id?: string } = {};
   try {
@@ -25,7 +27,7 @@ export async function POST(req: NextRequest) {
   if (body.id) {
     let filled: string[] = [];
     const result = recordMutation(
-      session.username,
+      session!.username,
       "add_test",
       `Pipeline: ${body.id} eksik testleri lab motoruyla dolduruldu`,
       [],
@@ -47,7 +49,7 @@ export async function POST(req: NextRequest) {
 
   const summary = { totalFilled: 0, totalStaticRequired: 0, totalInvalid: 0 };
   const result = recordMutation(
-    session.username,
+    session!.username,
     "add_test",
     "Pipeline: tüm vakaların eksik testleri lab motoruyla dolduruldu",
     [],

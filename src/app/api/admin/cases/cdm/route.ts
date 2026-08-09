@@ -3,6 +3,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { requirePermission } from "@/lib/admin/permissions";
 import {
   CDM_SPEC_SUMMARY,
   CONDITION_VOCAB,
@@ -21,9 +22,8 @@ import { birlesikTestKatalogu } from "@/lib/data";
  */
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
-  if (!session) {
-    return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
-  }
+  const denied = requirePermission(session, "cases.read");
+  if (denied) return denied;
 
   if (req.nextUrl.searchParams.get("template") === "1") {
     const body = JSON.stringify(EXAMPLE_CDM_KBH, null, 2);

@@ -196,7 +196,9 @@ export type AuditAction =
   | "import_cdm"
   | "create_user"
   | "update_user"
-  | "delete_user";
+  | "delete_user"
+  | "register_student"
+  | "student_login";
 
 export interface AuditPatch {
   path: string;
@@ -238,8 +240,8 @@ export interface BackupsIndex {
   backups: BackupMeta[];
 }
 
-/** Panel rolleri */
-export type AdminRole = "admin" | "doktor";
+/** Panel rolleri — "ogrenci" öğrenci tarafı hesabıdır (panel erişimi yok) */
+export type AdminRole = "admin" | "doktor" | "ogrenci";
 
 export interface AdminUser {
   id: string;
