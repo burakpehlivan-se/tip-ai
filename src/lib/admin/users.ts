@@ -14,6 +14,7 @@ import {
 } from "./types";
 import { usersPath } from "./paths";
 import { getAdminCredentials } from "./auth-env";
+import { logger } from "../logger";
 
 const SCRYPT_KEYLEN = 64;
 
@@ -37,7 +38,10 @@ function readJson<T>(file: string, fallback: T): T {
   try {
     if (!fs.existsSync(file)) return fallback;
     return JSON.parse(fs.readFileSync(file, "utf8")) as T;
-  } catch {
+  } catch (error) {
+    logger.exception("Kullanıcı deposu okunamadı; güvenli varsayılan kullanılıyor", error, {
+      file,
+    });
     return fallback;
   }
 }
