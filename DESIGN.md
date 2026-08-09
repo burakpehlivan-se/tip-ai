@@ -75,6 +75,12 @@ desteği mükemmel. Display weight 600, body weight 400.
 - `badge-blue`: Clinical-blue/15 bg, clinical-blue text.
 - `badge-steel`: Surface bg, steel text.
 
+### Başlangıç yükleme perdesi
+- İlk paint'te global CSS henüz uygulanmamış içeriğin görünmesini engeller.
+- Beyaz `canvas` üzerinde `brand-soft` / `brand-deep` halka kullanır; CSS hazır olduğunda en fazla 120ms opacity geçişiyle kaybolur.
+- İçerik asla gizli kalmaz: 4 saniyelik fail-safe süre sonunda perde kaldırılır.
+- JavaScript kapalıysa perde uygulanmaz; içerik normal akışında erişilebilir kalır.
+
 ## Layout Principles
 
 - 4px spacing sistemi (8px primer artış)
