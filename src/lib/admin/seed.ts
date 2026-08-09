@@ -1,6 +1,7 @@
 import { AdminVaka } from "./types";
 import { poliklinikler } from "../data/case-generator";
 import { Hasta } from "../types";
+import { logger } from "../logger";
 
 function dummyHasta(): Hasta {
   return {
@@ -25,19 +26,23 @@ export function seedCasesFromTemplates(): AdminVaka[] {
       let anaSikayet = "";
       let ozetBilgiler: string[] = [];
       let semptomSablon = "";
+      const vakaId = `${p.key}::${s.hastalikKey}`;
       try {
         anaSikayet = s.anaSikayetSablonu(h);
-      } catch {
+      } catch (error) {
+        logger.exception("Vaka seed ana şikayet şablonu çalışmadı", error, { vakaId });
         anaSikayet = s.hastalikAdi;
       }
       try {
         ozetBilgiler = s.ozetBilgilerSablonu(h);
-      } catch {
+      } catch (error) {
+        logger.exception("Vaka seed özet bilgiler şablonu çalışmadı", error, { vakaId });
         ozetBilgiler = [];
       }
       try {
         semptomSablon = s.semptomSablonu(h);
-      } catch {
+      } catch (error) {
+        logger.exception("Vaka seed semptom şablonu çalışmadı", error, { vakaId });
         semptomSablon = s.hastalikAdi;
       }
 
@@ -45,16 +50,18 @@ export function seedCasesFromTemplates(): AdminVaka[] {
       let hastaYanitlari = {};
       try {
         statikTestler = s.statikTestler();
-      } catch {
+      } catch (error) {
+        logger.exception("Vaka seed statik test şablonu çalışmadı", error, { vakaId });
         statikTestler = {};
       }
       try {
         hastaYanitlari = s.hastaYanitlari();
-      } catch {
+      } catch (error) {
+        logger.exception("Vaka seed hasta yanıtları şablonu çalışmadı", error, { vakaId });
         hastaYanitlari = {};
       }
 
-      const id = `${p.key}::${s.hastalikKey}`;
+      const id = vakaId;
       const etiketler: string[] = ["Poliklinik"];
       if (s.seviye === "baslangic") etiketler.push("Düşük seviye");
       if (s.seviye === "orta") etiketler.push("Orta seviye");
