@@ -1,4 +1,4 @@
-import { birlesikSoruSynonymleri, birlesikTestSynonymleri } from "../data";
+import { birlesikSoruSynonymleri, birlesikTestSynonymleri } from "../data/synonyms";
 
 /** Ek serbest metin → aksiyon (uzun eşleşmeler öncelikli) */
 const EK_SORU_ALIAS: [string, string][] = [

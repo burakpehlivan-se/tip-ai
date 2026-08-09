@@ -1,5 +1,5 @@
 import { Vaka, DegerlendirmeSonuc, AnamnezAnalizi, ChipKategorisi } from "../types";
-import { CHIP_KATEGORI_ETIKETLERI } from "../data/case-generator";
+import { CHIP_KATEGORI_ETIKETLERI } from "../data/chip-labels";
 
 export function degerlendir(
   vaka: Vaka,
@@ -9,6 +9,8 @@ export function degerlendir(
 ): DegerlendirmeSonuc {
   const { rubric } = vaka;
   const p = rubric.puanlama;
+  const sorulanAksiyonSeti = new Set(sorulanAksiyonlar);
+  const istenenTestSeti = new Set(istenenTestler);
 
   const dogruSorular: string[] = [];
   const eksikSorular: string[] = [];
@@ -25,7 +27,7 @@ export function degerlendir(
   // Beklenen sorular
   for (const soru of rubric.beklenenSorular) {
     maxPuan += p.dogru_kritik_soru;
-    if (sorulanAksiyonlar.includes(soru.key)) {
+    if (sorulanAksiyonSeti.has(soru.key)) {
       puan += p.dogru_kritik_soru;
       dogruSorular.push(soru.etiket);
     } else {
@@ -36,7 +38,7 @@ export function degerlendir(
   // Red flag'ler
   for (const rf of rubric.redFlagler) {
     maxPuan += p.dogru_kritik_soru;
-    if (sorulanAksiyonlar.includes(rf.key)) {
+    if (sorulanAksiyonSeti.has(rf.key)) {
       puan += p.dogru_kritik_soru;
       dogruSorular.push(rf.etiket);
     } else {
@@ -49,7 +51,7 @@ export function degerlendir(
   // Beklenen testler
   for (const test of rubric.beklenenTestler) {
     maxPuan += p.dogru_test;
-    if (istenenTestler.includes(test.key)) {
+    if (istenenTestSeti.has(test.key)) {
       puan += p.dogru_test;
       dogruTestler.push(test.etiket);
     } else {
@@ -60,7 +62,7 @@ export function degerlendir(
 
   // Gereksiz testler
   for (const test of rubric.gereksizTestler) {
-    if (istenenTestler.includes(test.key)) {
+    if (istenenTestSeti.has(test.key)) {
       puan += p.gereksiz_test;
       gereksizTestler.push(test.etiket);
       zayifYonler.push(`Gereksiz/erken test istendi: ${test.etiket}`);
@@ -133,6 +135,8 @@ function hesaplaAnamnezAnalizi(
   vaka: Vaka,
   sorulanAksiyonlar: string[]
 ): AnamnezAnalizi {
+  const sorulanAksiyonSeti = new Set(sorulanAksiyonlar);
+  const relevantAksiyonSeti = new Set(vaka.relevantAksiyonlar);
   const kategoriler: ChipKategorisi[] = [
     "anamnez-agri",
     "anamnez-sistemik",
@@ -144,22 +148,21 @@ function hesaplaAnamnezAnalizi(
   ];
 
   const kategoriBazinda = kategoriler.map((kat) => {
-    const katChips = (vaka.soruChipleri).filter((c) => c.kategori === kat);
-    const relevantChips = katChips.filter((c) =>
-      vaka.relevantAksiyonlar.includes(c.aksiyon)
-    );
-    const sorulduCount = relevantChips.filter((c) =>
-      sorulanAksiyonlar.includes(c.aksiyon)
-    ).length;
-    const beklenen = relevantChips.length;
-    const eksik = relevantChips
-      .filter((c) => !sorulanAksiyonlar.includes(c.aksiyon))
-      .map((c) => c.etiket);
+    let soruldu = 0;
+    let beklenen = 0;
+    const eksik: string[] = [];
+
+    for (const chip of vaka.soruChipleri) {
+      if (chip.kategori !== kat || !relevantAksiyonSeti.has(chip.aksiyon)) continue;
+      beklenen += 1;
+      if (sorulanAksiyonSeti.has(chip.aksiyon)) soruldu += 1;
+      else eksik.push(chip.etiket);
+    }
 
     return {
       kategori: kat,
       etiket: CHIP_KATEGORI_ETIKETLERI[kat],
-      soruldu: sorulduCount,
+      soruldu,
       beklenen,
       eksik,
     };

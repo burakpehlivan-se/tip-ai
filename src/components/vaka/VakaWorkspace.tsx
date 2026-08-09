@@ -14,7 +14,7 @@ import {
 } from "@/lib/types";
 import { normalizeSoru } from "@/lib/nlp/normalize";
 import { degerlendir } from "@/lib/scoring/degerlendir";
-import { birlesikTestKatalogu, TEST_VISIBILITY_MAP, MOTOR_CAPABLE_KEYS } from "@/lib/data";
+import { birlesikTestKatalogu, TEST_VISIBILITY_MAP, MOTOR_CAPABLE_KEYS } from "@/lib/data/test-catalogue";
 import { CHIP_KATEGORI_ETIKETLERI } from "@/lib/data/chip-labels";
 import ResmiRapor from "./ResmiRapor";
 import { getLabResult } from "@/lib/lab-motor";

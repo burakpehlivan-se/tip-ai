@@ -89,4 +89,28 @@ describe("degerlendir", () => {
     );
     expect(sonuc.toplamPuan).toBe(sonuc.maxPuan);
   });
+
+  it("anamnez analizinde yalnızca ilgili chipleri tek tek sayar", () => {
+    const sonuc = degerlendir(
+      makeVaka({
+        soruChipleri: [
+          { aksiyon: "AGRI_SURE", etiket: "Süre", kategori: "anamnez-agri" },
+          { aksiyon: "ATES_VAR", etiket: "Ateş", kategori: "anamnez-sistemik" },
+          { aksiyon: "SIGARA", etiket: "Sigara", kategori: "anamnez-oyku" },
+        ],
+        relevantAksiyonlar: ["AGRI_SURE", "ATES_VAR"],
+      }),
+      ["AGRI_SURE"],
+      [],
+      "Pnömoni"
+    );
+
+    expect(sonuc.anamnezAnalizi.kategoriBazinda).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ kategori: "anamnez-agri", soruldu: 1, beklenen: 1, eksik: [] }),
+        expect.objectContaining({ kategori: "anamnez-sistemik", soruldu: 0, beklenen: 1, eksik: ["Ateş"] }),
+        expect.objectContaining({ kategori: "anamnez-oyku", soruldu: 0, beklenen: 0, eksik: [] }),
+      ])
+    );
+  });
 });
