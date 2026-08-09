@@ -759,7 +759,13 @@ export default function VakaWorkspace({
               aria-modal="true"
               aria-label="Tüm sorular"
             >
-              <div className="absolute inset-0 bg-black/20" onClick={() => setShowSoruDrawer(false)} />
+              <button
+                type="button"
+                tabIndex={-1}
+                aria-label="Soru panelini kapat"
+                onClick={() => setShowSoruDrawer(false)}
+                className="absolute inset-0 cursor-default border-0 bg-black/20 p-0"
+              />
               <div className="relative w-full max-w-md bg-canvas shadow-xl border-l border-hairline overflow-y-auto">
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline bg-canvas px-4 py-3">
                   {/* Kategori seçici */}
@@ -774,7 +780,8 @@ export default function VakaWorkspace({
                   <button ref={drawerKapatBtnRef} onClick={() => setShowSoruDrawer(false)} aria-label="Soru panelini kapat" className="rounded-full p-1 hover:bg-surface text-steel shrink-0">✕</button>
                 </div>
                 <div className="p-4 space-y-3">
-                  <input type="text" value={chipArama} onChange={(e) => setChipArama(e.target.value)}
+                  <label htmlFor="soru-arama" className="sr-only">Sorularda ara</label>
+                  <input id="soru-arama" type="text" value={chipArama} onChange={(e) => setChipArama(e.target.value)}
                     placeholder="Sorularda ara…"
                     className="w-full h-8 rounded-full border border-hairline bg-surface px-3 text-xs text-ink placeholder:text-muted focus:border-brand focus:outline-none" />
                   {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
@@ -808,21 +815,24 @@ export default function VakaWorkspace({
             <div className="mx-auto max-w-2xl">
               {faz === "anamnez" ? (
                 <div className="flex gap-2">
-                  <input type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && soruSor()}
+                  <label htmlFor="anamnez-sorusu" className="sr-only">Hastaya soru sor</label>
+                  <input id="anamnez-sorusu" type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && soruSor()}
                     placeholder="Hastaya soru sor…"
                     className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
                   <button onClick={soruSor} disabled={islemYukleniyor} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Gönderiliyor…" : "Sor"}</button>
                 </div>
               ) : faz === "tani" ? (
                 <div className="flex gap-2">
-                  <input type="text" value={taniInput} onChange={(e) => setTaniInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && tamamlama()}
+                  <label htmlFor="on-tani-ana" className="sr-only">Ön tanı</label>
+                  <input id="on-tani-ana" type="text" value={taniInput} onChange={(e) => setTaniInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && tamamlama()}
                     placeholder="Ön tanınızı girin (örn: Akut Koroner Sendrom)…"
                     className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
                   <button onClick={tamamlama} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">Tanı →</button>
                 </div>
               ) : faz === "tedavi" ? (
                 <div className="flex gap-2">
-                  <textarea value={tedaviInput} onChange={(e) => setTedaviInput(e.target.value)}
+                  <label htmlFor="tedavi-plani-ana" className="sr-only">Tedavi planı</label>
+                  <textarea id="tedavi-plani-ana" value={tedaviInput} onChange={(e) => setTedaviInput(e.target.value)}
                     placeholder="Tedavi planınızı yazın (ilaçlar, dozlar, prosedürler)…"
                     className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none resize-none" rows={1} />
                   <button onClick={vakaTamamla} disabled={islemYukleniyor} className="btn-accent h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Puanlanıyor…" : "Puanla ✓"}</button>
@@ -866,7 +876,9 @@ export default function VakaWorkspace({
                     <circle cx="7" cy="7" r="4.5"/>
                     <line x1="10.5" y1="10.5" x2="14" y2="14"/>
                   </svg>
+                  <label htmlFor="test-arama" className="sr-only">Test ara</label>
                   <input
+                    id="test-arama"
                     type="text"
                     value={testArama}
                     onChange={(e) => setTestArama(e.target.value)}
@@ -1065,7 +1077,9 @@ export default function VakaWorkspace({
                     <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
                       Ön Tanı
                     </h3>
+                    <label htmlFor="on-tani-sag" className="sr-only">Ön tanı</label>
                     <input
+                      id="on-tani-sag"
                       type="text"
                       value={taniInput}
                       onChange={(e) => setTaniInput(e.target.value)}
@@ -1081,7 +1095,9 @@ export default function VakaWorkspace({
                     <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
                       Tedavi Planı
                     </h3>
+                    <label htmlFor="tedavi-plani-sag" className="sr-only">Tedavi planı</label>
                     <textarea
+                      id="tedavi-plani-sag"
                       value={tedaviInput}
                       onChange={(e) => setTedaviInput(e.target.value)}
                       placeholder="Tedavi planınızı yazın (ilaçlar, dozlar, prosedürler)..."
