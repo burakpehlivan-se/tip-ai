@@ -453,7 +453,7 @@ export default function VakaWorkspace({
   return (
     <div
       className={`flex min-h-0 flex-col bg-canvas ${
-        embed ? "h-full flex-1 overflow-hidden" : "h-screen"
+        embed ? "h-full flex-1 overflow-hidden" : "h-[100dvh]"
       }`}
     >
       {debugMode && (

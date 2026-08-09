@@ -149,7 +149,7 @@ export default function PoliklinikPage() {
   }
 
   return (
-    <div className="flex h-screen flex-col bg-canvas">
+    <div className="flex h-[100dvh] flex-col bg-canvas">
       {/* Top Bar — Poliklinik */}
       <div className="flex h-14 items-center justify-between border-b border-hairline bg-canvas px-4">
         <div className="flex items-center gap-3">
@@ -169,6 +169,7 @@ export default function PoliklinikPage() {
       <VakaWorkspace
         vaka={vaka}
         key={vaka.id}
+        embed
         initialSnapshot={resumeSnapshot}
         onboarding={!resumeSnapshot}
         onAsk={async (action) => {
