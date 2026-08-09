@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 
 interface PoliklinikKart {
@@ -14,6 +14,9 @@ interface PoliklinikKart {
 export default function VakalarPage() {
   const [girisli, setGirisli] = useState<boolean | null>(null);
   const [poliklinikler, setPoliklinikler] = useState<PoliklinikKart[]>([]);
+  const [arama, setArama] = useState("");
+  const [katalogDurumu, setKatalogDurumu] = useState<"yukleniyor" | "hazir" | "hata">("yukleniyor");
+  const [katalogHatasi, setKatalogHatasi] = useState("");
 
   useEffect(() => {
     fetch("/api/student/me")
@@ -21,40 +24,59 @@ export default function VakalarPage() {
       .catch(() => setGirisli(false));
   }, []);
 
-  useEffect(() => {
-    fetch("/api/cases/templates")
-      .then((response) => response.json())
-      .then((data) => {
-        const grouped = new Map<string, PoliklinikKart>();
-        for (const item of data.templates || []) {
-          const current = grouped.get(item.poliklinikKey);
-          if (current) current.vakaSayisi += 1;
-          else grouped.set(item.poliklinikKey, {
-            key: item.poliklinikKey,
-            ad: item.poliklinikAd,
-            icon: item.poliklinikIcon,
-            aciklama: item.poliklinikAciklama || "Klinik vaka simülasyonları",
-            vakaSayisi: 1,
-          });
-        }
-        setPoliklinikler([...grouped.values()]);
-      })
-      .catch(() => setPoliklinikler([]));
+  const katalogYukle = useCallback(async () => {
+    setKatalogDurumu("yukleniyor");
+    setKatalogHatasi("");
+    try {
+      const response = await fetch("/api/cases/templates");
+      if (!response.ok) throw new Error("Vaka kataloğu şu anda yüklenemedi.");
+      const data = await response.json();
+      const grouped = new Map<string, PoliklinikKart>();
+      for (const item of data.templates || []) {
+        const current = grouped.get(item.poliklinikKey);
+        if (current) current.vakaSayisi += 1;
+        else grouped.set(item.poliklinikKey, {
+          key: item.poliklinikKey,
+          ad: item.poliklinikAd,
+          icon: item.poliklinikIcon,
+          aciklama: item.poliklinikAciklama || "Klinik vaka simülasyonları",
+          vakaSayisi: 1,
+        });
+      }
+      setPoliklinikler([...grouped.values()].sort((a, b) => a.ad.localeCompare(b.ad, "tr")));
+      setKatalogDurumu("hazir");
+    } catch (error) {
+      setPoliklinikler([]);
+      setKatalogHatasi(error instanceof Error ? error.message : "Vaka kataloğu şu anda yüklenemedi.");
+      setKatalogDurumu("hata");
+    }
   }, []);
+
+  useEffect(() => {
+    void katalogYukle();
+  }, [katalogYukle]);
 
   const poliklinikHref = (key: string) =>
     girisli ? `/poliklinik/${key}` : `/giris?sonraki=${encodeURIComponent(`/poliklinik/${key}`)}`;
+  const filtrelenmisPoliklinikler = useMemo(() => {
+    const sorgu = arama.trim().toLocaleLowerCase("tr");
+    if (!sorgu) return poliklinikler;
+    return poliklinikler.filter((poliklinik) =>
+      `${poliklinik.ad} ${poliklinik.aciklama}`.toLocaleLowerCase("tr").includes(sorgu)
+    );
+  }, [arama, poliklinikler]);
 
   return (
     <div className="min-h-screen bg-canvas">
+      <a href="#ana-icerik" className="skip-link">İçeriğe atla</a>
       <nav className="sticky top-0 z-50 border-b border-hairline-soft bg-canvas/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
+        <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
             <span className="text-xl font-semibold tracking-tight text-ink">
               tıp<span className="text-brand">_ai</span>
             </span>
           </Link>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 sm:gap-4">
             {girisli === false && (
               <Link href="/giris" className="btn-secondary text-sm">
                 Giriş Yap
@@ -67,18 +89,20 @@ export default function VakalarPage() {
             )}
             <Link
               href="/cemicegek"
-              className="rounded-full bg-clinical-red/10 px-4 py-1.5 text-sm font-medium text-clinical-red hover:bg-clinical-red/20 transition-colors"
+              className="rounded-full bg-clinical-red/10 px-3 py-2 text-sm font-medium text-clinical-red transition-colors hover:bg-clinical-red/20 sm:px-4 sm:py-1.5"
             >
-              🚑 Çemiçgezek Acil
+              <span className="sm:hidden">Acil</span>
+              <span className="hidden sm:inline">🚑 Çemiçgezek Acil</span>
             </Link>
-            <Link href="/" className="text-sm font-medium text-steel hover:text-ink transition-colors">
+            <Link href="/" className="hidden text-sm font-medium text-steel transition-colors hover:text-ink sm:inline">
               ← Ana Sayfa
             </Link>
           </div>
         </div>
       </nav>
 
-      <div className="mx-auto max-w-6xl px-6 pt-16 pb-12">
+      <main id="ana-icerik" tabIndex={-1}>
+      <div className="mx-auto max-w-6xl px-4 pt-12 pb-8 sm:px-6 sm:pt-16 sm:pb-12">
         <h1 className="text-4xl font-semibold tracking-tight text-ink sm:text-5xl" style={{ letterSpacing: "-1.5px" }}>
           Poliklinik Seç
         </h1>
@@ -88,9 +112,9 @@ export default function VakalarPage() {
       </div>
 
       {girisli === false && (
-        <div className="mx-auto max-w-6xl px-6 pb-8">
+        <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
           <Link href="/deneme" className="block">
-            <div className="rounded-lg border border-brand/30 bg-brand-soft/10 p-6 transition-all hover:shadow-card">
+            <div className="rounded-lg border border-brand/30 bg-brand-soft/10 p-6 transition-shadow hover:shadow-card">
               <div className="flex items-center gap-5">
                 <div className="text-4xl">🔓</div>
                 <div className="flex-1">
@@ -108,13 +132,59 @@ export default function VakalarPage() {
         </div>
       )}
 
-      <div className="mx-auto max-w-6xl px-6 pb-12">
+      <section className="mx-auto max-w-6xl px-4 pb-12 sm:px-6" aria-labelledby="poliklinik-listesi-baslik">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div>
+            <h2 id="poliklinik-listesi-baslik" className="text-lg font-semibold text-ink">Poliklinikler</h2>
+            <p className="mt-1 text-sm text-steel" aria-live="polite">
+              {katalogDurumu === "hazir" ? `${filtrelenmisPoliklinikler.length} poliklinik bulundu.` : "Katalog hazırlanıyor."}
+            </p>
+          </div>
+          <div className="w-full sm:max-w-sm">
+            <label htmlFor="poliklinik-arama" className="sr-only">Poliklinik ara</label>
+            <input
+              id="poliklinik-arama"
+              type="search"
+              value={arama}
+              onChange={(event) => setArama(event.target.value)}
+              className="input"
+              placeholder="Poliklinik ara"
+              disabled={katalogDurumu !== "hazir"}
+            />
+          </div>
+        </div>
+
+        {katalogDurumu === "yukleniyor" && (
+          <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3" aria-busy="true" aria-label="Poliklinikler yükleniyor">
+            {["bir", "iki", "uc"].map((id) => <div key={id} className="card h-56 animate-pulse bg-surface" />)}
+          </div>
+        )}
+
+        {katalogDurumu === "hata" && (
+          <div className="card max-w-xl border-clinical-red/30" role="alert">
+            <h3 className="text-lg font-semibold text-ink">Katalog yüklenemedi</h3>
+            <p className="mt-2 text-sm text-steel">{katalogHatasi}</p>
+            <button type="button" onClick={() => void katalogYukle()} className="btn-primary mt-5">
+              Tekrar dene
+            </button>
+          </div>
+        )}
+
+        {katalogDurumu === "hazir" && filtrelenmisPoliklinikler.length === 0 && (
+          <div className="card max-w-xl">
+            <h3 className="text-lg font-semibold text-ink">Eşleşen poliklinik bulunamadı</h3>
+            <p className="mt-2 text-sm text-steel">Arama ifadenizi değiştirin veya tüm poliklinikleri görmek için aramayı temizleyin.</p>
+            <button type="button" onClick={() => setArama("")} className="btn-secondary mt-5">Aramayı temizle</button>
+          </div>
+        )}
+
+        {katalogDurumu === "hazir" && filtrelenmisPoliklinikler.length > 0 && (
         <div className="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          {poliklinikler.map((p) => (
+          {filtrelenmisPoliklinikler.map((p) => (
             <Link
               key={p.key}
               href={poliklinikHref(p.key)}
-              className="card group cursor-pointer transition-all hover:shadow-card hover:border-brand"
+              className="card group cursor-pointer transition-[border-color,box-shadow] hover:border-brand hover:shadow-card"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="text-4xl">{p.icon}</div>
@@ -130,11 +200,12 @@ export default function VakalarPage() {
             </Link>
           ))}
         </div>
-      </div>
+        )}
+      </section>
 
-      <div className="mx-auto max-w-6xl px-6 pb-24">
+      <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
         <Link href={girisli === false ? `/giris?sonraki=${encodeURIComponent("/cemicegek")}` : "/cemicegek"} className="block">
-          <div className="rounded-lg border border-clinical-red/20 bg-clinical-red/5 p-8 transition-all hover:shadow-card">
+          <div className="rounded-lg border border-clinical-red/20 bg-clinical-red/5 p-8 transition-shadow hover:shadow-card">
             <div className="flex items-center gap-6">
               <div className="text-5xl">🚑</div>
               <div className="flex-1">
@@ -155,7 +226,7 @@ export default function VakalarPage() {
         </Link>
       </div>
 
-      <div className="mx-auto max-w-6xl px-6 pb-24">
+      <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
         <div className="card-feature flex items-start gap-4">
           <div className="text-2xl">💡</div>
           <div>
@@ -166,6 +237,7 @@ export default function VakalarPage() {
           </div>
         </div>
       </div>
+      </main>
     </div>
   );
 }
