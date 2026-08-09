@@ -1487,40 +1487,40 @@ function SonucEkrani({
               )}
             </div>
             <div className="space-y-2">
-              {sonuc.anamnezAnalizi.kategoriBazinda
-                .filter((k) => k.beklenen > 0)
-                .map((k) => {
-                  const oran = Math.round((k.soruldu / k.beklenen) * 100);
-                  const renk = oran >= 80 ? "bg-brand" : oran >= 50 ? "bg-clinical-orange" : "bg-clinical-red";
-                  return (
-                    <div key={k.kategori} className="flex items-center gap-3">
-                      <div className="w-40 flex-shrink-0 text-xs font-medium text-ink">{k.etiket}</div>
-                      <div className="flex-1 overflow-hidden rounded-full bg-surface">
-                        <div
-                          className={`h-2 w-full origin-left rounded-full transition-transform motion-reduce:transition-none ${renk}`}
-                          style={{ transform: `scaleX(${oran / 100})` }}
-                        />
-                      </div>
-                      <div className="w-20 flex-shrink-0 text-right text-xs text-steel">
-                        {k.soruldu}/{k.beklenen} ({oran}%)
-                      </div>
+              {sonuc.anamnezAnalizi.kategoriBazinda.map((k) => {
+                if (k.beklenen === 0) return null;
+                const oran = Math.round((k.soruldu / k.beklenen) * 100);
+                const renk = oran >= 80 ? "bg-brand" : oran >= 50 ? "bg-clinical-orange" : "bg-clinical-red";
+                return (
+                  <div key={k.kategori} className="flex items-center gap-3">
+                    <div className="w-40 flex-shrink-0 text-xs font-medium text-ink">{k.etiket}</div>
+                    <div className="flex-1 overflow-hidden rounded-full bg-surface">
+                      <div
+                        className={`h-2 w-full origin-left rounded-full transition-transform motion-reduce:transition-none ${renk}`}
+                        style={{ transform: `scaleX(${oran / 100})` }}
+                      />
                     </div>
-                  );
-                })}
+                    <div className="w-20 flex-shrink-0 text-right text-xs text-steel">
+                      {k.soruldu}/{k.beklenen} ({oran}%)
+                    </div>
+                  </div>
+                );
+              })}
             </div>
             {sonuc.anamnezAnalizi.kategoriBazinda.some((k) => k.eksik.length > 0) && (
               <div className="mt-4 space-y-1.5">
                 <div className="text-xs font-semibold text-muted">Sorulmayan kritik sorular:</div>
-                {sonuc.anamnezAnalizi.kategoriBazinda
-                  .filter((k) => k.eksik.length > 0)
-                  .map((k) => (
+                {sonuc.anamnezAnalizi.kategoriBazinda.map((k) => {
+                  if (k.eksik.length === 0) return null;
+                  return (
                     <div key={k.kategori} className="flex items-start gap-2 text-xs text-clinical-red/80">
                       <span className="mt-0.5">•</span>
                       <span>
                         <strong>{k.etiket}:</strong> {k.eksik.join(", ")}
                       </span>
                     </div>
-                  ))}
+                  );
+                })}
               </div>
             )}
           </div>
