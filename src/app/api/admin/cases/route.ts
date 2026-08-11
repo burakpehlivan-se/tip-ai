@@ -11,6 +11,7 @@ import {
   recordMutation,
 } from "@/lib/admin/store";
 import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
+import { validateAdminVakaForPublication } from "@/lib/cdm/validate-report";
 import { Seviye } from "@/lib/types";
 import { getRequestId, logger } from "@/lib/logger";
 
@@ -101,6 +102,19 @@ export async function POST(req: NextRequest) {
       createdAt: now,
       updatedAt: now,
     });
+
+    if (vaka.durum === "aktif") {
+      const publication = validateAdminVakaForPublication(vaka);
+      if (!publication.allowed) {
+        return NextResponse.json(
+          {
+            error: "Vaka aktif olarak oluşturulamaz. Zorunlu klinik alanları tamamlayın.",
+            validation: publication.validation,
+          },
+          { status: 422 }
+        );
+      }
+    }
 
     const result = recordMutation(
       session!.username,

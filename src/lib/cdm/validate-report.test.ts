@@ -1,5 +1,9 @@
 import { describe, expect, it } from "vitest";
-import { validateVakaDocument, validateAdminVaka } from "./validate-report";
+import {
+  validateVakaDocument,
+  validateAdminVaka,
+  validateAdminVakaForPublication,
+} from "./validate-report";
 import { EXAMPLE_CDM_KBH } from "./example-kbh";
 import { cdmToAdminVaka, adminVakaToCdm } from "./convert";
 
@@ -82,5 +86,14 @@ describe("validateAdminVaka + CDM round-trip", () => {
     const av = cdmToAdminVaka(EXAMPLE_CDM_KBH);
     const validation = validateAdminVaka(av);
     expect(validation.status).toBe("valid");
+  });
+
+  it("yayın kapısı hata içeren vakayı engeller", () => {
+    const av = cdmToAdminVaka(EXAMPLE_CDM_KBH);
+    const { ODEM_SURE: _removed, ...hastaYanitlari } = av.hastaYanitlari;
+    const result = validateAdminVakaForPublication({ ...av, hastaYanitlari });
+
+    expect(result.allowed).toBe(false);
+    expect(result.validation.errors.some((issue) => issue.code === "MISSING_ANSWER_FOR_QUESTION")).toBe(true);
   });
 });

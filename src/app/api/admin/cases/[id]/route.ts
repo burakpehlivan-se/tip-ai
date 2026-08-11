@@ -10,7 +10,8 @@ import {
   loadCasesStore,
   recordMutation,
 } from "@/lib/admin/store";
-import { AdminVaka } from "@/lib/admin/types";
+import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
+import { validateAdminVakaForPublication } from "@/lib/cdm/validate-report";
 import { getRequestId, logger } from "@/lib/logger";
 
 function decodeId(raw: string): string {
@@ -96,6 +97,22 @@ export async function PATCH(
 
     if (!patches.length) {
       return NextResponse.json({ error: "Güncellenecek alan yok." }, { status: 400 });
+    }
+
+    // Eski aktif kayıtları düzenlemeyi kilitlemeden, taslak/arsivden yeni bir
+    // aktif vakaya geçişte klinik veri doğrulamasını zorunlu tut.
+    const candidate = normalizeAdminVaka({ ...existing, ...updates, updatedAt: Date.now() });
+    if (existing.durum !== "aktif" && candidate.durum === "aktif") {
+      const publication = validateAdminVakaForPublication(candidate);
+      if (!publication.allowed) {
+        return NextResponse.json(
+          {
+            error: "Vaka aktif olarak yayınlanamaz. Zorunlu klinik alanları tamamlayın.",
+            validation: publication.validation,
+          },
+          { status: 422 }
+        );
+      }
     }
 
     const result = recordMutation(

@@ -31,6 +31,11 @@ export interface VakaValidationResult {
   status: VakaValidationStatus;
 }
 
+export interface PublicationValidationResult {
+  allowed: boolean;
+  validation: VakaValidationResult;
+}
+
 export interface ValidationReportSummary {
   total: number;
   valid: number;
@@ -709,6 +714,15 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
 export function validateAdminVaka(av: AdminVaka): VakaValidationResult {
   const doc = adminVakaToCdm(av);
   return validateVakaDocument(doc);
+}
+
+/**
+ * Öğrenciye açılacak yeni vakalar için yayın kapısı.
+ * Uyarılar editörü bilgilendirir; yalnız yapısal/klinik hata yayınlamayı engeller.
+ */
+export function validateAdminVakaForPublication(av: AdminVaka): PublicationValidationResult {
+  const validation = validateAdminVaka(av);
+  return { allowed: validation.errors.length === 0, validation };
 }
 
 function topCodes(
