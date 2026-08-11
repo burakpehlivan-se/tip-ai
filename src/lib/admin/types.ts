@@ -41,6 +41,8 @@ export interface AdminTedavi {
     ad: string;
     doz: string;
     yol: string;
+    siklik?: string;
+    sure?: string;
     endikasyon: string;
   }>;
   prosedurler?: string[];

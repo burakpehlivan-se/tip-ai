@@ -85,6 +85,8 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {
           ad: i.ad,
           doz: i.doz,
           yol: i.yol,
+          siklik: i.siklik,
+          sure: i.sure,
           endikasyon: i.endikasyon,
         })),
         prosedurler: av.tedavi.prosedurler || [],

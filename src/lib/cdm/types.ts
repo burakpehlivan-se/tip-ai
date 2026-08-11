@@ -46,6 +46,8 @@ export interface CdmLabResult {
   testAdi: string;
   tip: TestSonucTipi;
   sonuc: Record<string, unknown> | string;
+  birim?: string;
+  referansAralik?: string;
   referans?: string;
   yorum?: string;
   /** normal | high | low | abnormal | unknown */
@@ -60,6 +62,8 @@ export interface CdmDrug {
   ad: string;
   doz: string;
   yol: string;
+  siklik?: string;
+  sure?: string;
   endikasyon: string;
 }
 

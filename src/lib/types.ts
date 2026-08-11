@@ -89,6 +89,8 @@ export interface TedaviIlaci {
   ad: string;
   doz: string;
   yol: string;
+  siklik?: string;
+  sure?: string;
   endikasyon: string;
 }
 
@@ -129,6 +131,10 @@ export interface TestSonucu {
   testAdi: string;
   tip: TestSonucTipi;
   sonuc: Record<string, unknown> | string;
+  /** Sayısal sonucu açıkça tanımlayan birim (örn. mg/dL). */
+  birim?: string;
+  /** Hasta ve eğitmen ekranında gösterilecek referans aralığı. */
+  referansAralik?: string;
   referans?: string;
   yorum?: string;
   /** original = şablondan (patoloji), synthetic = lab KB’den normal enrichment */
