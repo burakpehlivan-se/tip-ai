@@ -15,6 +15,9 @@ export default function SonucEkrani({
   const yuzde = Math.round((sonuc.toplamPuan / sonuc.maxPuan) * 100);
   const renk =
     yuzde >= 80 ? "text-brand-deep" : yuzde >= 60 ? "text-clinical-orange" : "text-clinical-red";
+  const tedaviTakvimiVar = Boolean(
+    sonuc.tedavi?.ilaclar.some((ilac) => ilac.siklik || ilac.sure)
+  );
 
   return (
     <div
@@ -213,6 +216,12 @@ export default function SonucEkrani({
                         <th className="px-4 py-2 font-semibold text-ink">İlaç</th>
                         <th className="px-4 py-2 font-semibold text-ink">Doz</th>
                         <th className="px-4 py-2 font-semibold text-ink">Yol</th>
+                        {tedaviTakvimiVar && (
+                          <th className="px-4 py-2 font-semibold text-ink">Sıklık</th>
+                        )}
+                        {tedaviTakvimiVar && (
+                          <th className="px-4 py-2 font-semibold text-ink">Süre</th>
+                        )}
                         <th className="px-4 py-2 font-semibold text-ink">Endikasyon</th>
                       </tr>
                     </thead>
@@ -222,6 +231,12 @@ export default function SonucEkrani({
                           <td className="px-4 py-2.5 font-medium text-ink">{ilac.ad}</td>
                           <td className="px-4 py-2.5 text-steel">{ilac.doz}</td>
                           <td className="px-4 py-2.5 text-steel">{ilac.yol}</td>
+                          {tedaviTakvimiVar && (
+                            <td className="px-4 py-2.5 text-steel">{ilac.siklik || "—"}</td>
+                          )}
+                          {tedaviTakvimiVar && (
+                            <td className="px-4 py-2.5 text-steel">{ilac.sure || "—"}</td>
+                          )}
                           <td className="px-4 py-2.5 text-steel">{ilac.endikasyon}</td>
                         </tr>
                       ))}
