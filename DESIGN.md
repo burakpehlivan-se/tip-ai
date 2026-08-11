@@ -62,8 +62,8 @@ desteği mükemmel. Display weight 600, body weight 400.
 - `btn-ghost`: Şeffaf, rounded-md, küçük padding.
 
 ### Cards
-- `card`: Beyaz, hairline border, rounded-lg, 24px padding.
-- `card-feature`: Surface bg (gri), rounded-lg, 32px padding.
+- `card`: Beyaz, hairline border, rounded-lg; mobilde 16px, `sm` ve üzerinde 24px padding.
+- `card-feature`: Surface bg (gri), rounded-lg; mobilde 16px, `sm` ve üzerinde 32px padding.
 
 ### Inputs
 - `input`: 40px height, hairline border, rounded-md, focus'ta brand border + ring.

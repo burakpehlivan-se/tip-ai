@@ -14,10 +14,10 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
   const measured = sonuc.measuredAt ? new Date(sonuc.measuredAt) : null;
   const tarihStr = tarih || (measured
     ? measured.toLocaleDateString("tr-TR", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
-    : new Date().toLocaleDateString("tr-TR", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" }));
+    : "—");
   const raporNo = sonuc.episodeId
     ? `RPT-${sonuc.episodeId.slice(-8).toUpperCase()}`
-    : `RPT-${Date.now().toString().slice(-8)}`;
+    : `RPT-${sonuc.testKey.slice(-8).toUpperCase()}`;
 
   const rapText = sonuc.testAdi.includes("Mamografi") || sonuc.testAdi.includes("USG") || sonuc.testAdi.includes("Grafisi") || sonuc.testAdi.includes("BT")
     ? "RADYOLOJİ RAPORU" : sonuc.testAdi.includes("Biyopsi") ? "PATOLOJİ RAPORU" : "LABORATUVAR SONUÇ RAPORU";
@@ -36,11 +36,11 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
       </div>
 
       <div className={`border-b border-ink/20 px-3 py-1.5 ${fs}`}>
-        <div className="grid grid-cols-2 gap-x-3 gap-y-0.5">
-          <div><span className="text-muted">Hasta:</span> <span className="font-semibold text-ink">{hasta.tamAd || hasta.ad}</span></div>
-          <div><span className="text-muted">TC:</span> <span className="font-semibold text-ink">{hasta.tc || "—"}</span></div>
+        <div className="grid gap-x-3 gap-y-0.5 sm:grid-cols-2">
+          <div className="break-words"><span className="text-muted">Hasta:</span> <span className="font-semibold text-ink">{hasta.tamAd || hasta.ad}</span></div>
+          <div className="break-words"><span className="text-muted">TC:</span> <span className="font-semibold text-ink">{hasta.tc || "—"}</span></div>
           <div><span className="text-muted">Yaş/Cins:</span> <span className="text-ink">{hasta.yas}/{hasta.cinsiyet}</span></div>
-          <div><span className="text-muted">Tarih:</span> <span className="text-ink">{tarihStr}</span></div>
+          <div className="break-words"><span className="text-muted">Tarih:</span> <span className="text-ink">{tarihStr}</span></div>
         </div>
         <div className="mt-1 border-t border-dashed border-ink/20 pt-0.5">
           <span className="text-muted">Rapor No:</span> <span className="text-ink">{raporNo}</span>
@@ -49,7 +49,7 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
 
       <div className={`border-b border-ink/20 bg-ink/5 px-3 py-1 ${fsSm}`}>
         <span className="text-muted">Tetkik: </span>
-        <span className="font-bold uppercase text-ink">{sonuc.testAdi}</span>
+        <span className="break-words font-bold uppercase text-ink">{sonuc.testAdi}</span>
       </div>
 
       <div className={`px-3 py-2 ${fs}`}>
@@ -74,9 +74,9 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
           <div className="space-y-0.5">
             <div className={`${fsSm} uppercase tracking-wider text-muted mb-1`}>SONUÇ</div>
             {Object.entries(sonuc.sonuc as Record<string,unknown>).map(([k, v]) => (
-              <div key={k} className="flex justify-between border-b border-dotted border-ink/10 py-0.5">
-                <span className="text-steel">{k}:</span>
-                <span className="font-semibold text-ink">{String(v)}</span>
+              <div key={k} className="flex gap-3 border-b border-dotted border-ink/10 py-0.5">
+                <span className="min-w-0 break-words text-steel">{k}:</span>
+                <span className="min-w-0 break-words text-right font-semibold text-ink">{String(v)}</span>
               </div>
             ))}
           </div>

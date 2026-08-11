@@ -91,11 +91,11 @@
   }
 
   .card {
-    @apply rounded-lg border border-hairline bg-canvas p-6;
+    @apply rounded-lg border border-hairline bg-canvas p-4 sm:p-6;
   }
 
   .card-feature {
-    @apply rounded-lg bg-surface p-8;
+    @apply rounded-lg bg-surface p-4 sm:p-8;
   }
 
   .input {

@@ -11,13 +11,14 @@ export function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi
   return (
     <div className="overflow-hidden rounded-lg border border-hairline bg-canvas">
       <button
+        type="button"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
-        className="flex w-full items-center justify-between border-b border-hairline-soft px-4 py-3 text-left hover:bg-surface-soft transition-colors"
+        className="flex w-full items-center justify-between gap-3 border-b border-hairline-soft px-4 py-3 text-left hover:bg-surface-soft transition-colors"
       >
-        <div>
-          <div className="flex items-center gap-2">
-            <div className="text-sm font-semibold text-ink">{sonuc.testAdi}</div>
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-1.5">
+            <div className="break-words text-sm font-semibold text-ink">{sonuc.testAdi}</div>
             {sonuc.source === "dataset" && (
               <span className="rounded-full bg-surface px-1.5 py-0.5 text-[10px] font-medium text-steel" title="Synthea lab-pool — profil eşleşmeli satır">
                 dataset
@@ -38,7 +39,7 @@ export function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi
             {sonuc.tip === "numeric" ? "Sayısal" : sonuc.tip === "json" ? "Detaylı" : sonuc.tip === "image" ? "Radyoloji" : "Rapor"} — raporu {expanded ? "gizle" : "gör"}
           </div>
         </div>
-        <span className="text-steel">{expanded ? "▾" : "▸"}</span>
+        <span className="shrink-0 text-steel" aria-hidden="true">{expanded ? "▾" : "▸"}</span>
       </button>
 
       {expanded && (
