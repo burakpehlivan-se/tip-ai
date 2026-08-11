@@ -19,7 +19,6 @@ import ResmiRapor from "./ResmiRapor";
 import SonucEkrani from "./SonucEkrani";
 import { DebugTestKarti, TestSonucKarti } from "./TestResultCards";
 import VakaHastaPanel from "./VakaHastaPanel";
-import { getLabResult } from "@/lib/lab-motor";
 import Link from "next/link";
 
 export type WorkspaceFaz = "anamnez" | "test" | "tani" | "tedavi";
@@ -270,11 +269,10 @@ export default function VakaWorkspace({
     setIslemYukleniyor(true);
     setIslemHatasi("");
     try {
-    let statik = onTestRequest ? await onTestRequest(testKey) : vaka.statikTestler[testKey];
+      const statik = onTestRequest
+        ? await onTestRequest(testKey)
+        : vaka.statikTestler[testKey] || null;
       if (!statik) {
-      // Lab motoru ile üretmeyi dene
-      const motorSonuc = !onTestRequest && vaka.profile ? getLabResult(testKey, vaka.profile, vaka.statikTestler) : null;
-      if (!motorSonuc) {
         setMesajlar((prev) => {
           const alreadyWarned = prev.some((m) => m.id.endsWith("-err") && m.metin.includes(testKey));
           if (alreadyWarned) return prev;
@@ -285,10 +283,6 @@ export default function VakaWorkspace({
         });
         return;
       }
-      // Motor sonucunu kullan
-      // @ts-ignore: statik değişkenine motor sonucu atanıyor
-      statik = motorSonuc;
-    }
 
     if (testIstekleri.some((t) => t.testKey === testKey)) {
       setMesajlar((prev) => [
@@ -374,9 +368,11 @@ export default function VakaWorkspace({
   // ── hasData + visibility filtreli test kataloğu ──
   const hasDataLocal = useMemo(() => {
     const s = new Set(Object.keys(vaka.statikTestler || {}));
-    for (const k of Array.from(MOTOR_CAPABLE_KEYS)) s.add(k);
+    if (onTestRequest) {
+      for (const k of Array.from(MOTOR_CAPABLE_KEYS)) s.add(k);
+    }
     return s;
-  }, [vaka.statikTestler]);
+  }, [onTestRequest, vaka.statikTestler]);
 
   const visibleAllNonHidden = useMemo(
     () =>
