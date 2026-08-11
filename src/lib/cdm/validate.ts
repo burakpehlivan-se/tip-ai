@@ -5,6 +5,7 @@ import {
   OSCE_SECTION_CHECKLIST,
   CONDITION_VOCAB,
 } from "./vocabulary";
+import { isCdmGender, isCdmLevel, isCdmRecord } from "./validation-rules";
 
 export interface CdmValidationIssue {
   level: "error" | "warn" | "info";
@@ -21,10 +22,6 @@ export interface CdmValidationResult {
   testKeyRemap: Record<string, string>;
 }
 
-function isObj(v: unknown): v is Record<string, unknown> {
-  return !!v && typeof v === "object" && !Array.isArray(v);
-}
-
 /** CDM belgesini doğrula (error = import engellenmeli) */
 export function validateCdmDocument(raw: unknown): CdmValidationResult {
   const errors: CdmValidationIssue[] = [];
@@ -33,7 +30,7 @@ export function validateCdmDocument(raw: unknown): CdmValidationResult {
   const testKeyRemap: Record<string, string> = {};
   const known = knownTestKeys();
 
-  if (!isObj(raw)) {
+  if (!isCdmRecord(raw)) {
     return {
       ok: false,
       errors: [{ level: "error", path: "", message: "Kök nesne gerekli." }],
@@ -65,7 +62,7 @@ export function validateCdmDocument(raw: unknown): CdmValidationResult {
   }
 
   const meta = doc.meta;
-  if (!isObj(meta)) {
+  if (!isCdmRecord(meta)) {
     errors.push({ level: "error", path: "meta", message: "meta bloğu zorunlu." });
   } else {
     for (const f of ["poliklinikKey", "poliklinikAd", "hastalikKey", "hastalikAdi"] as const) {
@@ -73,13 +70,13 @@ export function validateCdmDocument(raw: unknown): CdmValidationResult {
         errors.push({ level: "error", path: `meta.${f}`, message: `${f} zorunlu.` });
       }
     }
-    if (meta.seviye && !["baslangic", "orta", "ileri"].includes(String(meta.seviye))) {
+    if (meta.seviye && !isCdmLevel(meta.seviye)) {
       errors.push({ level: "error", path: "meta.seviye", message: "baslangic | orta | ileri olmalı." });
     }
   }
 
   const patient = doc.patient;
-  if (!isObj(patient)) {
+  if (!isCdmRecord(patient)) {
     errors.push({ level: "error", path: "patient", message: "patient bloğu zorunlu." });
   } else {
     const ya = patient.yasAraligi as unknown;
@@ -97,7 +94,7 @@ export function validateCdmDocument(raw: unknown): CdmValidationResult {
       });
     }
     const c = patient.cinsiyetTercih;
-    if (c && !["E", "K", "herhangi"].includes(String(c))) {
+    if (c && !isCdmGender(c)) {
       errors.push({
         level: "error",
         path: "patient.cinsiyetTercih",
@@ -107,7 +104,7 @@ export function validateCdmDocument(raw: unknown): CdmValidationResult {
   }
 
   const presentation = doc.presentation;
-  if (!isObj(presentation)) {
+  if (!isCdmRecord(presentation)) {
     errors.push({ level: "error", path: "presentation", message: "presentation bloğu zorunlu." });
   } else {
     if (!presentation.anaSikayet) {
@@ -148,7 +145,7 @@ export function validateCdmDocument(raw: unknown): CdmValidationResult {
   }
 
   const rubric = doc.rubric;
-  if (!isObj(rubric)) {
+  if (!isCdmRecord(rubric)) {
     errors.push({ level: "error", path: "rubric", message: "rubric bloğu zorunlu." });
   } else {
     if (!Array.isArray(rubric.beklenenSorular) || rubric.beklenenSorular.length === 0) {
@@ -212,7 +209,7 @@ export function validateCdmDocument(raw: unknown): CdmValidationResult {
   }
 
   const labs = doc.labs;
-  if (!isObj(labs) || !isObj(labs.statikTestler as object)) {
+  if (!isCdmRecord(labs) || !isCdmRecord(labs.statikTestler as object)) {
     warnings.push({
       level: "warn",
       path: "labs.statikTestler",
@@ -229,7 +226,7 @@ export function validateCdmDocument(raw: unknown): CdmValidationResult {
           message: `"${rawKey}" → "${canon}" katalogda yok.`,
         });
       }
-      if (!isObj(val)) {
+      if (!isCdmRecord(val)) {
         errors.push({
           level: "error",
           path: `labs.statikTestler.${rawKey}`,
@@ -247,7 +244,7 @@ export function validateCdmDocument(raw: unknown): CdmValidationResult {
     }
   }
 
-  if (!isObj(doc.hastaYanitlari)) {
+  if (!isCdmRecord(doc.hastaYanitlari)) {
     warnings.push({
       level: "warn",
       path: "hastaYanitlari",
@@ -261,7 +258,7 @@ export function validateCdmDocument(raw: unknown): CdmValidationResult {
     });
   }
 
-  if (!isObj(doc.management)) {
+  if (!isCdmRecord(doc.management)) {
     warnings.push({
       level: "warn",
       path: "management",
@@ -285,7 +282,7 @@ export function validateCdmDocument(raw: unknown): CdmValidationResult {
     const parts = s.id.split(".");
     let cur: unknown = doc;
     for (const p of parts) {
-      if (!isObj(cur) && !Array.isArray(cur)) {
+      if (!isCdmRecord(cur) && !Array.isArray(cur)) {
         cur = undefined;
         break;
       }

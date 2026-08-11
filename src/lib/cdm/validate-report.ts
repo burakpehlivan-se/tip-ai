@@ -11,6 +11,7 @@ import { adminVakaToCdm } from "./convert";
 import { canonicalizeTestKey, knownTestKeys } from "./vocabulary";
 import { LAB_REFERANSLAR } from "../data/clinical-reference";
 import { MASTER_TEST_CATALOGUE } from "../pipeline/master-catalogue";
+import { isCdmGender, isCdmLevel, isCdmStatus } from "./validation-rules";
 
 export interface ValidationIssue {
   code: string;
@@ -103,12 +104,12 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
   }
   if (!doc.meta?.seviye) {
     addError(errors, "meta.seviye", "Seviye (baslangic/orta/ileri) eksik");
-  } else if (!["baslangic", "orta", "ileri"].includes(doc.meta.seviye)) {
+  } else if (!isCdmLevel(doc.meta.seviye)) {
     addError(errors, "meta.seviye", `Geçersiz seviye: ${doc.meta.seviye}`, "INVALID_VALUE");
   }
   if (!doc.meta?.durum) {
     addError(errors, "meta.durum", "Durum (taslak/aktif/arsiv) eksik");
-  } else if (!["taslak", "aktif", "arsiv"].includes(doc.meta.durum)) {
+  } else if (!isCdmStatus(doc.meta.durum)) {
     addError(errors, "meta.durum", `Geçersiz durum: ${doc.meta.durum}`, "INVALID_VALUE");
   }
   if (doc.cdmVersion && doc.cdmVersion !== TIP_AI_CDM_VERSION) {
@@ -151,7 +152,7 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
   }
   if (!doc.patient?.cinsiyetTercih) {
     addError(errors, "patient.cinsiyetTercih", "Cinsiyet tercihi eksik");
-  } else if (!["E", "K", "herhangi"].includes(doc.patient.cinsiyetTercih)) {
+  } else if (!isCdmGender(doc.patient.cinsiyetTercih)) {
     addError(
       errors,
       "patient.cinsiyetTercih",
@@ -717,11 +718,23 @@ export function validateAdminVaka(av: AdminVaka): VakaValidationResult {
 }
 
 /**
+ * Bir belge taslak olarak saklanabilir; öğrenciye açılışta ise aktif vaka
+ * kurallarının tamamı uygulanır. Bu fonksiyon yayın kararını taslak durumundan
+ * bağımsız ve tekrar kullanılabilir hale getirir.
+ */
+export function validateCdmReadiness(doc: TipAiCdmDocument): VakaValidationResult {
+  return validateVakaDocument({
+    ...doc,
+    meta: { ...doc.meta, durum: "aktif" },
+  });
+}
+
+/**
  * Öğrenciye açılacak yeni vakalar için yayın kapısı.
  * Uyarılar editörü bilgilendirir; yalnız yapısal/klinik hata yayınlamayı engeller.
  */
 export function validateAdminVakaForPublication(av: AdminVaka): PublicationValidationResult {
-  const validation = validateAdminVaka(av);
+  const validation = validateCdmReadiness(adminVakaToCdm(av));
   return { allowed: validation.errors.length === 0, validation };
 }
 

@@ -1,13 +1,34 @@
 import { describe, expect, it } from "vitest";
 import {
+  validateCdmReadiness,
   validateVakaDocument,
   validateAdminVaka,
   validateAdminVakaForPublication,
 } from "./validate-report";
 import { EXAMPLE_CDM_KBH } from "./example-kbh";
 import { cdmToAdminVaka, adminVakaToCdm } from "./convert";
+import { validateCdmShape } from "./validation-rules";
 
 describe("validateVakaDocument", () => {
+  it("accepts a structurally valid draft but marks missing clinical answers as not publication-ready", () => {
+    const { ODEM_SURE: _removed, ...hastaYanitlari } = EXAMPLE_CDM_KBH.hastaYanitlari;
+    const draft = {
+      ...EXAMPLE_CDM_KBH,
+      meta: { ...EXAMPLE_CDM_KBH.meta, durum: "taslak" as const },
+      hastaYanitlari,
+    };
+
+    expect(validateCdmShape(draft)).toEqual([]);
+    expect(validateCdmReadiness(draft).errors).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          code: "MISSING_ANSWER_FOR_QUESTION",
+          field: "hastaYanitlari.ODEM_SURE",
+        }),
+      ])
+    );
+  });
+
   it("örnek KBH belgesini geçerli kabul eder", () => {
     const result = validateVakaDocument(EXAMPLE_CDM_KBH);
     expect(result.status).toBe("valid");
