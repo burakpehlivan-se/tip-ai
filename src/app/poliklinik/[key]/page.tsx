@@ -151,18 +151,20 @@ export default function PoliklinikPage() {
   return (
     <div className="flex h-[100dvh] flex-col bg-canvas">
       {/* Top Bar — Poliklinik */}
-      <div className="flex h-14 items-center justify-between border-b border-hairline bg-canvas px-4">
-        <div className="flex items-center gap-3">
-          <Link href="/vakalar" className="text-sm text-steel hover:text-ink transition-colors">
-            ← Poliklinikler
+      <div className="flex min-h-14 items-center justify-between gap-3 border-b border-hairline bg-canvas px-4 py-2">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <Link href="/vakalar" className="shrink-0 text-sm text-steel transition-colors hover:text-ink">
+            <span className="sm:hidden">← Geri</span>
+            <span className="hidden sm:inline">← Poliklinikler</span>
           </Link>
-          <span className="text-muted">/</span>
-          <span className="text-sm font-medium text-ink">
+          <span className="text-muted" aria-hidden="true">/</span>
+          <span className="truncate text-sm font-medium text-ink">
             {poliklinik.icon} {poliklinik.ad}
           </span>
         </div>
-        <button type="button" onClick={() => void yeniVakaAl()} disabled={yukleniyor} className="btn-secondary text-sm disabled:cursor-not-allowed disabled:opacity-60">
-          🔄 Yeni Hasta
+        <button type="button" onClick={() => void yeniVakaAl()} disabled={yukleniyor} className="btn-secondary shrink-0 px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60 sm:px-5">
+          <span className="sm:hidden">Yeni</span>
+          <span className="hidden sm:inline">🔄 Yeni Hasta</span>
         </button>
       </div>
 

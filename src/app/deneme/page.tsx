@@ -76,15 +76,19 @@ export default function DenemePage() {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-canvas">
-      <div className="flex h-14 items-center justify-between border-b border-hairline bg-canvas px-4">
-        <div className="flex items-center gap-3">
-          <Link href="/vakalar" className="text-sm text-steel hover:text-ink transition-colors">
-            ← Poliklinikler
+      <div className="flex min-h-14 items-center justify-between gap-3 border-b border-hairline bg-canvas px-4 py-2">
+        <div className="flex min-w-0 items-center gap-2 sm:gap-3">
+          <Link href="/vakalar" className="shrink-0 text-sm text-steel transition-colors hover:text-ink">
+            <span className="sm:hidden">← Geri</span>
+            <span className="hidden sm:inline">← Poliklinikler</span>
           </Link>
-          <span className="text-muted">/</span>
-          <span className="text-sm font-medium text-ink">🔓 Deneme Vakası</span>
+          <span className="text-muted" aria-hidden="true">/</span>
+          <span className="truncate text-sm font-medium text-ink">🔓 Deneme Vakası</span>
         </div>
-        <span className="badge badge-brand">Ücretsiz — giriş gerekmez</span>
+        <span className="badge badge-brand shrink-0 text-[11px]">
+          <span className="sm:hidden">Ücretsiz</span>
+          <span className="hidden sm:inline">Ücretsiz — giriş gerekmez</span>
+        </span>
       </div>
 
       {yukleniyor && (
