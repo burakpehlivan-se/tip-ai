@@ -29,6 +29,7 @@ import { seedCasesFromTemplates } from "./seed";
 import { upgradeAllCasesToCdm } from "../cdm/migrate";
 import { quarantineCorruptJson } from "./json-recovery";
 import { logger } from "../logger";
+import { withJsonStoreLock, writeJsonAtomic } from "./json-store";
 
 function readJson<T>(file: string, fallback: T): T {
   try {
@@ -46,36 +47,8 @@ function readJson<T>(file: string, fallback: T): T {
 // gelecekteki async mutasyonları ve compound operasyonları (undo/backup) güvenceye alır.
 // DİKKAT: Çok işlemli (cluster / çok replika) çalıştırma bu store ile güvenli DEĞİLDİR —
 // dosya kilidi (flock) veya SQLite geçişi gerekir.
-let writeChain: Promise<void> = Promise.resolve();
-
 export function withStoreLock<T>(fn: () => T | Promise<T>): Promise<T> {
-  const run = writeChain.then(() => fn());
-  writeChain = run.then(
-    () => undefined,
-    () => undefined
-  );
-  return run;
-}
-
-function writeJsonAtomic(file: string, data: unknown): void {
-  const dir = path.dirname(file);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  const handle = fs.openSync(tmp, "w");
-  try {
-    fs.writeFileSync(handle, JSON.stringify(data, null, 2), "utf8");
-    fs.fsyncSync(handle);
-  } finally {
-    fs.closeSync(handle);
-  }
-  fs.renameSync(tmp, file);
-  // rename sonrası dizin fsync'i, güç kesintisinde metadata dayanıklılığını artırır.
-  const dirHandle = fs.openSync(dir, "r");
-  try {
-    fs.fsyncSync(dirHandle);
-  } finally {
-    fs.closeSync(dirHandle);
-  }
+  return withJsonStoreLock(fn);
 }
 
 export function loadCasesStore(): CasesStore {
