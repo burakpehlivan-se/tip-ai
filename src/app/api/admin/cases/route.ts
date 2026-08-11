@@ -11,8 +11,8 @@ import {
   recordMutation,
 } from "@/lib/admin/store";
 import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
+import { parseCreateCaseInput } from "@/lib/admin/case-input";
 import { validateAdminVakaForPublication } from "@/lib/cdm/validate-report";
-import { Seviye } from "@/lib/types";
 import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
@@ -36,20 +36,15 @@ export async function POST(req: NextRequest) {
   if (denied) return denied;
 
   try {
-    const body = await req.json();
-    const poliklinikKey = String(body.poliklinikKey || "").trim();
-    const hastalikKey = String(body.hastalikKey || "")
-      .trim()
-      .toLowerCase()
-      .replace(/\s+/g, "-");
-    const hastalikAdi = String(body.hastalikAdi || "").trim();
-
-    if (!poliklinikKey || !hastalikKey || !hastalikAdi) {
+    const parsed = parseCreateCaseInput(await req.json().catch(() => null));
+    if (!parsed.ok) {
       return NextResponse.json(
-        { error: "poliklinikKey, hastalikKey ve hastalikAdi zorunlu." },
+        { error: "Geçersiz vaka verisi.", issues: parsed.issues },
         { status: 400 }
       );
     }
+    const input = parsed.value;
+    const { poliklinikKey, hastalikKey, hastalikAdi } = input;
 
     const id = `${poliklinikKey}::${hastalikKey}`;
     const store = loadCasesStore();
@@ -63,18 +58,18 @@ export async function POST(req: NextRequest) {
     const vaka: AdminVaka = normalizeAdminVaka({
       id,
       poliklinikKey,
-      poliklinikAd: String(body.poliklinikAd || existingPoli?.poliklinikAd || poliklinikKey),
-      poliklinikIcon: String(body.poliklinikIcon || existingPoli?.poliklinikIcon || "🏥"),
-      poliklinikAciklama: String(body.poliklinikAciklama || existingPoli?.poliklinikAciklama || ""),
+      poliklinikAd: input.poliklinikAd || existingPoli?.poliklinikAd || poliklinikKey,
+      poliklinikIcon: input.poliklinikIcon || existingPoli?.poliklinikIcon || "🏥",
+      poliklinikAciklama: input.poliklinikAciklama || existingPoli?.poliklinikAciklama || "",
       hastalikKey,
       hastalikAdi,
-      seviye: (body.seviye as Seviye) || "orta",
-      yasAraligi: body.yasAraligi || [30, 70],
-      cinsiyetTercih: body.cinsiyetTercih || "herhangi",
-      anaSikayet: String(body.anaSikayet || ""),
-      ozetBilgiler: Array.isArray(body.ozetBilgiler) ? body.ozetBilgiler : [],
-      semptomSablon: String(body.semptomSablon || hastalikAdi),
-      rubric: body.rubric || {
+      seviye: input.seviye || "orta",
+      yasAraligi: input.yasAraligi || [30, 70],
+      cinsiyetTercih: input.cinsiyetTercih || "herhangi",
+      anaSikayet: input.anaSikayet || "",
+      ozetBilgiler: input.ozetBilgiler || [],
+      semptomSablon: input.semptomSablon || hastalikAdi,
+      rubric: input.rubric || {
         beklenenSorular: [],
         beklenenTestler: [],
         gereksizTestler: [],
@@ -91,16 +86,21 @@ export async function POST(req: NextRequest) {
           tani_yanlis: -3,
         },
       },
-      statikTestler: body.statikTestler || {},
-      hastaYanitlari: body.hastaYanitlari || { OZEL: "Anlamadım" },
-      idealYol: Array.isArray(body.idealYol) ? body.idealYol : [],
-      egitimNotu: String(body.egitimNotu || ""),
-      durum: body.durum || "taslak",
-      etiketler: Array.isArray(body.etiketler) ? body.etiketler : ["Poliklinik"],
+      statikTestler: input.statikTestler || {},
+      hastaYanitlari: input.hastaYanitlari || { OZEL: "Anlamadım" },
+      idealYol: input.idealYol || [],
+      egitimNotu: input.egitimNotu || "",
+      durum: input.durum || "taslak",
+      etiketler: input.etiketler || ["Poliklinik"],
       surum: 1,
       uzmanOnayi: false,
       createdAt: now,
       updatedAt: now,
+      cdmVersion: input.cdmVersion,
+      patientProfil: input.patientProfil,
+      vitals: input.vitals,
+      conditions: input.conditions,
+      tedavi: input.tedavi,
     });
 
     if (vaka.durum === "aktif") {

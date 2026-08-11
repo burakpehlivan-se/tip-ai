@@ -11,6 +11,7 @@ import {
   recordMutation,
 } from "@/lib/admin/store";
 import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
+import { parseCasePatchInput } from "@/lib/admin/case-input";
 import { validateAdminVakaForPublication } from "@/lib/cdm/validate-report";
 import { getRequestId, logger } from "@/lib/logger";
 
@@ -47,53 +48,22 @@ export async function PATCH(
   if (!existing) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
   try {
-    const body = await req.json();
-    const allowed: (keyof AdminVaka)[] = [
-      "hastalikAdi",
-      "seviye",
-      "yasAraligi",
-      "cinsiyetTercih",
-      "anaSikayet",
-      "ozetBilgiler",
-      "semptomSablon",
-      "rubric",
-      "statikTestler",
-      "hastaYanitlari",
-      "idealYol",
-      "egitimNotu",
-      "poliklinikAd",
-      "poliklinikIcon",
-      "poliklinikAciklama",
-      "poliklinikKey",
-      "durum",
-      "etiketler",
-      "surum",
-      "uzmanOnayi",
-      "uzmanOnaylayan",
-      "uzmanOnayTarihi",
-      // TIP-AI CDM v1
-      "cdmVersion",
-      "patientProfil",
-      "vitals",
-      "conditions",
-      "tedavi",
-    ];
-
-    const patches: { path: string; caseId: string; field: string; before: unknown; after: unknown }[] = [];
-    const updates: Partial<AdminVaka> = {};
-
-    for (const key of allowed) {
-      if (body[key] !== undefined) {
-        patches.push({
-          path: `cases.${id}.${key}`,
-          caseId: id,
-          field: key,
-          before: clone(existing[key]),
-          after: clone(body[key]),
-        });
-        (updates as any)[key] = body[key];
-      }
+    const parsed = parseCasePatchInput(await req.json().catch(() => null));
+    if (!parsed.ok) {
+      return NextResponse.json(
+        { error: "Geçersiz vaka verisi.", issues: parsed.issues },
+        { status: 400 }
+      );
     }
+    const updates = parsed.value;
+    const updateKeys = Object.keys(updates) as (keyof AdminVaka)[];
+    const patches = updateKeys.map((key) => ({
+      path: `cases.${id}.${key}`,
+      caseId: id,
+      field: key,
+      before: clone(existing[key]),
+      after: clone(updates[key]),
+    }));
 
     if (!patches.length) {
       return NextResponse.json({ error: "Güncellenecek alan yok." }, { status: 400 });
