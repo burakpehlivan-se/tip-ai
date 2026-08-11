@@ -113,19 +113,17 @@ export default function VakalarPage() {
 
       {girisli === false && (
         <div className="mx-auto max-w-6xl px-4 pb-8 sm:px-6">
-          <Link href="/deneme" className="block">
-            <div className="rounded-lg border border-brand/30 bg-brand-soft/10 p-6 transition-shadow hover:shadow-card">
-              <div className="flex items-center gap-5">
-                <div className="text-4xl">🔓</div>
-                <div className="flex-1">
+          <Link href="/deneme" className="group block rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand">
+            <div className="rounded-lg border border-brand/30 bg-brand-soft/10 p-4 transition-[border-color,box-shadow] hover:border-brand hover:shadow-card sm:p-6">
+              <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-5">
+                <div className="text-4xl" aria-hidden="true">🔓</div>
+                <div className="min-w-0 flex-1">
                   <h3 className="text-lg font-semibold text-ink mb-1">Deneme Vakası — ücretsiz</h3>
                   <p className="text-sm text-steel" style={{ lineHeight: "1.5" }}>
                     Giriş yapmadan tam olarak oynayabileceğin tek vaka. Platformu dene, sonra ücretsiz kayıt olup ilerlemeni takip et.
                   </p>
                 </div>
-                <div className="hidden sm:block">
-                  <span className="btn-primary">Vakayı Aç →</span>
-                </div>
+                <span className="btn-primary w-full justify-center sm:w-auto">Vakayı Aç →</span>
               </div>
             </div>
           </Link>
@@ -184,17 +182,17 @@ export default function VakalarPage() {
             <Link
               key={p.key}
               href={poliklinikHref(p.key)}
-              className="card group cursor-pointer transition-[border-color,box-shadow] hover:border-brand hover:shadow-card"
+              className="card group flex min-h-56 cursor-pointer flex-col transition-[border-color,box-shadow] hover:border-brand hover:shadow-card focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-brand"
             >
               <div className="flex items-start justify-between mb-4">
                 <div className="text-4xl">{p.icon}</div>
                 <span className="badge badge-brand">{p.vakaSayisi} vaka tipi</span>
               </div>
               <h3 className="text-xl font-semibold text-ink mb-2">{p.ad}</h3>
-              <p className="text-sm text-steel mb-4" style={{ lineHeight: "1.5" }}>
+              <p className="mb-5 text-sm text-steel" style={{ lineHeight: "1.5" }}>
                 {p.aciklama}
               </p>
-              <span className="btn-primary w-full justify-center text-center">
+              <span className="btn-primary mt-auto w-full justify-center text-center">
                 {girisli === false ? "🔒 Giriş Yapıp Oyna →" : "Bu Poliklinikten Vaka Al →"}
               </span>
             </Link>
@@ -204,11 +202,11 @@ export default function VakalarPage() {
       </section>
 
       <div className="mx-auto max-w-6xl px-4 pb-16 sm:px-6 sm:pb-24">
-        <Link href={girisli === false ? `/giris?sonraki=${encodeURIComponent("/cemicegek")}` : "/cemicegek"} className="block">
-          <div className="rounded-lg border border-clinical-red/20 bg-clinical-red/5 p-8 transition-shadow hover:shadow-card">
-            <div className="flex items-center gap-6">
-              <div className="text-5xl">🚑</div>
-              <div className="flex-1">
+        <Link href={girisli === false ? `/giris?sonraki=${encodeURIComponent("/cemicegek")}` : "/cemicegek"} className="group block rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-clinical-red">
+          <div className="rounded-lg border border-clinical-red/20 bg-clinical-red/5 p-4 transition-[border-color,box-shadow] hover:border-clinical-red/50 hover:shadow-card sm:p-8">
+            <div className="flex flex-col items-start gap-4 sm:flex-row sm:items-center sm:gap-6">
+              <div className="text-5xl" aria-hidden="true">🚑</div>
+              <div className="min-w-0 flex-1">
                 <h3 className="text-2xl font-semibold text-ink mb-1">
                   Çemiçgezek Devlet Hastanesi — Acil Simülatör
                 </h3>
@@ -216,11 +214,9 @@ export default function VakalarPage() {
                   Rastgele poliklinik, rastgele vaka. Acile gelen ilk hastayı sen karşıla. Her seferinde farklı senaryo.
                 </p>
               </div>
-              <div className="hidden sm:block">
-                <span className="btn-primary bg-clinical-red text-white hover:bg-clinical-red/80">
-                  {girisli === false ? "🔒 Giriş Yapıp Başla →" : "Acile Başla →"}
-                </span>
-              </div>
+              <span className="btn-primary w-full justify-center bg-clinical-red text-white hover:bg-clinical-red/80 sm:w-auto">
+                {girisli === false ? "🔒 Giriş Yapıp Başla →" : "Acile Başla →"}
+              </span>
             </div>
           </div>
         </Link>
