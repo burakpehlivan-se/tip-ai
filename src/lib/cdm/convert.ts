@@ -38,6 +38,7 @@ function mapRubricActions(
     key: String(a.key),
     etiket: String(a.etiket || a.key),
     aciklama: String(a.aciklama || a.etiket || ""),
+    kategori: a.kategori ? String(a.kategori) : undefined,
   }));
 }
 
@@ -80,6 +81,9 @@ export function cdmToAdminVaka(doc: TipAiCdmDocument): AdminVaka {
     }
     if (doc.vitals.spo2 != null && !yanitlar.VITAL_SPO2) {
       yanitlar.VITAL_SPO2 = String(doc.vitals.spo2);
+    }
+    if (doc.vitals.solunum != null && !yanitlar.VITAL_SOLUNUM) {
+      yanitlar.VITAL_SOLUNUM = String(doc.vitals.solunum);
     }
   }
   if (!yanitlar.OZEL) yanitlar.OZEL = "Anlamadım";
@@ -241,21 +245,25 @@ export function adminVakaToCdm(av: AdminVaka): TipAiCdmDocument {
         key: s.key,
         etiket: s.etiket,
         aciklama: s.aciklama,
+        kategori: s.kategori,
       })),
       beklenenTestler: (av.rubric?.beklenenTestler || []).map((t) => ({
         key: canonicalizeTestKey(t.key),
         etiket: t.etiket,
         aciklama: t.aciklama,
+        kategori: t.kategori,
       })),
       gereksizTestler: (av.rubric?.gereksizTestler || []).map((t) => ({
         key: canonicalizeTestKey(t.key),
         etiket: t.etiket,
         aciklama: t.aciklama,
+        kategori: t.kategori,
       })),
       redFlagler: (av.rubric?.redFlagler || []).map((r) => ({
         key: r.key,
         etiket: r.etiket,
         aciklama: r.aciklama,
+        kategori: r.kategori,
       })),
       kabulEdilenTani: av.rubric?.kabulEdilenTani || [],
       puanlama: { ...DEFAULT_CDM_PUANLAMA, ...(av.rubric?.puanlama || {}) },

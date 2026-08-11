@@ -34,6 +34,34 @@ describe("validateVakaDocument", () => {
     const result = validateVakaDocument(doc);
     expect(result.status).toBe("invalid");
   });
+
+  it("aktif vakada eksik beklenen hasta yanıtını hata sayar", () => {
+    const { ODEM_SURE: _removed, ...yanitlar } = EXAMPLE_CDM_KBH.hastaYanitlari;
+    const result = validateVakaDocument({ ...EXAMPLE_CDM_KBH, hastaYanitlari: yanitlar });
+
+    expect(result.status).toBe("invalid");
+    expect(result.errors.some((issue) => issue.code === "MISSING_ANSWER_FOR_QUESTION")).toBe(true);
+  });
+
+  it("sayısal testte birim ve referans aralığı eksikse uyarır", () => {
+    const kreatinin = EXAMPLE_CDM_KBH.labs.statikTestler.KREATININ;
+    const result = validateVakaDocument({
+      ...EXAMPLE_CDM_KBH,
+      labs: {
+        ...EXAMPLE_CDM_KBH.labs,
+        statikTestler: {
+          ...EXAMPLE_CDM_KBH.labs.statikTestler,
+          KREATININ: {
+            ...kreatinin,
+            sonuc: { deger: 2.1 },
+          },
+        },
+      },
+    });
+
+    expect(result.warnings.some((issue) => issue.code === "LAB_MISSING_UNIT")).toBe(true);
+    expect(result.warnings.some((issue) => issue.code === "LAB_MISSING_REFERENCE_RANGE")).toBe(true);
+  });
 });
 
 describe("validateAdminVaka + CDM round-trip", () => {
@@ -44,6 +72,10 @@ describe("validateAdminVaka + CDM round-trip", () => {
     expect(back.meta.hastalikKey).toBe(EXAMPLE_CDM_KBH.meta.hastalikKey);
     expect(back.presentation.anaSikayet).toBe(EXAMPLE_CDM_KBH.presentation.anaSikayet);
     expect(back.rubric.kabulEdilenTani).toEqual(EXAMPLE_CDM_KBH.rubric.kabulEdilenTani);
+    expect(back.rubric.beklenenSorular[0].kategori).toBe("Sikayet");
+    expect(back.vitals?.solunum).toBe(18);
+    expect(back.management.tedavi?.ilaclar?.[0]?.siklik).toBe("Günde 1 kez");
+    expect(back.management.tedavi?.ilaclar?.[0]?.sure).toContain("kreatinin");
   });
 
   it("AdminVaka CDM'e dönüştürülüp geri validate edilebilir", () => {

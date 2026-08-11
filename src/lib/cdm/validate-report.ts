@@ -51,6 +51,15 @@ export interface ValidationReport {
 }
 
 const REQUIRED_SCORES = Object.keys(DEFAULT_CDM_PUANLAMA) as (keyof typeof DEFAULT_CDM_PUANLAMA)[];
+const MINIMUM_QUESTION_CATEGORIES = 5;
+
+function textWordCount(value: string | undefined): number {
+  return (value || "").trim().split(/\s+/).filter(Boolean).length;
+}
+
+function nonEmptyText(value: unknown): boolean {
+  return typeof value === "string" && value.trim().length > 0;
+}
 
 function addError(
   errors: ValidationIssue[],
@@ -145,6 +154,29 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
       "INVALID_VALUE"
     );
   }
+  if (!doc.patient?.profil) {
+    addWarning(
+      warnings,
+      "patient.profil",
+      "Hasta profili eksik (BMI, sigara ve komorbiditeler önerilir)",
+      "NO_PATIENT_PROFILE"
+    );
+  } else {
+    if (typeof doc.patient.profil.bmi !== "number") {
+      addWarning(warnings, "patient.profil.bmi", "BMI eksik", "INCOMPLETE_PATIENT_PROFILE");
+    }
+    if (!nonEmptyText(doc.patient.profil.sigara)) {
+      addWarning(warnings, "patient.profil.sigara", "Sigara öyküsü eksik", "INCOMPLETE_PATIENT_PROFILE");
+    }
+    if (!Array.isArray(doc.patient.profil.komorbiditeler)) {
+      addWarning(
+        warnings,
+        "patient.profil.komorbiditeler",
+        "Komorbidite listesi eksik",
+        "INCOMPLETE_PATIENT_PROFILE"
+      );
+    }
+  }
 
   // ── 3. Klinik sunum ──
   if (!doc.presentation?.anaSikayet?.trim()) {
@@ -152,12 +184,12 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
   }
   if (
     !Array.isArray(doc.presentation?.ozetBilgiler) ||
-    doc.presentation.ozetBilgiler.length < 2
+    (doc.presentation.ozetBilgiler.length < 3 || doc.presentation.ozetBilgiler.length > 4)
   ) {
     addWarning(
       warnings,
       "presentation.ozetBilgiler",
-      "Özet bilgiler 2 maddeden az",
+      "Özet bilgiler 3–4 madde olmalı",
       "SHORT_SUMMARY"
     );
   }
@@ -213,6 +245,19 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
           addError(errors, `rubric.beklenenSorular[${i}].etiket`, "Soru etiket eksik");
         }
       });
+      const categories = new Set(
+        rub.beklenenSorular
+          .map((s) => s?.kategori)
+          .filter((category): category is string => typeof category === "string" && category.length > 0)
+      );
+      if (categories.size < MINIMUM_QUESTION_CATEGORIES) {
+        addWarning(
+          warnings,
+          "rubric.beklenenSorular",
+          `Öykü kapsamı dar: en az ${MINIMUM_QUESTION_CATEGORIES} soru kategorisi önerilir (mevcut: ${categories.size})`,
+          "LIMITED_QUESTION_COVERAGE"
+        );
+      }
     }
 
     if (!Array.isArray(rub.beklenenTestler) || rub.beklenenTestler.length === 0) {
@@ -296,7 +341,16 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
         addError(errors, path, "Test sonucu nesne olmalı", "INVALID_LAB");
         continue;
       }
-      const t = val as { testKey?: string; testAdi?: string; tip?: string; sonuc?: unknown };
+      const t = val as {
+        testKey?: string;
+        testAdi?: string;
+        tip?: string;
+        sonuc?: unknown;
+        birim?: unknown;
+        referansAralik?: unknown;
+        referans?: unknown;
+        yorum?: unknown;
+      };
       if (t.sonuc === undefined || t.sonuc === null || t.sonuc === "") {
         addError(errors, `${path}.sonuc`, "sonuc zorunlu", "EMPTY_LAB_RESULT");
       }
@@ -305,6 +359,29 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
       }
       if (!t.testAdi) {
         addWarning(warnings, `${path}.testAdi`, "testAdi eksik", "LAB_MISSING_NAME");
+      }
+      if (!nonEmptyText(t.referans)) {
+        addWarning(warnings, `${path}.referans`, "Klinik/laboratuvar referansı eksik", "LAB_MISSING_REFERENCE");
+      }
+      if (!nonEmptyText(t.yorum)) {
+        addWarning(warnings, `${path}.yorum`, "Sonuç yorumu eksik", "LAB_MISSING_COMMENT");
+      }
+      if (t.tip === "numeric") {
+        const nested =
+          typeof t.sonuc === "object" && t.sonuc !== null
+            ? (t.sonuc as Record<string, unknown>)
+            : undefined;
+        if (!nonEmptyText(t.birim) && !nonEmptyText(nested?.birim)) {
+          addWarning(warnings, `${path}.birim`, "Sayısal testin birimi eksik", "LAB_MISSING_UNIT");
+        }
+        if (!nonEmptyText(t.referansAralik) && !nonEmptyText(nested?.referansAralik)) {
+          addWarning(
+            warnings,
+            `${path}.referansAralik`,
+            "Sayısal testin referans aralığı eksik",
+            "LAB_MISSING_REFERENCE_RANGE"
+          );
+        }
       }
       const canon = canonicalizeTestKey(rawKey);
       if (canon !== rawKey) {
@@ -467,6 +544,16 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
         "VITAL_OUT_OF_RANGE"
       );
     }
+    if (typeof doc.vitals.solunum !== "number") {
+      addWarning(warnings, "vitals.solunum", "Solunum sayısı eksik", "MISSING_RESPIRATORY_RATE");
+    } else if (doc.vitals.solunum < 4 || doc.vitals.solunum > 60) {
+      addWarning(
+        warnings,
+        "vitals.solunum",
+        `Solunum sayısı klinik aralık dışı: ${doc.vitals.solunum}`,
+        "VITAL_OUT_OF_RANGE"
+      );
+    }
   }
 
   // ── 8. hastaYanitlari ──
@@ -489,9 +576,11 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
     }
     // Beklenen sorular için yanıt
     for (const s of rub?.beklenenSorular || []) {
-      if (s?.key && !yanitlar[s.key]) {
-        addWarning(
-          warnings,
+      if (s?.key && !nonEmptyText(yanitlar[s.key])) {
+        const target = doc.meta?.durum === "aktif" ? errors : warnings;
+        const add = target === errors ? addError : addWarning;
+        add(
+          target,
           `hastaYanitlari.${s.key}`,
           `Beklenen soru için yanıt yok: ${s.key}`,
           "MISSING_ANSWER_FOR_QUESTION"
@@ -516,6 +605,43 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
       "Eğitim notu boş",
       "NO_EDU_NOTE"
     );
+  } else {
+    const words = textWordCount(doc.management.egitimNotu);
+    if (words < 200 || words > 300) {
+      addWarning(
+        warnings,
+        "management.egitimNotu",
+        `Eğitim notu 200–300 kelime olmalı (mevcut: ${words})`,
+        "EDU_NOTE_WORD_COUNT"
+      );
+    }
+  }
+  if (doc.management?.idealYol && doc.management.idealYol.length > 0 && doc.management.idealYol.length < 7) {
+    addWarning(
+      warnings,
+      "management.idealYol",
+      `İdeal klinik yol en az 7 basamak içermeli (mevcut: ${doc.management.idealYol.length})`,
+      "SHORT_IDEAL_PATH"
+    );
+  }
+  const treatment = doc.management?.tedavi;
+  if (!treatment || (!treatment.ilaclar?.length && !treatment.prosedurler?.length)) {
+    addWarning(warnings, "management.tedavi", "Tedavi planı eksik", "NO_TREATMENT_PLAN");
+  } else {
+    treatment.ilaclar?.forEach((drug, index) => {
+      const path = `management.tedavi.ilaclar[${index}]`;
+      for (const field of ["ad", "doz", "yol", "endikasyon"] as const) {
+        if (!nonEmptyText(drug[field])) {
+          addWarning(warnings, `${path}.${field}`, `İlaç ${field} alanı eksik`, "INCOMPLETE_DRUG_PLAN");
+        }
+      }
+      if (!nonEmptyText(drug.siklik)) {
+        addWarning(warnings, `${path}.siklik`, "İlaç sıklığı eksik", "INCOMPLETE_DRUG_PLAN");
+      }
+      if (!nonEmptyText(drug.sure)) {
+        addWarning(warnings, `${path}.sure`, "İlaç süresi eksik", "INCOMPLETE_DRUG_PLAN");
+      }
+    });
   }
 
   // ── 10. Demografi vs semptom ──

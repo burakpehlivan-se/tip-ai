@@ -21,6 +21,7 @@ interface RubrikAksiyon {
   key: string;
   etiket: string;
   aciklama: string;
+  kategori?: string;
 }
 
 interface Condition {
@@ -71,7 +72,15 @@ interface AdminVaka {
   };
   conditions?: Condition[];
   tedavi?: {
-    ilaclar?: Array<{ ad: string; doz: string; yol: string; endikasyon: string; code?: string }>;
+    ilaclar?: Array<{
+      ad: string;
+      doz: string;
+      yol: string;
+      siklik?: string;
+      sure?: string;
+      endikasyon: string;
+      code?: string;
+    }>;
     prosedurler?: string[];
     onemliNotlar?: string[];
     aciklama?: string;
@@ -233,11 +242,13 @@ function RubrikListEditor({
   items,
   onChange,
   keyPlaceholder = "KEY",
+  showCategory = false,
 }: {
   label: string;
   items: RubrikAksiyon[];
   onChange: (next: RubrikAksiyon[]) => void;
   keyPlaceholder?: string;
+  showCategory?: boolean;
 }) {
   return (
     <div className="space-y-2">
@@ -256,7 +267,11 @@ function RubrikListEditor({
         {items.map((row, i) => (
           <div
             key={i}
-            className="grid gap-2 rounded-lg border border-hairline-soft bg-surface-soft p-2 sm:grid-cols-[1fr_1fr_1.4fr_auto]"
+            className={`grid gap-2 rounded-lg border border-hairline-soft bg-surface-soft p-2 ${
+              showCategory
+                ? "sm:grid-cols-[1fr_1fr_1.2fr_0.9fr_auto]"
+                : "sm:grid-cols-[1fr_1fr_1.4fr_auto]"
+            }`}
           >
             <input
               className="input text-xs font-mono"
@@ -288,6 +303,31 @@ function RubrikListEditor({
                 onChange(next);
               }}
             />
+            {showCategory && (
+              <select
+                className="input text-xs"
+                aria-label={`${label} soru kategorisi`}
+                value={row.kategori || ""}
+                onChange={(e) => {
+                  const next = [...items];
+                  next[i] = { ...row, kategori: e.target.value || undefined };
+                  onChange(next);
+                }}
+              >
+                <option value="">Kategori seçin</option>
+                <option value="Sikayet">Şikayet</option>
+                <option value="HPI">HPI</option>
+                <option value="Ozgecmis">Özgeçmiş</option>
+                <option value="Ilac">İlaç</option>
+                <option value="Aile">Aile</option>
+                <option value="Sosyal">Sosyal</option>
+                <option value="Sistem">Sistem</option>
+                <option value="Fizik">Fizik muayene</option>
+                <option value="Vital">Vital</option>
+                <option value="RedFlag">Red flag</option>
+                <option value="Diger">Diğer</option>
+              </select>
+            )}
             <button
               type="button"
               className="text-xs text-clinical-red hover:underline"
@@ -414,7 +454,7 @@ export default function AdminVakaDetailPage() {
     setEgitimNotu(c.egitimNotu || "");
     setTedaviIlaclar(
       (c.tedavi?.ilaclar || [])
-        .map((i) => [i.ad, i.doz, i.yol, i.endikasyon].join(" | "))
+        .map((i) => [i.ad, i.doz, i.yol, i.siklik || "", i.sure || "", i.endikasyon].join(" | "))
         .join("\n")
     );
     setTedaviProsedurler((c.tedavi?.prosedurler || []).join("\n"));
@@ -470,7 +510,9 @@ export default function AdminVakaDetailPage() {
         ad: parts[0] || "",
         doz: parts[1] || "",
         yol: parts[2] || "PO",
-        endikasyon: parts[3] || "",
+        siklik: parts[3] || undefined,
+        sure: parts[4] || undefined,
+        endikasyon: parts[5] || "",
       };
     }).filter((i) => i.ad);
   }
@@ -487,6 +529,7 @@ export default function AdminVakaDetailPage() {
     if (vitals.nabiz) hastaYanitlari.VITAL_NABIZ = vitals.nabiz;
     if (vitals.ates) hastaYanitlari.VITAL_ATES = vitals.ates;
     if (vitals.spo2) hastaYanitlari.VITAL_SPO2 = vitals.spo2;
+    if (vitals.solunum) hastaYanitlari.VITAL_SOLUNUM = vitals.solunum;
 
     const cleanAksiyon = (list: RubrikAksiyon[]) => {
       const seen = new Set<string>();
@@ -495,6 +538,7 @@ export default function AdminVakaDetailPage() {
           key: a.key.trim(),
           etiket: a.etiket.trim() || humanizeKey(a.key.trim()),
           aciklama: a.aciklama.trim(),
+          kategori: a.kategori?.trim() || undefined,
         }))
         .filter((a) => {
           if (!a.key || seen.has(a.key)) return false;
@@ -1055,6 +1099,7 @@ export default function AdminVakaDetailPage() {
             items={beklenenSorular}
             onChange={setBeklenenSorular}
             keyPlaceholder="ODEM_SURE"
+            showCategory
           />
           <RubrikListEditor
             label="beklenenTestler"
@@ -1301,12 +1346,14 @@ export default function AdminVakaDetailPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-muted">İlaçlar (ad | doz | yol | endikasyon)</label>
+            <label className="text-xs text-muted">
+              İlaçlar (ad | doz | yol | sıklık | süre | endikasyon)
+            </label>
             <textarea
               className="input w-full min-h-[80px] font-mono text-xs"
               value={tedaviIlaclar}
               onChange={(e) => setTedaviIlaclar(e.target.value)}
-              placeholder="Ramipril | 5 mg/gün | PO | Proteinürili KBH"
+              placeholder="Ramipril | 5 mg | PO | Günde 1 kez | Uzun dönem | Proteinürili KBH"
             />
           </div>
           <div>

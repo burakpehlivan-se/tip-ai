@@ -122,6 +122,8 @@ export interface RubrikAksiyon {
   key: string;
   etiket: string;
   aciklama: string;
+  /** Öykü/test amacı; CDM import/export sırasında korunur. */
+  kategori?: string;
 }
 
 export type TestSonucTipi = "numeric" | "text" | "json" | "image";
