@@ -5,8 +5,6 @@
  */
 
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from "crypto";
-import fs from "fs";
-import path from "path";
 import {
   AdminRole,
   AdminUser,
@@ -14,7 +12,7 @@ import {
 } from "./types";
 import { usersPath } from "./paths";
 import { getAdminCredentials } from "./auth-env";
-import { quarantineCorruptJson } from "./json-recovery";
+import { readJsonOrRecover, writeJsonAtomic } from "./json-store";
 
 const SCRYPT_KEYLEN = 64;
 
@@ -32,24 +30,6 @@ export function isSuperAdminUser(u: Pick<AdminUser, "username" | "superAdmin" | 
     return u.username.toLowerCase() === boot;
   }
   return false;
-}
-
-function readJson<T>(file: string, fallback: T): T {
-  try {
-    if (!fs.existsSync(file)) return fallback;
-    return JSON.parse(fs.readFileSync(file, "utf8")) as T;
-  } catch (error) {
-    quarantineCorruptJson(file, error, "Kullanıcı deposu");
-    return fallback;
-  }
-}
-
-function writeJsonAtomic(file: string, data: unknown): void {
-  const dir = path.dirname(file);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-  const tmp = `${file}.${process.pid}.${Date.now()}.tmp`;
-  fs.writeFileSync(tmp, JSON.stringify(data, null, 2), "utf8");
-  fs.renameSync(tmp, file);
 }
 
 export function hashPassword(password: string, saltHex?: string): string {
@@ -130,7 +110,7 @@ function ensureBootstrapAdmin(store: UsersStore): UsersStore {
 
 export function loadUsersStore(): UsersStore {
   const empty: UsersStore = { version: 1, updatedAt: 0, users: [] };
-  let store = readJson<UsersStore>(usersPath(), empty);
+  let store = readJsonOrRecover<UsersStore>(usersPath(), empty, "Kullanıcı deposu");
   if (!store.users) store.users = [];
   store = ensureBootstrapAdmin(store);
   return store;
