@@ -9,6 +9,7 @@ import {
   buildValidationReport,
   formatValidationReportText,
 } from "@/lib/cdm/validate-report";
+import { buildContentQualityQueue } from "@/lib/cdm/content-quality";
 
 /**
  * GET /api/admin/cases/validate
@@ -48,7 +49,10 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  return NextResponse.json(report, {
+  return NextResponse.json({
+    ...report,
+    qualityQueue: buildContentQualityQueue(report),
+  }, {
     headers: { "Cache-Control": "no-store" },
   });
 }

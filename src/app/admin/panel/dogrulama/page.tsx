@@ -71,6 +71,20 @@ interface Report {
     topWarningCodes: { code: string; count: number }[];
   };
   results: VakaResult[];
+  qualityQueue: {
+    summary: {
+      totalItems: number;
+      criticalItems: number;
+      affectedCaseCount: number;
+    };
+    items: Array<{
+      code: string;
+      priority: "critical" | "high" | "medium" | "low";
+      action: string;
+      affectedCaseCount: number;
+      cases: Array<{ id: string; hastalikAdi?: string; poliklinikKey?: string }>;
+    }>;
+  };
 }
 
 type Filter = "all" | "invalid" | "valid_with_warnings" | "valid";
@@ -193,6 +207,52 @@ export default function DogrulamaPage() {
         <StatCard label="Uyarılı" value={s.validWithWarnings} tone="warn" />
         <StatCard label="Geçersiz" value={s.invalid} tone="bad" />
       </div>
+
+      <section className="card" aria-labelledby="quality-queue-title">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 id="quality-queue-title" className="text-lg font-semibold text-ink">
+              Vaka iyileştirme kuyruğu
+            </h2>
+            <p className="mt-1 text-sm text-steel">
+              Klinik tamamlanma eksikleri önce, içerik kalitesi iyileştirmeleri sonra ele alınır.
+            </p>
+          </div>
+          <p className="text-sm text-steel" aria-live="polite">
+            {report.qualityQueue.summary.criticalItems} kritik · {report.qualityQueue.summary.affectedCaseCount} vaka
+          </p>
+        </div>
+
+        {report.qualityQueue.items.length === 0 ? (
+          <p className="mt-4 text-sm text-steel">İyileştirme gerektiren vaka bulunmuyor.</p>
+        ) : (
+          <ol className="mt-4 space-y-3">
+            {report.qualityQueue.items.slice(0, 8).map((item) => {
+              const firstCase = item.cases[0];
+              return (
+                <li key={item.code} className="rounded-lg border border-hairline bg-surface-soft p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <QualityPriorityBadge priority={item.priority} />
+                      <code className="truncate text-xs text-steel">{item.code}</code>
+                    </div>
+                    <span className="text-xs text-steel">{item.affectedCaseCount} vaka</span>
+                  </div>
+                  <p className="mt-2 text-sm text-ink">{item.action}</p>
+                  {firstCase && (
+                    <Link
+                      href={`/admin/panel/vakalar/${encodeURIComponent(firstCase.id)}`}
+                      className="mt-2 inline-block text-sm font-medium text-brand-deep hover:underline"
+                    >
+                      {firstCase.hastalikAdi || firstCase.id} vakasını düzenle
+                    </Link>
+                  )}
+                </li>
+              );
+            })}
+          </ol>
+        )}
+      </section>
 
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-xl border border-hairline bg-canvas p-4">
@@ -522,6 +582,30 @@ function StatusBadge({ status }: { status: VakaResult["status"] }) {
   return (
     <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${map[status]}`}>
       {label[status]}
+    </span>
+  );
+}
+
+function QualityPriorityBadge({
+  priority,
+}: {
+  priority: "critical" | "high" | "medium" | "low";
+}) {
+  const styles = {
+    critical: "bg-clinical-red/15 text-clinical-red",
+    high: "bg-clinical-orange/15 text-clinical-orange",
+    medium: "bg-clinical-blue/15 text-clinical-blue",
+    low: "bg-surface text-steel",
+  };
+  const labels = {
+    critical: "Kritik",
+    high: "Yüksek",
+    medium: "Orta",
+    low: "Düşük",
+  };
+  return (
+    <span className={`rounded-full px-2 py-1 text-xs font-medium ${styles[priority]}`}>
+      {labels[priority]}
     </span>
   );
 }
