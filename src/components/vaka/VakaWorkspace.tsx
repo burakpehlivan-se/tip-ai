@@ -790,8 +790,8 @@ export default function VakaWorkspace({
         </div>
 
         {/* Sağ Panel — Testler ve Sonuçlar */}
-        <div className={`${mobilPanel !== "testler" ? "hidden" : "flex"} xl:flex w-80 flex-shrink-0 border-l border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}>
-          <div className="p-6">
+        <div className={`${mobilPanel !== "testler" ? "hidden" : "flex"} w-full xl:flex xl:w-80 flex-shrink-0 border-l border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}>
+          <div className="p-4 xl:p-6">
             {/* Test İsteme */}
             <div className="mb-6">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -827,7 +827,7 @@ export default function VakaWorkspace({
               </div>
 
               {/* Kategori bazında tüm testler — canlı filtreli */}
-              <div className="-mx-2 max-h-[calc(100vh-28rem)] min-h-0 flex-1 overflow-y-auto scrollbar-thin rounded-lg border border-hairline bg-canvas">
+              <div className="-mx-2 min-h-0 flex-1 rounded-lg border border-hairline bg-canvas xl:max-h-[calc(100dvh-28rem)] xl:overflow-y-auto xl:scrollbar-thin">
                 {filtreliTestler.length === 0 ? (
                   <div className="px-4 py-8 text-center text-sm text-muted">
                     {testArama.trim()

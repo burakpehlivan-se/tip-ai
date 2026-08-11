@@ -20,9 +20,9 @@ export default function VakaHastaPanel({
 
   return (
     <div
-      className={`${mobilGorunur ? "flex" : "hidden"} lg:flex w-72 flex-shrink-0 border-r border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}
+      className={`${mobilGorunur ? "flex" : "hidden"} w-full lg:flex lg:w-72 flex-shrink-0 border-r border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}
     >
-      <div className="p-6">
+      <div className="p-4 lg:p-6">
         <h3 className="mb-4 text-xs font-semibold uppercase tracking-wide text-muted">
           Hasta Kartı
         </h3>

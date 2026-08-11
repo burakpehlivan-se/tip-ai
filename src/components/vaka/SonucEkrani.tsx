@@ -25,7 +25,7 @@ export default function SonucEkrani({
       <nav className="shrink-0 border-b border-hairline-soft bg-canvas">
         <div
           className={`flex items-center justify-between px-4 ${
-            embed ? "h-10 max-w-none" : "mx-auto h-16 max-w-4xl px-6"
+            embed ? "h-10 max-w-none" : "mx-auto h-16 max-w-4xl sm:px-6"
           }`}
         >
           {!embed ? (
@@ -46,7 +46,7 @@ export default function SonucEkrani({
 
       <div
         className={`mx-auto max-w-4xl px-4 ${
-          embed ? "min-h-0 flex-1 overflow-y-auto py-6 scrollbar-thin lg:px-6" : "px-6 py-12"
+          embed ? "min-h-0 flex-1 overflow-y-auto py-6 scrollbar-thin lg:px-6" : "py-8 sm:px-6 sm:py-12"
         }`}
       >
         {/* Puan */}
@@ -114,7 +114,7 @@ export default function SonucEkrani({
         <div className="mb-8">
           <h3 className="mb-4 text-lg font-semibold text-ink">🔍 Anamnez Analizi</h3>
           <div className="card-feature">
-            <div className="mb-4 flex items-center gap-4 text-sm">
+            <div className="mb-4 flex flex-col items-start gap-2 text-sm sm:flex-row sm:items-center sm:gap-4">
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-ink">{sonuc.anamnezAnalizi.toplamSoruldu}/{sonuc.anamnezAnalizi.toplamBeklenen}</span>
                 <span className="text-steel">kritik soru soruldu</span>
