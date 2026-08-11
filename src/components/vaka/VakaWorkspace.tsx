@@ -551,7 +551,7 @@ export default function VakaWorkspace({
       {/* Mobil faz sekmeleri (sm altı) */}
       <div className="flex sm:hidden shrink-0 border-b border-hairline bg-canvas px-1 overflow-x-auto scrollbar-none">
         {(["anamnez","test","tani","tedavi"] as const).map((f) => (
-          <button key={f} aria-pressed={faz === f} onClick={() => setFaz(f)} className={`shrink-0 px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${faz === f ? "border-ink text-ink" : "border-transparent text-steel"}`}>
+          <button key={f} aria-pressed={faz === f} onClick={() => setFaz(f)} className={`min-h-11 shrink-0 px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${faz === f ? "border-ink text-ink" : "border-transparent text-steel"}`}>
             {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
           </button>
         ))}
@@ -627,7 +627,7 @@ export default function VakaWorkspace({
               {/* Kategori dropdown */}
               <div className="relative">
                 <button onClick={() => setShowKatDropdown(!showKatDropdown)}
-                  className="flex items-center gap-1 rounded-full border border-hairline bg-canvas px-3 py-1.5 text-xs font-medium text-ink hover:border-ink/30 transition-colors">
+                  className="flex min-h-11 items-center gap-1 rounded-full border border-hairline bg-canvas px-3 py-1.5 text-xs font-medium text-ink hover:border-ink/30 transition-colors">
                   {CHIP_KATEGORI_ETIKETLERI[Array.from(acikKategoriler)[0] || "anamnez-agri"]} ▾
                 </button>
                 {showKatDropdown && (
@@ -642,7 +642,7 @@ export default function VakaWorkspace({
                 )}
               </div>
               <button onClick={() => setShowSoruDrawer(true)}
-                className="rounded-full border border-hairline bg-canvas px-3 py-1.5 text-xs font-medium text-steel hover:border-ink/30 hover:text-ink transition-colors">
+                className="min-h-11 rounded-full border border-hairline bg-canvas px-3 py-1.5 text-xs font-medium text-steel hover:border-ink/30 hover:text-ink transition-colors">
                 Tümü ▸
               </button>
             </div>
@@ -663,7 +663,7 @@ export default function VakaWorkspace({
                     const rel = relevantAksiyonSeti.has(chip.aksiyon);
                     return (
                       <button key={chip.aksiyon} onClick={() => chipSor(chip)} disabled={soruldu || islemYukleniyor}
-                        className={`rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-[background-color,border-color,color] ${
+                        className={`min-h-8 rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-[background-color,border-color,color] ${
                           soruldu
                             ? "cursor-default border-hairline bg-surface text-muted/60 line-through"
                             : rel
@@ -706,7 +706,7 @@ export default function VakaWorkspace({
                       </button>
                     ))}
                   </div>
-                  <button ref={drawerKapatBtnRef} onClick={() => setShowSoruDrawer(false)} aria-label="Soru panelini kapat" className="rounded-full p-1 hover:bg-surface text-steel shrink-0">✕</button>
+                  <button ref={drawerKapatBtnRef} onClick={() => setShowSoruDrawer(false)} aria-label="Soru panelini kapat" className="min-h-11 min-w-11 rounded-full p-1 hover:bg-surface text-steel shrink-0">✕</button>
                 </div>
                 <div className="p-4 space-y-3">
                   <label htmlFor="soru-arama" className="sr-only">Sorularda ara</label>
@@ -850,7 +850,7 @@ export default function VakaWorkspace({
                             key={test.key}
                             onClick={() => testIstey(test.key)}
                             disabled={istendi || islemYukleniyor}
-                            className={`flex w-full items-center justify-between border-b border-hairline-soft px-4 py-2 text-left text-sm last:border-0 transition-colors ${
+                            className={`flex min-h-11 w-full items-center justify-between border-b border-hairline-soft px-4 py-2 text-left text-sm last:border-0 transition-colors ${
                               istendi
                                 ? "opacity-40 cursor-not-allowed bg-surface-soft"
                                 : "hover:bg-surface text-ink"

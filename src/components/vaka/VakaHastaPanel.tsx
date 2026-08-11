@@ -83,7 +83,7 @@ export default function VakaHastaPanel({
               type="button"
               onClick={() => setKaynaklarAcik(!kaynaklarAcik)}
               aria-expanded={kaynaklarAcik}
-              className="flex w-full items-center justify-between text-left"
+              className="flex min-h-11 w-full items-center justify-between text-left"
             >
               <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">
                 📚 Vaka Kaynakları

@@ -14,7 +14,7 @@ export function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi
         type="button"
         onClick={() => setExpanded(!expanded)}
         aria-expanded={expanded}
-        className="flex w-full items-center justify-between gap-3 border-b border-hairline-soft px-4 py-3 text-left hover:bg-surface-soft transition-colors"
+        className="flex min-h-11 w-full items-center justify-between gap-3 border-b border-hairline-soft px-4 py-3 text-left hover:bg-surface-soft transition-colors"
       >
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
@@ -86,7 +86,7 @@ export function DebugTestKarti({
         type="button"
         onClick={() => setExpanded((v) => !v)}
         aria-expanded={expanded}
-        className="flex w-full items-start justify-between gap-2 px-3 py-2.5 text-left hover:bg-surface-soft/80 transition-colors"
+        className="flex min-h-11 w-full items-start justify-between gap-2 px-3 py-2.5 text-left hover:bg-surface-soft/80 transition-colors"
       >
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
