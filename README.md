@@ -29,9 +29,11 @@ TEST_DATABASE_URL=postgresql://user:pass@localhost:5432/tip_ai_test npm test
 
 ## JSON → PostgreSQL kullanıcı geçişi
 
-Kullanıcı deposu JSON dosyasından PostgreSQL'e taşınır. Bu repository, geçişin
+Kullanıcı deposu JSON dosyasından PostgreSQL'e taşınacaktır. Repository geçişin
 **altyapısını** içerir: Drizzle şeması + migration, başlangıç migration runner'ı,
-tek seferlik idempotent import aracı ve entegrasyon testleri.
+tek seferlik idempotent import aracı ve entegrasyon testleri. Runtime kimlik
+doğrulama henüz JSON deposunu kullanır; PostgreSQL cutover'ı, shadow-read gözlem
+adımından sonra ayrı bir sürüm olarak yapılacaktır.
 
 ### Şema
 
@@ -88,16 +90,27 @@ DATABASE_URL=postgresql://... ADMIN_PASSWORD=<bootstrap şifresi> \
   JSON deposuna geri kopyalanamaz. Rollback, yalnızca cutover öncesi duruma
   dönüşü güvenli biçimde sağlar; cutover sonrası yazılan veri kaybolur.
 
+### Shadow-read gözlem adımı
+
+Runtime cutover öncesinde `AUTH_SHADOW_READ=1` ile başarılı öğrenci ve yönetim
+girişleri JSON kaynağıyla devam ederken PostgreSQL'deki aynı kullanıcının rol ve
+aktiflik durumunu karşılaştırır. Bu aşama yazma yapmaz, giriş sonucunu değiştirmez
+ve parola, hash, kullanıcı adı veya bağlantı dizgisi loglamaz. Operasyon logları
+yalnızca `auth_shadow_read` olayı, route, sonuç ve varsa ayrışan alan adlarını
+taşır. En az bir gözlem penceresinde uyumsuzluk `0` doğrulanmadan runtime
+PostgreSQL'e geçirilmemelidir.
+
 ## Üretim depolama ve yedekleme
 
 Uygulamanın kalıcı verisi JSON dosyaları olarak çalışma dizinindeki
-`data/admin` altında tutulur (vakalar, loglar, yedekler, öğrenci denemeleri;
-**kullanıcılar hariç** — bunlar Postgres'e taşınır). Üretim container'ında bu
-yol genellikle `/app/data/admin` olur.
+`data/admin` altında tutulur (vakalar, kullanıcılar, loglar, yedekler, öğrenci
+denemeleri). Üretim container'ında bu yol genellikle `/app/data/admin` olur.
+Kullanıcılar PostgreSQL'e geçirildiğinde bu madde ve yedekleme kapsamı yeniden
+güncellenecektir.
 
 - `/app/data` için kalıcı bir volume mount edilmelidir.
-- **Kullanıcılar ve oturum kayıtları Postgres'te olduğundan, Postgres volume'unun**
-  kalıcı olduğundan emin olun.
+- Gelecekteki kullanıcı deposu cutover'ı için Postgres volume'unun kalıcı
+  olduğundan emin olun.
 - JSON deposu tek yazarlı çalışır. `TIP_AI_REPLICA_COUNT=1` ayarlı olmalıdır.
 - Yönetim panelinden alınan yedekler `data/admin/backups` altında saklanır.
 - Bozuk öğrenci denemesi dosyaları `.corrupt-*` adıyla karantinaya alınır.
@@ -107,7 +120,7 @@ yol genellikle `/app/data/admin` olur.
 ```text
 ADMIN_USERNAME
 ADMIN_PASSWORD
-ADMIN_SESSION_SECRET        # veya AUTH_SECRET (en az 32 byte rastgele)
+ADMIN_SESSION_SECRET        # zorunlu; en az 32 byte rastgele değer
 DATABASE_URL                # PostgreSQL bağlantı dizgisi
 APP_URL
 TIP_AI_REPLICA_COUNT=1

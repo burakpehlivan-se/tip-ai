@@ -3,6 +3,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { appendLog } from "@/lib/admin/store";
+import { observeAuthShadowRead } from "@/lib/auth/shadow-read";
+import { getRequestId } from "@/lib/logger";
 import { authenticateStudent, createStudentSessionToken, studentSessionCookieOptions } from "@/lib/student/auth";
 
 export async function POST(req: NextRequest) {
@@ -15,6 +17,11 @@ export async function POST(req: NextRequest) {
     if (!auth) {
       return NextResponse.json({ error: "Kullanıcı adı veya şifre hatalı." }, { status: 401 });
     }
+
+    void observeAuthShadowRead(
+      { username: auth.username, role: "ogrenci", active: true },
+      { route: "/api/student/login", requestId: getRequestId(req) }
+    );
 
     appendLog({
       action: "student_login",

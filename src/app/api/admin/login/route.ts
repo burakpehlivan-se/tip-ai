@@ -9,6 +9,7 @@ import {
   sessionCookieOptions,
   SESSION_COOKIE,
 } from "@/lib/admin/auth";
+import { observeAuthShadowRead } from "@/lib/auth/shadow-read";
 import { getRequestId, logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
@@ -35,6 +36,10 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
+    void observeAuthShadowRead(
+      { username: user.username, role: user.role, active: true },
+      { route: "/api/admin/login", requestId: getRequestId(req) }
+    );
     const token = createSessionToken(user.username, user.role, user.userId);
     const res = NextResponse.json({
       ok: true,
