@@ -1,43 +1,50 @@
 "use client";
 
-import { FormEvent, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StudentProgress } from "@/lib/student/progress";
+import { StudentPerformanceInsights } from "@/lib/student/performance-insights";
 
-type MeInfo = { authenticated: boolean; username?: string; displayName?: string };
+type MeInfo = { username: string; displayName: string };
 
 export default function ProfilimPage() {
   const router = useRouter();
   const [me, setMe] = useState<MeInfo | null>(null);
   const [progress, setProgress] = useState<StudentProgress | null>(null);
+  const [insights, setInsights] = useState<StudentPerformanceInsights | null>(null);
   const [hata, setHata] = useState("");
 
   useEffect(() => {
-    fetch("/api/student/me")
-      .then((r) => {
-        if (!r.ok) {
+    fetch("/api/session", { cache: "no-store" })
+      .then(async (response) => {
+        const session = response.ok ? await response.json() : null;
+        if (!session?.student) {
           router.replace(`/giris?sonraki=${encodeURIComponent("/profilim")}`);
           return null;
         }
-        return r.json();
+        return session.student as MeInfo;
       })
       .then((data) => {
         if (data) {
           setMe(data);
-          return fetch("/api/student/progress").then((r) => r.json());
+          return Promise.all([
+            fetch("/api/student/progress", { cache: "no-store" }).then((r) => r.json()),
+            fetch("/api/student/performance", { cache: "no-store" }).then((r) => r.json()),
+          ]);
         }
         return null;
       })
       .then((data) => {
-        if (data?.progress) setProgress(data.progress);
+        if (!data) return;
+        if (data[0]?.progress) setProgress(data[0].progress);
+        if (data[1]?.insights) setInsights(data[1].insights);
       })
       .catch(() => setHata("İlerleme yüklenemedi."));
   }, [router]);
 
-  async function cikisYap(e: FormEvent) {
-    e.preventDefault();
-    await fetch("/api/student/logout", { method: "POST" });
+  async function cikisYap() {
+    await fetch("/api/session/logout", { method: "POST" });
     router.replace("/");
   }
 
@@ -65,7 +72,7 @@ export default function ProfilimPage() {
             <Link href="/vakalar" className="text-sm font-medium text-steel hover:text-ink transition-colors">
               Vakalar
             </Link>
-            <button onClick={cikisYap} className="btn-secondary text-sm">
+            <button onClick={() => void cikisYap()} className="btn-secondary text-sm">
               Çıkış Yap
             </button>
           </div>
@@ -113,6 +120,25 @@ export default function ProfilimPage() {
                 </div>
               </div>
             </div>
+
+            {insights && insights.practicePriorities.length > 0 && (
+              <section className="mb-10" aria-labelledby="gelisim-oncelikleri">
+                <h2 id="gelisim-oncelikleri" className="mb-4 text-xl font-semibold text-ink">Gelişim Öncelikleri</h2>
+                <div className="card space-y-3">
+                  <p className="text-sm text-steel">
+                    Son vakalarındaki sonuçlara göre bir sonraki çalışmanda bu alanlara odaklan.
+                  </p>
+                  <ul className="space-y-2">
+                    {insights.practicePriorities.slice(0, 3).map((priority) => (
+                      <li key={`${priority.kind}-${priority.label}`} className="flex items-start gap-3 text-sm text-ink">
+                        <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-brand" aria-hidden="true" />
+                        <span>{priority.guidance}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              </section>
+            )}
 
             {/* Poliklinik kırılımı */}
             {p.poliklinikler.length > 0 && (

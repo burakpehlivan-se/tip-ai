@@ -28,9 +28,10 @@ function GirisForm() {
   const [checking, setChecking] = useState(true);
 
   useEffect(() => {
-    fetch("/api/student/me")
-      .then((r) => {
-        if (r.ok) router.replace(sonraki);
+    fetch("/api/session", { cache: "no-store" })
+      .then(async (response) => {
+        const session = response.ok ? await response.json() : null;
+        if (session?.student) router.replace(sonraki);
         else setChecking(false);
       })
       .catch(() => setChecking(false));

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SessionNavigation } from "@/components/auth/SessionNavigation";
 
 export default function HomePage() {
   return (
@@ -30,14 +31,7 @@ export default function HomePage() {
               Doktorlar
             </Link>
           </div>
-          <div className="flex items-center gap-3">
-            <Link href="/giris" className="text-sm font-medium text-steel hover:text-ink transition-colors">
-              Giriş Yap
-            </Link>
-            <Link href="/vakalar" className="btn-primary">
-              Vakaya Başla
-            </Link>
-          </div>
+          <SessionNavigation />
         </div>
       </nav>
 

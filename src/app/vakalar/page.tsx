@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { SessionNavigation } from "@/components/auth/SessionNavigation";
 
 interface PoliklinikKart {
   key: string;
@@ -19,8 +20,13 @@ export default function VakalarPage() {
   const [katalogHatasi, setKatalogHatasi] = useState("");
 
   useEffect(() => {
-    fetch("/api/student/me")
-      .then((r) => setGirisli(r.ok))
+    fetch("/api/session", { cache: "no-store" })
+      .then(async (response) => {
+        if (!response.ok) return false;
+        const session = await response.json();
+        return Boolean(session.student);
+      })
+      .then(setGirisli)
       .catch(() => setGirisli(false));
   }, []);
 
@@ -77,16 +83,7 @@ export default function VakalarPage() {
             </span>
           </Link>
           <div className="flex items-center gap-2 sm:gap-4">
-            {girisli === false && (
-              <Link href="/giris" className="btn-secondary text-sm">
-                Giriş Yap
-              </Link>
-            )}
-            {girisli === true && (
-              <Link href="/profilim" className="btn-secondary text-sm">
-                Profilim
-              </Link>
-            )}
+            <SessionNavigation compact />
             <Link
               href="/cemicegek"
               className="rounded-full bg-clinical-red/10 px-3 py-2 text-sm font-medium text-clinical-red transition-colors hover:bg-clinical-red/20 sm:px-4 sm:py-1.5"
