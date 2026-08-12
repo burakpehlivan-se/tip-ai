@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { registerStudent } from "@/lib/admin/users";
+import { registerStudent } from "@/lib/auth/runtime-user-store";
 import { appendLog } from "@/lib/admin/store";
 import { createStudentSessionToken, studentSessionCookieOptions } from "@/lib/student/auth";
 
@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const password = String(body.password || "");
     const displayName = body.displayName ? String(body.displayName).trim() : undefined;
 
-    const user = registerStudent({ username, password, displayName });
+    const user = await registerStudent({ username, password, displayName });
 
     appendLog({
       action: "register_student",

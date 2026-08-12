@@ -8,18 +8,18 @@ import {
   createUser,
   listUsersPublic,
   publicUser,
-} from "@/lib/admin/users";
+} from "@/lib/auth/runtime-user-store";
 import { appendLog } from "@/lib/admin/store";
 import { AdminRole } from "@/lib/admin/types";
 import { getSessionStatsByActor } from "@/lib/student/progress";
 
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "users.manage");
   if (denied) return denied;
 
   const stats = getSessionStatsByActor();
-  const users = listUsersPublic().map((u) => ({
+  const users = (await listUsersPublic()).map((u) => ({
     ...u,
     istatistik: stats[u.username.toLowerCase()] || {
       vakaSayisi: 0,
@@ -32,13 +32,13 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "users.manage");
   if (denied) return denied;
 
   try {
     const body = await req.json();
-    const user = createUser({
+    const user = await createUser({
       username: String(body.username || ""),
       password: String(body.password || ""),
       role: (body.role as AdminRole) || "doktor",

@@ -8,7 +8,7 @@ import { createBackup, loadBackupsIndex, loadCasesStore } from "@/lib/admin/stor
 import { requirePermission } from "@/lib/admin/permissions";
 
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "backups.read");
   if (denied) return denied;
 
@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "backups.restore");
   if (denied) return denied;
 

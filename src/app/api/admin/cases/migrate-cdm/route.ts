@@ -8,7 +8,7 @@ import { upgradeAllCasesToCdm, needsCdmUpgrade } from "@/lib/cdm";
 
 /** POST — tüm vakaları TIP-AI CDM v1 şekline zorla yükselt */
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const { requirePermission } = await import("@/lib/admin/permissions");
   const denied = requirePermission(session, "system.migrate");
   if (denied) return denied;

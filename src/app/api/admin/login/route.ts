@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
-    const user = loginUser(username, password);
+    const user = await loginUser(username, password);
     if (!user) {
       return NextResponse.json(
         { error: "Geçersiz kullanıcı adı veya şifre." },

@@ -18,7 +18,7 @@ import { buildContentQualityQueue } from "@/lib/cdm/content-quality";
  * ?poliklinik=key
  */
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "cases.validate");
   if (denied) return denied;
 

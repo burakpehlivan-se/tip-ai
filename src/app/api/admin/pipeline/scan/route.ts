@@ -10,7 +10,7 @@ import { scanAllCases, problemCases } from "@/lib/pipeline/case-scanner";
 
 /** Pipeline tarama raporu (envanter + eksik testler) */
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "cases.validate");
   if (denied) return denied;
 

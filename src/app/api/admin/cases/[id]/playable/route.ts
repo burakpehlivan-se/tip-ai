@@ -8,7 +8,7 @@ import { getCaseById } from "@/lib/admin/store";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "play");
   if (denied) return denied;
   const { id: rawId } = await params;

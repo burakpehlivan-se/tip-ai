@@ -16,7 +16,7 @@ import { validateAdminVakaForPublication } from "@/lib/cdm/validate-report";
 import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "cases.read");
   if (denied) return denied;
 
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "cases.write");
   if (denied) return denied;
 

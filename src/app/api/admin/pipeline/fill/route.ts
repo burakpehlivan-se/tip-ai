@@ -13,7 +13,7 @@ import { scanAllCases } from "@/lib/pipeline/case-scanner";
  *   POST { id?: string }  → tek vaka veya tümü
  */
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "system.migrate");
   if (denied) return denied;
 

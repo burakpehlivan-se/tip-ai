@@ -21,7 +21,7 @@ import { birlesikTestKatalogu } from "@/lib/data";
  * aksi halde sözlük + spec özeti
  */
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "cases.read");
   if (denied) return denied;
 

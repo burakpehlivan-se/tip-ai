@@ -8,7 +8,7 @@ import { getCaseById, recordPlaySession } from "@/lib/admin/store";
 import { getRequestId, logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "play");
   if (denied) return denied;
 

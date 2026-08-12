@@ -8,14 +8,14 @@ import { loadSettings, saveSettings } from "@/lib/admin/store";
 import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "settings.read");
   if (denied) return denied;
   return NextResponse.json({ settings: loadSettings() });
 }
 
 export async function PUT(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "settings.write");
   if (denied) return denied;
 

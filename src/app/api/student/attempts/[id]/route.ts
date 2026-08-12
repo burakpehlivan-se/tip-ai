@@ -19,7 +19,7 @@ function attemptStoreUnavailable(req: NextRequest, error: unknown) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  const session = getStudentSessionFromRequest(req);
+  const session = await getStudentSessionFromRequest(req);
   const actor = session?.username || (req.cookies.get(GUEST_COOKIE)?.value ? `guest:${req.cookies.get(GUEST_COOKIE)!.value}` : null);
   if (!actor) return NextResponse.json({ error: "Giriş yapmalısınız." }, { status: 401 });
   const { id } = await params;

@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
 
-    const auth = authenticateStudent(username, password);
+    const auth = await authenticateStudent(username, password);
     if (!auth) {
       return NextResponse.json({ error: "Kullanıcı adı veya şifre hatalı." }, { status: 401 });
     }

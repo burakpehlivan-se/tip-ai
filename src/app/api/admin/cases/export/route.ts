@@ -22,7 +22,7 @@ import { getRequestId, logger } from "@/lib/logger";
  * - pdf: klinisyen özeti
  */
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "cases.export");
   if (denied) return denied;
 

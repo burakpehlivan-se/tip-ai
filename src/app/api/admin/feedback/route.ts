@@ -8,7 +8,7 @@ import { addFeedback, getCaseById, listFeedbacks } from "@/lib/admin/store";
 import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "feedback.write");
   if (denied) return denied;
 
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "feedback.write");
   if (denied) return denied;
 

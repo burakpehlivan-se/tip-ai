@@ -23,7 +23,7 @@ function poliklinikKeyFrom(value: string | null) {
 }
 
 export async function GET(req: NextRequest) {
-  const session = getStudentSessionFromRequest(req);
+  const session = await getStudentSessionFromRequest(req);
   const guestId = req.cookies.get(GUEST_COOKIE)?.value;
   const isGuestLookup = req.nextUrl.searchParams.get("guest") === "1";
   const poliklinikKey = poliklinikKeyFrom(req.nextUrl.searchParams.get("poliklinikKey"));
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null);
-  const session = getStudentSessionFromRequest(req);
+  const session = await getStudentSessionFromRequest(req);
   const guest = body?.guest === true;
   if (!session && !guest) return NextResponse.json({ error: "Giriş yapmalısınız." }, { status: 401 });
   const poliklinikKey = poliklinikKeyFrom(typeof body?.poliklinikKey === "string" ? body.poliklinikKey : null);

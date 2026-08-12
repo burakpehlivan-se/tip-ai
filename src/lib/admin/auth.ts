@@ -3,7 +3,7 @@ import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { AdminRole, AdminSessionPayload } from "./types";
 import { getAdminCredentials } from "./auth-env";
-import { authenticateUser, findUserById, findUserByUsername } from "./users";
+import { authenticateUser, findUserById, findUserByUsername } from "@/lib/auth/runtime-user-store";
 
 export const SESSION_COOKIE = "tip_ai_admin_session";
 const SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
@@ -74,15 +74,15 @@ export function verifySessionToken(token: string | undefined | null): AdminSessi
 }
 
 /** Kullanıcı deposu + env bootstrap */
-export function verifyPassword(username: string, password: string): boolean {
-  return authenticateUser(username, password) !== null;
+export async function verifyPassword(username: string, password: string): Promise<boolean> {
+  return (await authenticateUser(username, password)) !== null;
 }
 
-export function loginUser(
+export async function loginUser(
   username: string,
   password: string
-): { username: string; role: AdminRole; userId: string } | null {
-  const auth = authenticateUser(username, password);
+): Promise<{ username: string; role: AdminRole; userId: string } | null> {
+  const auth = await authenticateUser(username, password);
   if (!auth) return null;
   return {
     username: auth.user.username,
@@ -101,15 +101,15 @@ export function isPanelRole(role: AdminRole): role is "admin" | "doktor" {
  * token üretildiğinden sonra değişti mi kontrol edilir. Böylece pasifleştirme
  * veya rol düşürme mevcut oturumları da anında geçersiz kılar.
  */
-export function getCurrentSession(
+export async function getCurrentSession(
   token: string | undefined | null
-): AdminSessionPayload | null {
+): Promise<AdminSessionPayload | null> {
   const session = verifySessionToken(token);
   if (!session) return null;
 
   const user = session.userId
-    ? findUserById(session.userId)
-    : findUserByUsername(session.username);
+    ? (await findUserById(session.userId)) || (await findUserByUsername(session.username))
+    : await findUserByUsername(session.username);
   if (!user || !user.active) return null;
   if (user.username.toLowerCase() !== session.username.toLowerCase()) return null;
   if (user.role !== session.role) return null;
@@ -124,12 +124,12 @@ export function getCurrentSession(
 
 export async function getSessionFromCookies(): Promise<AdminSessionPayload | null> {
   const jar = await cookies();
-  const session = getCurrentSession(jar.get(SESSION_COOKIE)?.value);
+  const session = await getCurrentSession(jar.get(SESSION_COOKIE)?.value);
   return session && isPanelRole(session.role) ? session : null;
 }
 
-export function getSessionFromRequest(req: NextRequest): AdminSessionPayload | null {
-  const session = getCurrentSession(req.cookies.get(SESSION_COOKIE)?.value);
+export async function getSessionFromRequest(req: NextRequest): Promise<AdminSessionPayload | null> {
+  const session = await getCurrentSession(req.cookies.get(SESSION_COOKIE)?.value);
   return session && isPanelRole(session.role) ? session : null;
 }
 

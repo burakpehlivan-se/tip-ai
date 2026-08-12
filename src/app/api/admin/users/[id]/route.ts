@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { deleteUser, publicUser, updateUser } from "@/lib/admin/users";
+import { deleteUser, publicUser, updateUser } from "@/lib/auth/runtime-user-store";
 import { appendLog } from "@/lib/admin/store";
 import { AdminRole } from "@/lib/admin/types";
 
@@ -12,14 +12,14 @@ export async function PATCH(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "users.manage");
   if (denied) return denied;
 
   try {
     const { id } = await params;
     const body = await req.json();
-    const user = updateUser(
+    const user = await updateUser(
       id,
       {
         role: body.role as AdminRole | undefined,
@@ -56,7 +56,7 @@ export async function DELETE(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "users.manage");
   if (denied) return denied;
 
@@ -68,7 +68,7 @@ export async function DELETE(
         { status: 400 }
       );
     }
-    deleteUser(id);
+    await deleteUser(id);
     appendLog({
       action: "delete_user",
       actor: session!.username,

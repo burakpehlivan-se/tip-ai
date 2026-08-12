@@ -7,7 +7,7 @@ import { getStudentSessionFromRequest } from "@/lib/student/auth";
 import { buildStudentPerformanceInsights } from "@/lib/student/performance-insights";
 
 export async function GET(req: NextRequest) {
-  const session = getStudentSessionFromRequest(req);
+  const session = await getStudentSessionFromRequest(req);
   if (!session) {
     return NextResponse.json({ error: "Giriş yapmalısınız." }, { status: 401 });
   }

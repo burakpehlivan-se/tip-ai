@@ -18,7 +18,7 @@ import { RuleEntry, DiseaseAlias } from "@/lib/admin/rule-engine-types";
 import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "system.migrate");
   if (denied) return denied;
 
@@ -27,7 +27,7 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
 
   const denied = requirePermission(session, "system.migrate");

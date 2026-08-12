@@ -18,7 +18,7 @@ import { getRequestId, logger } from "@/lib/logger";
  * Query: dryRun=1 → sadece validate; overwrite=1 → mevcut id güncelle
  */
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const { requirePermission } = await import("@/lib/admin/permissions");
   // dryRun: validate ok for doktor; gerçek import admin
   const dryRun = req.nextUrl.searchParams.get("dryRun") === "1";

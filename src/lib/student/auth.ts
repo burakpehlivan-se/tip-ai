@@ -11,7 +11,7 @@ import {
   sessionCookieOptions,
 } from "@/lib/admin/auth";
 import type { AdminSessionPayload } from "@/lib/admin/types";
-import { authenticateUser, findUserById, findUserByUsername } from "@/lib/admin/users";
+import { authenticateUser, findUserById, findUserByUsername } from "@/lib/auth/runtime-user-store";
 
 export const STUDENT_SESSION_COOKIE = "tip_ai_student_session";
 export const STUDENT_SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
@@ -36,15 +36,15 @@ export function verifyStudentSessionToken(
  * pasifleştirildiğinde veya rol değiştiğinde mevcut öğrenci oturumu da anında
  * geçersiz olur.
  */
-export function getCurrentStudentSession(
+export async function getCurrentStudentSession(
   token: string | undefined | null
-): AdminSessionPayload | null {
+): Promise<AdminSessionPayload | null> {
   const session = verifyStudentSessionToken(token);
   if (!session) return null;
 
   const user = session.userId
-    ? findUserById(session.userId)
-    : findUserByUsername(session.username);
+    ? (await findUserById(session.userId)) || (await findUserByUsername(session.username))
+    : await findUserByUsername(session.username);
   if (!user || !user.active || user.role !== "ogrenci") return null;
   if (user.username.toLowerCase() !== session.username.toLowerCase()) return null;
 
@@ -56,9 +56,9 @@ export async function getStudentSessionFromCookies(): Promise<AdminSessionPayloa
   return getCurrentStudentSession(jar.get(STUDENT_SESSION_COOKIE)?.value);
 }
 
-export function getStudentSessionFromRequest(
+export async function getStudentSessionFromRequest(
   req: NextRequest
-): AdminSessionPayload | null {
+): Promise<AdminSessionPayload | null> {
   return getCurrentStudentSession(req.cookies.get(STUDENT_SESSION_COOKIE)?.value);
 }
 
@@ -67,11 +67,11 @@ export function studentSessionCookieOptions() {
 }
 
 /** Sadece aktif öğrenci hesapları giriş yapabilir (admin/doktor değil). */
-export function authenticateStudent(
+export async function authenticateStudent(
   username: string,
   password: string
-): { username: string; userId: string } | null {
-  const auth = authenticateUser(username, password);
+): Promise<{ username: string; userId: string } | null> {
+  const auth = await authenticateUser(username, password);
   if (!auth) return null;
   if (auth.user.role !== "ogrenci") return null;
   return { username: auth.user.username, userId: auth.user.id };

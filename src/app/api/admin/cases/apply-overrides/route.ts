@@ -11,7 +11,7 @@ import {
 import { getRequestId, logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   if (!session) return NextResponse.json({ error: "Yetkisiz" }, { status: 401 });
 
   const { requirePermission } = await import("@/lib/admin/permissions");

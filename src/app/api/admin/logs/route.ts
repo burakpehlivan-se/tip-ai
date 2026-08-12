@@ -8,7 +8,7 @@ import { loadLogsStore } from "@/lib/admin/store";
 import { requirePermission } from "@/lib/admin/permissions";
 
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "logs.read");
   if (denied) return denied;
 

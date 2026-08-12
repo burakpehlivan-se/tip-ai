@@ -59,33 +59,33 @@ describe("student auth", () => {
     }
   });
 
-  it("yalnızca aktif öğrenci hesapları kimlik doğrular", () => {
+  it("yalnızca aktif öğrenci hesapları kimlik doğrular", async () => {
     const student = registerStudent({ username: "ayse.ogrenci", password: "sifre123" });
-    expect(authenticateStudent("ayse.ogrenci", "sifre123")).toEqual({
+    await expect(authenticateStudent("ayse.ogrenci", "sifre123")).resolves.toEqual({
       username: student.username,
       userId: student.id,
     });
-    expect(authenticateStudent("ayse.ogrenci", "yanlis")).toBeNull();
-    expect(authenticateStudent("yok.boyle", "sifre123")).toBeNull();
+    await expect(authenticateStudent("ayse.ogrenci", "yanlis")).resolves.toBeNull();
+    await expect(authenticateStudent("yok.boyle", "sifre123")).resolves.toBeNull();
   });
 
-  it("admin/doktor hesapları öğrenci girişine kabul edilmez", () => {
+  it("admin/doktor hesapları öğrenci girişine kabul edilmez", async () => {
     createUser({ username: "dr.falan", password: "sifre123", role: "doktor", createdBy: "test" });
-    expect(authenticateStudent("dr.falan", "sifre123")).toBeNull();
+    await expect(authenticateStudent("dr.falan", "sifre123")).resolves.toBeNull();
   });
 
-  it("pasifleştirilmiş öğrenci giriş yapamaz", () => {
+  it("pasifleştirilmiş öğrenci giriş yapamaz", async () => {
     const student = registerStudent({ username: "pasif.ogrenci", password: "sifre123" });
     updateUser(student.id, { active: false }, { username: "admin" });
-    expect(authenticateStudent("pasif.ogrenci", "sifre123")).toBeNull();
+    await expect(authenticateStudent("pasif.ogrenci", "sifre123")).resolves.toBeNull();
   });
 
-  it("pasifleştirilen öğrenci mevcut oturumunu da kaybeder", () => {
+  it("pasifleştirilen öğrenci mevcut oturumunu da kaybeder", async () => {
     const student = registerStudent({ username: "oturum.pasif", password: "sifre123" });
     const token = createStudentSessionToken(student.username, student.id);
-    expect(getCurrentStudentSession(token)?.username).toBe(student.username);
+    expect((await getCurrentStudentSession(token))?.username).toBe(student.username);
 
     updateUser(student.id, { active: false }, { username: "admin" });
-    expect(getCurrentStudentSession(token)).toBeNull();
+    await expect(getCurrentStudentSession(token)).resolves.toBeNull();
   });
 });

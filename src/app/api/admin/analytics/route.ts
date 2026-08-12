@@ -8,7 +8,7 @@ import { computeAnalyticsSummary, listFeedbacks, loadCasesStore } from "@/lib/ad
 import { requirePermission } from "@/lib/admin/permissions";
 
 export async function GET(req: NextRequest) {
-  const session = getSessionFromRequest(req);
+  const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "analytics.read");
   if (denied) return denied;
 

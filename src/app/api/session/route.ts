@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
-import { findUserById, findUserByUsername } from "@/lib/admin/users";
+import { findUserById, findUserByUsername } from "@/lib/auth/runtime-user-store";
 import { getStudentSessionFromRequest } from "@/lib/student/auth";
 
 type SessionSummary = {
@@ -13,13 +13,13 @@ type SessionSummary = {
   href: string;
 };
 
-function summaryFor(
+async function summaryFor(
   session: { username: string; userId?: string; role: "admin" | "doktor" | "ogrenci" },
   href: string
-): SessionSummary {
+): Promise<SessionSummary> {
   const user = session.userId
-    ? findUserById(session.userId)
-    : findUserByUsername(session.username);
+    ? (await findUserById(session.userId)) || (await findUserByUsername(session.username))
+    : await findUserByUsername(session.username);
 
   return {
     username: user?.username || session.username,
@@ -35,13 +35,13 @@ function summaryFor(
  * asla dönmez. Yanıt önbelleğe alınmaz, böylece çıkış/pasifleştirme anında görünür.
  */
 export async function GET(req: NextRequest) {
-  const student = getStudentSessionFromRequest(req);
-  const admin = getSessionFromRequest(req);
+  const student = await getStudentSessionFromRequest(req);
+  const admin = await getSessionFromRequest(req);
 
   return NextResponse.json(
     {
-      student: student ? summaryFor(student, "/profilim") : null,
-      admin: admin ? summaryFor(admin, "/admin/panel") : null,
+      student: student ? await summaryFor(student, "/profilim") : null,
+      admin: admin ? await summaryFor(admin, "/admin/panel") : null,
     },
     { headers: { "Cache-Control": "no-store" } }
   );

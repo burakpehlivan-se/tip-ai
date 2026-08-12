@@ -100,6 +100,21 @@ yalnızca `auth_shadow_read` olayı, route, sonuç ve varsa ayrışan alan adlar
 taşır. En az bir gözlem penceresinde uyumsuzluk `0` doğrulanmadan runtime
 PostgreSQL'e geçirilmemelidir.
 
+### Runtime cutover ve geri alma
+
+Kullanıcı deposu seçiminde varsayılan `AUTH_USER_STORE=json` değeridir.
+Shadow-read gözlem penceresi temiz tamamlandıktan sonra, tek bir canary uygulama
+ortamında `AUTH_USER_STORE=postgres` ile gerçek öğrenci ve yönetim girişleri,
+oturum geçersizleştirme ve kullanıcı yönetimi doğrulanır. Canary ortamı aynı
+uygulama sürümü ve PostgreSQL migration sürümünü kullanmalıdır.
+
+Bu değer iki depoya yazmaz: seçilen depo tek doğruluk kaynağıdır. Sorun halinde
+`AUTH_USER_STORE=json` ayarlayıp uygulamayı yeniden başlatın. PostgreSQL modunda
+yeni oluşturulan ya da değiştirilen kullanıcılar JSON'a kopyalanmadığından,
+geri alma öncesinde bu değişiklikler için karar ve gerekirse dışa aktarım alın.
+Geçersiz bir `AUTH_USER_STORE` değeri sessiz fallback yerine yapılandırma hatası
+üretir.
+
 ## Üretim depolama ve yedekleme
 
 Uygulamanın kalıcı verisi JSON dosyaları olarak çalışma dizinindeki
