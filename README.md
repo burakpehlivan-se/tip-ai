@@ -66,6 +66,11 @@ adımından sonra ayrı bir sürüm olarak yapılacaktır.
   lock** kullanır; eşzamanlı deploy'lar (ör. aynı anda iki replica başlatılırsa)
   migration'ı yarıştırmaz. İkinci süreç kilit boşalıncaya kadar bekler, sonra
   migrator zaten uygulanmış migration'ları atlar (idempotent).
+- **Coolify / Nixpacks:** Dockerfile `CMD`si kullanılmıyorsa migration'ı
+  uygulama başlangıcına bırakmayın. Coolify'nın **pre-deploy** komutuna
+  `npm run db:migrate` koyun; uygulamanın start komutu `npm run start` olarak
+  kalsın. Böylece migration başarısızsa yeni sürüm trafik almadan deploy
+  başarısız olur ve loglarda ayrı olarak izlenir.
 
 ### Tek seferlik import
 
@@ -114,6 +119,11 @@ yeni oluşturulan ya da değiştirilen kullanıcılar JSON'a kopyalanmadığınd
 geri alma öncesinde bu değişiklikler için karar ve gerekirse dışa aktarım alın.
 Geçersiz bir `AUTH_USER_STORE` değeri sessiz fallback yerine yapılandırma hatası
 üretir.
+
+`GET /api/health`, JSON modunda temel canlılık yanıtı döner. PostgreSQL modunda
+ise migration journal, en az bir uygulanmış migration, `users` ve
+`auth_audit_logs` tablolarını da doğrular; herhangi biri yoksa `503` döner.
+Coolify healthcheck'i bu endpoint'e yönlendirin.
 
 ## Üretim depolama ve yedekleme
 

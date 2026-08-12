@@ -6,6 +6,7 @@
     "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
+    "db:migrate": "node scripts/standalone-migrate.mjs",
     "lint": "eslint .",
     "validate:vakalar": "npx tsx scripts/validate-vakalar.ts",
     "validate:vakalar:json": "npx tsx scripts/validate-vakalar.ts --json",
