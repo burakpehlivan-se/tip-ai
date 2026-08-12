@@ -3,6 +3,14 @@ WORKDIR /app
 COPY package.json package-lock.json* ./
 RUN npm ci
 
+FROM node:20-alpine AS prod-deps
+WORKDIR /app
+COPY package.json package-lock.json* ./
+# Migration runner ve auth, standalone trace'e girmeyen paketlere ihtiyaç duyar
+# (pg, drizzle-orm, @node-rs/argon2). Bu yüzden üretim bağımlılıkları runner'a
+# ayrıca kopyalanır.
+RUN npm ci --omit=dev
+
 FROM node:20-alpine AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
@@ -22,6 +30,9 @@ RUN adduser --system --uid 1001 nextjs
 COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
+COPY --from=prod-deps /app/node_modules ./node_modules
+COPY --from=builder /app/scripts/standalone-migrate.mjs ./scripts/standalone-migrate.mjs
+COPY --from=builder /app/drizzle ./drizzle
 
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
@@ -30,4 +41,7 @@ EXPOSE 3000
 ENV PORT=3000
 
 VOLUME ["/app/data"]
-CMD ["node", "server.js"]
+
+# Migration'ları başlatmadan önce PostgreSQL'e uygula (advisory lock ile);
+# sonra Next.js standalone server.
+CMD ["sh", "-c", "node ./scripts/standalone-migrate.mjs && node server.js"]

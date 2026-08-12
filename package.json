@@ -21,19 +21,25 @@
     "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
+    "@node-rs/argon2": "^2.0.2",
     "bcryptjs": "^3.0.3",
+    "drizzle-orm": "^0.45.2",
     "next": "^16.3.0",
     "pdfkit": "^0.19.1",
+    "pg": "^8.23.0",
     "react": "^19.2.8",
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
+    "@electric-sql/pglite": "^0.5.4",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/pdfkit": "^0.17.6",
+    "@types/pg": "^8.21.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.4",
     "autoprefixer": "^10.4.20",
+    "drizzle-kit": "^0.31.10",
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.0",
     "postcss": "^8.4.47",
