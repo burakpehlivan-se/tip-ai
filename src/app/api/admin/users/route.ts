@@ -11,13 +11,24 @@ import {
 } from "@/lib/admin/users";
 import { appendLog } from "@/lib/admin/store";
 import { AdminRole } from "@/lib/admin/types";
+import { getSessionStatsByActor } from "@/lib/student/progress";
 
 export async function GET(req: NextRequest) {
   const session = getSessionFromRequest(req);
   const denied = requirePermission(session, "users.manage");
   if (denied) return denied;
 
-  return NextResponse.json({ users: listUsersPublic() });
+  const stats = getSessionStatsByActor();
+  const users = listUsersPublic().map((u) => ({
+    ...u,
+    istatistik: stats[u.username.toLowerCase()] || {
+      vakaSayisi: 0,
+      ortalamaPuanYuzde: 0,
+      taniDogruSayi: 0,
+    },
+  }));
+
+  return NextResponse.json({ users });
 }
 
 export async function POST(req: NextRequest) {

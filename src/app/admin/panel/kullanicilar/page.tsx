@@ -6,13 +6,20 @@ import { useRouter } from "next/navigation";
 interface UserRow {
   id: string;
   username: string;
-  role: "admin" | "doktor";
+  role: "admin" | "doktor" | "ogrenci";
   displayName?: string;
   active: boolean;
   superAdmin?: boolean;
   createdAt: number;
   createdBy?: string;
+  istatistik?: { vakaSayisi: number; ortalamaPuanYuzde: number; taniDogruSayi: number };
 }
+
+const ROLE_LABEL: Record<UserRow["role"], string> = {
+  admin: "Admin",
+  doktor: "Doktor",
+  ogrenci: "Öğrenci",
+};
 
 export default function KullanicilarPage() {
   const router = useRouter();
@@ -24,7 +31,7 @@ export default function KullanicilarPage() {
   const [form, setForm] = useState({
     username: "",
     password: "",
-    role: "doktor" as "admin" | "doktor",
+    role: "doktor" as UserRow["role"],
     displayName: "",
   });
 
@@ -86,7 +93,7 @@ export default function KullanicilarPage() {
     load();
   }
 
-  async function changeRole(id: string, role: "admin" | "doktor") {
+  async function changeRole(id: string, role: UserRow["role"]) {
     setError("");
     const res = await fetch(`/api/admin/users/${encodeURIComponent(id)}`, {
       method: "PATCH",
@@ -142,7 +149,7 @@ export default function KullanicilarPage() {
       <div>
         <h1 className="text-2xl font-semibold tracking-tight text-ink">Kullanıcılar</h1>
         <p className="mt-1 text-sm text-steel">
-          Admin: tam yetki · Doktor: vaka düzenleme ve onay ·{" "}
+          Admin: tam yetki · Doktor: vaka düzenleme ve onay · Öğrenci: vaka çözer (panel erişimi yok) ·{" "}
           <strong className="text-ink">Süper admin</strong> (bootstrap) yetkileri kilitlidir
         </p>
       </div>
@@ -199,12 +206,11 @@ export default function KullanicilarPage() {
             <select
               className="input w-full"
               value={form.role}
-              onChange={(e) =>
-                setForm({ ...form, role: e.target.value as "admin" | "doktor" })
-              }
+              onChange={(e) => setForm({ ...form, role: e.target.value as UserRow["role"] })}
             >
               <option value="doktor">Doktor — vaka düzenle / onayla</option>
               <option value="admin">Admin — tam yetki</option>
+              <option value="ogrenci">Öğrenci — vaka çözer</option>
             </select>
           </div>
         </div>
@@ -237,13 +243,19 @@ export default function KullanicilarPage() {
                   )}
                 </div>
                 <div className="text-[11px] text-muted">
-                  {locked ? "Süper Admin (kilitli)" : u.role === "admin" ? "Admin" : "Doktor"}
+                  {locked ? "Süper Admin (kilitli)" : ROLE_LABEL[u.role]}
                   {u.active ? "" : " · pasif"}
                   {u.createdBy ? ` · ekleyen: ${u.createdBy}` : ""}
                   {" · "}
                   {new Date(u.createdAt).toLocaleDateString("tr-TR")}
                   {locked && " · rol/silme korumalı"}
                 </div>
+                {u.role === "ogrenci" && u.istatistik && u.istatistik.vakaSayisi > 0 && (
+                  <div className="mt-1 text-[11px] text-steel">
+                    {u.istatistik.vakaSayisi} vaka · ort. %{u.istatistik.ortalamaPuanYuzde} ·{" "}
+                    {u.istatistik.taniDogruSayi} doğru tanı
+                  </div>
+                )}
               </div>
               <div className="flex flex-wrap items-center gap-2">
                 {locked ? (
@@ -267,12 +279,11 @@ export default function KullanicilarPage() {
                     <select
                       className="input text-xs py-1"
                       value={u.role}
-                      onChange={(e) =>
-                        changeRole(u.id, e.target.value as "admin" | "doktor")
-                      }
+                      onChange={(e) => changeRole(u.id, e.target.value as UserRow["role"])}
                     >
                       <option value="doktor">Doktor</option>
                       <option value="admin">Admin</option>
+                      <option value="ogrenci">Öğrenci</option>
                     </select>
                     <button
                       type="button"
