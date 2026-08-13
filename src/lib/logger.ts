@@ -1,4 +1,5 @@
 type LogLevel = "info" | "warn" | "error";
+const REQUEST_ID_PATTERN = /^[A-Za-z0-9._-]{1,128}$/;
 
 interface LogEntry {
   ts: string;
@@ -29,7 +30,11 @@ function emit(level: LogLevel, msg: string, meta?: Record<string, unknown>): voi
 
 /** Returns an existing correlation id, or creates one for the current request. */
 export function getRequestId(request: Pick<Request, "headers">): string {
-  return request.headers.get("x-request-id")?.trim() || crypto.randomUUID();
+  const incoming = request.headers.get("x-request-id")?.trim();
+  // Request id loglarda yer aldığı için kontrol karakterleri, aşırı uzun
+  // değerler veya serbest metin kabul edilmez. Geçersiz kimlik yeni bir UUID
+  // ile değiştirilir; istemci route logunu zehirleyemez.
+  return incoming && REQUEST_ID_PATTERN.test(incoming) ? incoming : crypto.randomUUID();
 }
 
 export const logger = {

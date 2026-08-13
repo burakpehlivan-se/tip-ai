@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { getRequestId } from "@/lib/logger";
 import { validateMutationOrigin } from "@/lib/security/request-origin";
 import { exceedsApiMutationBodyLimit } from "@/lib/security/request-size";
 
@@ -8,13 +9,15 @@ import { exceedsApiMutationBodyLimit } from "@/lib/security/request-size";
  * daha route'a ulaşmadan engeller.
  */
 export function proxy(request: NextRequest) {
+  const requestId = getRequestId(request);
+  const responseHeaders = { "Cache-Control": "no-store", "X-Request-Id": requestId };
   if (
     ["POST", "PUT", "PATCH", "DELETE"].includes(request.method.toUpperCase()) &&
     exceedsApiMutationBodyLimit(request.headers.get("content-length"))
   ) {
     return NextResponse.json(
       { error: "İstek gövdesi izin verilen boyutu aşıyor." },
-      { status: 413, headers: { "Cache-Control": "no-store" } }
+      { status: 413, headers: responseHeaders }
     );
   }
 
@@ -27,10 +30,14 @@ export function proxy(request: NextRequest) {
   if (decision === "reject") {
     return NextResponse.json(
       { error: "Geçersiz istek kaynağı." },
-      { status: 403, headers: { "Cache-Control": "no-store" } }
+      { status: 403, headers: responseHeaders }
     );
   }
-  return NextResponse.next();
+  const forwardedHeaders = new Headers(request.headers);
+  forwardedHeaders.set("x-request-id", requestId);
+  const response = NextResponse.next({ request: { headers: forwardedHeaders } });
+  response.headers.set("x-request-id", requestId);
+  return response;
 }
 
 export const config = {

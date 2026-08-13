@@ -19,5 +19,6 @@ describe("logger", () => {
   it("uses an incoming request id and creates one when absent", () => {
     expect(getRequestId(new Request("https://example.test", { headers: { "x-request-id": "request-42" } }))).toBe("request-42");
     expect(getRequestId(new Request("https://example.test"))).toMatch(/^[0-9a-f-]{36}$/);
+    expect(getRequestId(new Request("https://example.test", { headers: { "x-request-id": "a".repeat(129) } }))).toMatch(/^[0-9a-f-]{36}$/);
   });
 });
