@@ -58,16 +58,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (dryRun) {
-      return NextResponse.json({
-        ok: true,
-        dryRun: true,
-        count: docs.length,
-        validations,
-        previewIds: docs.map((d) => d.id),
-      });
-    }
-
     const store = loadCasesStore();
     const existingIds = new Set(store.cases.map((c) => c.id));
     const imported: string[] = [];
@@ -75,6 +65,32 @@ export async function POST(req: NextRequest) {
     const skipped: string[] = [];
 
     const adminCases = docs.map((d) => cdmToAdminVaka(d));
+
+    const plan = adminCases.map((av) => ({
+      id: av.id,
+      action: !existingIds.has(av.id)
+        ? "create"
+        : overwrite
+          ? "update"
+          : "conflict",
+      currentVersion: store.cases.find((caseItem) => caseItem.id === av.id)?.surum ?? null,
+    }));
+
+    if (dryRun) {
+      return NextResponse.json({
+        ok: true,
+        dryRun: true,
+        count: docs.length,
+        validations,
+        previewIds: docs.map((d) => d.id),
+        plan,
+        summary: {
+          create: plan.filter((item) => item.action === "create").length,
+          update: plan.filter((item) => item.action === "update").length,
+          conflict: plan.filter((item) => item.action === "conflict").length,
+        },
+      });
+    }
 
     for (const av of adminCases) {
       if (existingIds.has(av.id)) {

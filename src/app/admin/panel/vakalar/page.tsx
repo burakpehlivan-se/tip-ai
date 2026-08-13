@@ -230,9 +230,14 @@ export default function AdminVakalarPage() {
           0
         ) || 0;
       if (dryRun) {
-        setMsg(`Doğrulama OK · ${data.count} belge · ${warnCount} uyarı`);
+        const summary = data.summary || {};
+        setMsg(`Doğrulama OK · ${data.count} belge · +${summary.create || 0} yeni · ${summary.update || 0} güncelleme · ${summary.conflict || 0} çakışma · ${warnCount} uyarı`);
         setCdmReport(
-          (data.previewIds || []).map((id: string) => `• ${id}`).join("\n") +
+          (data.plan || data.previewIds || []).map((item: { id?: string; action?: string } | string) => {
+            if (typeof item === "string") return `• ${item}`;
+            const label = item.action === "create" ? "EKLENECEK" : item.action === "update" ? "GÜNCELLENECEK" : "ÇAKIŞMA";
+            return `• [${label}] ${item.id}`;
+          }).join("\n") +
             (warnCount
               ? `\n\nUyarılar: ${data.validations
                   ?.flatMap((v: { warnings?: { message: string }[] }) =>
