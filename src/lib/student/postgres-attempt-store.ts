@@ -3,6 +3,7 @@ import { getDb } from "@/lib/auth/db";
 import { learningAttempts } from "@/lib/auth/schema";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 import { loadCasesStore, recordPlaySession } from "@/lib/admin/store";
+import type { AdminVaka } from "@/lib/admin/types";
 import { getLabResult } from "@/lib/lab-motor";
 import { degerlendir } from "@/lib/scoring/degerlendir";
 import type { DegerlendirmeSonuc, TestSonucu, Vaka } from "@/lib/types";
@@ -90,18 +91,18 @@ export async function startPostgresStudentAttempt(studentId: string, poliklinikK
   );
   const template = candidates[Math.floor(Math.random() * candidates.length)];
   if (!template) return null;
-  return insertAttempt(studentId, template.id, template.poliklinikKey);
+  return insertAttempt(studentId, template);
 }
 
-export async function startPostgresAssignedAttempt(studentId: string, assignmentId: string, caseId: string): Promise<PublicAttemptCase | null> {
-  const template = loadCasesStore().cases.find((item) => item.id === caseId && item.durum === "aktif");
-  if (!template) return null;
-  return insertAttempt(studentId, template.id, template.poliklinikKey, assignmentId);
+export async function startPostgresAssignedAttempt(
+  studentId: string,
+  assignmentId: string,
+  template: AdminVaka
+): Promise<PublicAttemptCase | null> {
+  return insertAttempt(studentId, template, assignmentId);
 }
 
-async function insertAttempt(studentId: string, caseId: string, poliklinikKey: string, assignmentId?: string) {
-  const template = loadCasesStore().cases.find((item) => item.id === caseId);
-  if (!template) return null;
+async function insertAttempt(studentId: string, template: AdminVaka, assignmentId?: string) {
   const vaka = adminVakaToPlayable(template);
   const now = new Date();
   const db = getDb();
@@ -110,9 +111,9 @@ async function insertAttempt(studentId: string, caseId: string, poliklinikKey: s
     .values({
       studentId,
       assignmentId: assignmentId ?? null,
-      caseId,
+      caseId: template.id,
       caseVersion: vaka.sourceCaseVersion ? String(vaka.sourceCaseVersion) : null,
-      poliklinikKey,
+      poliklinikKey: template.poliklinikKey,
       caseSnapshot: vaka,
       askedActions: [],
       requestedTests: [],

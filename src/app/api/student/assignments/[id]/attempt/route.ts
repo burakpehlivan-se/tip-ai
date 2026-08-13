@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCaseById } from "@/lib/admin/store";
+import { getCaseById, getPublishedCaseVersion } from "@/lib/admin/store";
 import { JsonStoreReadError } from "@/lib/admin/json-store";
 import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
 import { getAssignmentForStudent } from "@/lib/learning/cohort-store";
@@ -39,12 +39,27 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const resolved = await assignmentForRequest(req, id);
   if ("response" in resolved) return resolved.response;
 
-  const caseItem = getCaseById(resolved.assignment.caseId);
-  if (!caseItem || caseItem.durum !== "aktif" || String(caseItem.surum) !== resolved.assignment.caseVersion) {
-    return NextResponse.json({ error: "Bu atama güncel vaka sürümüyle artık kullanılamıyor. Eğitmeninizle görüşün." }, { status: 409 });
+  const version = Number(resolved.assignment.caseVersion);
+  const currentCase = getCaseById(resolved.assignment.caseId);
+  const published = Number.isSafeInteger(version)
+    ? getPublishedCaseVersion(resolved.assignment.caseId, version)
+    : undefined;
+  // Arşiv/geri çekme yeni denemeleri kapatır. Bunun dışındaki içerik
+  // düzenlemeleri öğrencinin atandığı onaylı sürümü değiştiremez.
+  if (currentCase?.durum === "arsiv") {
+    return NextResponse.json({ error: "Bu vaka geri çekildiği için yeni deneme başlatılamaz. Eğitmeninizle görüşün." }, { status: 409 });
+  }
+  const template = published?.content;
+  if (!template && (!currentCase || currentCase.durum !== "aktif" || String(currentCase.surum) !== resolved.assignment.caseVersion)) {
+    return NextResponse.json({ error: "Bu atamanın sürüm kaydı bulunamadı. Eğitmeninizle görüşün." }, { status: 409 });
   }
   try {
-    const vaka = await startAssignedStudentAttempt(resolved.session.username, id, caseItem.id, resolved.session.userId);
+    const vaka = await startAssignedStudentAttempt(
+      resolved.session.username,
+      id,
+      template || currentCase!,
+      resolved.session.userId
+    );
     if (!vaka) return NextResponse.json({ error: "Atanan vaka şu anda kullanılamıyor." }, { status: 409 });
     return NextResponse.json({ vaka }, { status: 201 });
   } catch (error) {

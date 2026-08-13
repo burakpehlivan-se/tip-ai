@@ -2,6 +2,7 @@ import crypto from "crypto";
 import path from "path";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 import { loadCasesStore } from "@/lib/admin/store";
+import type { AdminVaka } from "@/lib/admin/types";
 import { adminDataDir } from "@/lib/admin/paths";
 import { readJsonOrRecover, withJsonStoreLock, writeJsonAtomic } from "@/lib/admin/json-store";
 import type { DegerlendirmeSonuc, TestSonucu, Vaka } from "@/lib/types";
@@ -173,17 +174,15 @@ function createAttemptFromTemplate(
 export function startAssignedStudentAttempt(
   actor: string,
   assignmentId: string,
-  caseId: string,
+  template: AdminVaka,
   studentId?: string
 ): Promise<PublicAttemptCase | null> {
   assertSupportedAttemptStore(actor);
   if (shouldUsePostgresAttemptStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
-    return startPostgresAssignedAttempt(studentId, assignmentId, caseId);
+    return startPostgresAssignedAttempt(studentId, assignmentId, template);
   }
   return withJsonStoreLock(() => {
-    const template = loadCasesStore().cases.find((item) => item.id === caseId && item.durum === "aktif");
-    if (!template) return null;
     return createAttemptFromTemplate(actor, template, template.poliklinikKey, assignmentId);
   });
 }

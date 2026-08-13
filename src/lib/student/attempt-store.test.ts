@@ -2,6 +2,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import fs from "fs";
 import os from "os";
 import path from "path";
+import { loadCasesStore } from "@/lib/admin/store";
 import {
   answerStudentAttempt,
   completeStudentAttempt,
@@ -73,12 +74,16 @@ describe("student attempt store", () => {
   });
 
   it("atanan vakayı ayrı bir oturumla başlatır ve yalnızca aynı atamadan sürdürür", async () => {
+    const template = loadCasesStore().cases.find((item) => item.id === "kardiyoloji::stemi");
+    expect(template).toBeDefined();
+    const lockedVersion = { ...structuredClone(template!), anaSikayet: "Kilitlemiş atama sürümü" };
     const vaka = await startAssignedStudentAttempt(
       "ogrenci.atama",
       "assignment-1",
-      "kardiyoloji::stemi"
+      lockedVersion
     );
     expect(vaka).not.toBeNull();
+    expect(vaka?.hasta.anaSikayet).toBe("Kilitlemiş atama sürümü");
     await answerStudentAttempt(vaka!.id, "ogrenci.atama", "VITAL_TANSIYON");
 
     const resumed = await getActiveStudentAttemptForAssignment("ogrenci.atama", "assignment-1");
