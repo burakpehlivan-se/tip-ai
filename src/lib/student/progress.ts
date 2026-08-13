@@ -30,6 +30,23 @@ export interface UserSessionStats {
   taniDogruSayi: number;
 }
 
+export type StudentLearningExport = {
+  generatedAt: string;
+  summary: StudentProgress;
+  /**
+   * Kullanıcının tamamladığı öğrenme kayıtları. Kimlik eşlemesi (`actor`) ve
+   * vaka/rubrik gövdesi dışarıda bırakılır; bu indirme kişisel öğrenme
+   * verisinin taşınabilir bir kopyasıdır, içerik export'u değildir.
+   */
+  completedCaseRecords: Array<Omit<PlaySession, "actor">>;
+};
+
+function studentSessions(username: string): PlaySession[] {
+  return loadAnalytics().sessions.filter(
+    (session) => session.mode === "ogrenci" && session.actor.toLowerCase() === username.toLowerCase()
+  );
+}
+
 /** Tüm kullanıcıların (actor bazında) oturum istatistikleri — admin paneli için */
 export function getSessionStatsByActor(): Record<string, UserSessionStats> {
   const acc = new Map<string, { vakaSayisi: number; puanToplami: number; taniDogruSayi: number }>();
@@ -53,9 +70,7 @@ export function getSessionStatsByActor(): Record<string, UserSessionStats> {
 }
 
 export function getStudentProgress(username: string): StudentProgress {
-  const sessions = loadAnalytics().sessions.filter(
-    (s) => s.mode === "ogrenci" && s.actor.toLowerCase() === username.toLowerCase()
-  );
+  const sessions = studentSessions(username);
 
   const puanYuzdeleri = sessions
     .filter((s) => s.maxPuan > 0)
@@ -93,5 +108,20 @@ export function getStudentProgress(username: string): StudentProgress {
     toplamAtlananRedFlag: sessions.reduce((acc, s) => acc + (s.atlananRedFlagler?.length || 0), 0),
     poliklinikler,
     son20: sessions.slice(0, 20),
+  };
+}
+
+/**
+ * İlgili kişi erişim/taşınabilirlik akışı için yalnızca kendi tamamlanmış
+ * öğrenme kayıtlarını üretir. Ham vaka içeriği, aktif taslaklar ve serbest
+ * metinler dışa aktarılmaz; bunlar ayrı retention ve doğrulama politikasına
+ * tabidir.
+ */
+export function buildStudentLearningExport(username: string, now = new Date()): StudentLearningExport {
+  const sessions = studentSessions(username);
+  return {
+    generatedAt: now.toISOString(),
+    summary: getStudentProgress(username),
+    completedCaseRecords: sessions.map(({ actor: _actor, ...session }) => ({ ...session })),
   };
 }

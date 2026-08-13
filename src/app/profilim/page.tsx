@@ -50,6 +50,8 @@ export default function ProfilimPage() {
   const [sessionsAvailable, setSessionsAvailable] = useState(false);
   const [sessionBusy, setSessionBusy] = useState<string | null>(null);
   const [sessionMessage, setSessionMessage] = useState("");
+  const [exportBusy, setExportBusy] = useState(false);
+  const [exportMessage, setExportMessage] = useState("");
   const [hata, setHata] = useState("");
 
   useEffect(() => {
@@ -129,6 +131,29 @@ export default function ProfilimPage() {
       setSessionMessage(error instanceof Error ? error.message : "Oturumlar kapatılamadı.");
     } finally {
       setSessionBusy(null);
+    }
+  }
+
+  async function downloadPersonalData() {
+    setExportBusy(true);
+    setExportMessage("");
+    try {
+      const response = await fetch("/api/student/data-export", { cache: "no-store" });
+      if (!response.ok) throw await responseError(response, "Veri kopyası hazırlanamadı.");
+      const blob = await response.blob();
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "tip-ai-kisisel-veri.json";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => window.URL.revokeObjectURL(url), 0);
+      setExportMessage("Kişisel öğrenme verileriniz indirildi.");
+    } catch (error) {
+      setExportMessage(error instanceof Error ? error.message : "Veri kopyası hazırlanamadı.");
+    } finally {
+      setExportBusy(false);
     }
   }
 
@@ -236,6 +261,40 @@ export default function ProfilimPage() {
             )}
           </section>
         )}
+
+        <section className="mb-10" aria-labelledby="veri-ve-gizlilik">
+          <div className="card border-hairline">
+            <div className="flex flex-col gap-5 sm:flex-row sm:items-end sm:justify-between">
+              <div className="max-w-2xl">
+                <h2 id="veri-ve-gizlilik" className="text-xl font-semibold text-ink">Veri ve gizlilik</h2>
+                <p className="mt-2 text-sm leading-6 text-steel">
+                  Profiliniz ve tamamlanmış vaka sonuçlarınızın size ait kopyasını indirebilirsiniz. Parola, oturum bilgileri,
+                  tam vaka/rubrik içeriği ve aktif serbest metin taslakları bu dosyaya eklenmez.
+                </p>
+                <p className="mt-2 text-xs leading-5 text-muted">
+                  Bu indirme yalnızca kişisel veri kopyası içindir; hesap veya eğitim kaydı silme işlemi başlatmaz.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void downloadPersonalData()}
+                disabled={exportBusy}
+                className="btn-secondary shrink-0 justify-center disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {exportBusy ? "Hazırlanıyor…" : "Verilerimin kopyasını indir"}
+              </button>
+            </div>
+            {exportMessage && (
+              <p
+                role="status"
+                aria-live="polite"
+                className={`mt-4 text-sm ${exportMessage.includes("indirildi") ? "text-brand-deep" : "text-clinical-red"}`}
+              >
+                {exportMessage}
+              </p>
+            )}
+          </div>
+        </section>
 
         {p && (
           <>

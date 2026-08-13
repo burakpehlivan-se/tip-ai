@@ -7,7 +7,7 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tip-ai-progress-test-"));
 const oldCwd = process.cwd();
 const oldPassword = process.env.ADMIN_PASSWORD;
 
-import { getStudentProgress } from "./progress";
+import { buildStudentLearningExport, getStudentProgress } from "./progress";
 import { recordPlaySession } from "@/lib/admin/store";
 import { registerStudent } from "@/lib/admin/users";
 
@@ -111,5 +111,15 @@ describe("getStudentProgress", () => {
   it("kullanıcı adını büyük/küçük harf duyarsız eşleştirir", () => {
     const p = getStudentProgress("ALI.VELI");
     expect(p.toplamVaka).toBe(3);
+  });
+
+  it("öğrenci export'unda yalnızca sahibinin tamamlanmış kayıtları bulunur", () => {
+    const exported = buildStudentLearningExport("ali.veli", new Date("2026-08-13T12:00:00.000Z"));
+
+    expect(exported.generatedAt).toBe("2026-08-13T12:00:00.000Z");
+    expect(exported.summary.username).toBe("ali.veli");
+    expect(exported.completedCaseRecords).toHaveLength(3);
+    expect(exported.completedCaseRecords.every((record) => !("actor" in record))).toBe(true);
+    expect(exported.completedCaseRecords.every((record) => record.mode === "ogrenci")).toBe(true);
   });
 });

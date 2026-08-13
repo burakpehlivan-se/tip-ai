@@ -21,7 +21,8 @@ export type AuthEvent =
   | "user_created"
   | "user_deleted"
   | "session_revoked"
-  | "sessions_revoked_all";
+  | "sessions_revoked_all"
+  | "student_data_exported";
 
 export interface RecordAuthEventInput {
   event: AuthEvent;

@@ -246,7 +246,8 @@ export type AuditAction =
   | "delete_user"
   | "register_student"
   | "student_login"
-  | "user_login";
+  | "user_login"
+  | "student_data_exported";
 
 export interface AuditPatch {
   path: string;
