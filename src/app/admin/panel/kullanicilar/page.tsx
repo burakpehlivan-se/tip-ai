@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 
 interface UserRow {
@@ -33,6 +33,9 @@ export default function KullanicilarPage() {
   const [users, setUsers] = useState<UserRow[]>([]);
   const [recentLogins, setRecentLogins] = useState<RecentLogin[]>([]);
   const [meUsername, setMeUsername] = useState("");
+  const [query, setQuery] = useState("");
+  const [roleFilter, setRoleFilter] = useState<"all" | UserRow["role"]>("all");
+  const [activityFilter, setActivityFilter] = useState<"all" | "active" | "inactive">("all");
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
   const [loading, setLoading] = useState(true);
@@ -73,6 +76,32 @@ export default function KullanicilarPage() {
       .then((d) => setMeUsername(d.username || ""))
       .catch(() => {});
   }, [load]);
+
+  const latestLoginByUsername = useMemo(() => {
+    const result = new Map<string, RecentLogin>();
+    for (const login of recentLogins) {
+      const key = login.username.toLowerCase();
+      const current = result.get(key);
+      if (!current || login.createdAt > current.createdAt) result.set(key, login);
+    }
+    return result;
+  }, [recentLogins]);
+
+  const filteredUsers = useMemo(() => {
+    const normalizedQuery = query.trim().toLocaleLowerCase("tr-TR");
+    return users.filter((user) => {
+      const matchesQuery =
+        !normalizedQuery ||
+        user.username.toLocaleLowerCase("tr-TR").includes(normalizedQuery) ||
+        user.displayName?.toLocaleLowerCase("tr-TR").includes(normalizedQuery);
+      const matchesRole = roleFilter === "all" || user.role === roleFilter;
+      const matchesActivity =
+        activityFilter === "all" || (activityFilter === "active" ? user.active : !user.active);
+      return matchesQuery && matchesRole && matchesActivity;
+    });
+  }, [activityFilter, query, roleFilter, users]);
+
+  const activeUserCount = useMemo(() => users.filter((user) => user.active).length, [users]);
 
   async function onCreate(e: FormEvent) {
     e.preventDefault();
@@ -162,9 +191,9 @@ export default function KullanicilarPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="text-2xl font-semibold tracking-tight text-ink">Kullanıcılar</h1>
+        <h1 className="text-2xl font-semibold tracking-tight text-ink">Kullanıcı yönetimi</h1>
         <p className="mt-1 text-sm text-steel">
-          Admin: tam yetki · Doktor: vaka düzenleme ve onay · Öğrenci: vaka çözer (panel erişimi yok) ·{" "}
+          Hesapları oluşturun, rol ve erişim durumlarını yönetin, şifreleri sıfırlayın ve son girişleri takip edin. ·{" "}
           <strong className="text-ink">Süper admin</strong> (bootstrap) yetkileri kilitlidir
         </p>
       </div>
@@ -263,13 +292,51 @@ export default function KullanicilarPage() {
       </section>
 
       <div className="rounded-xl border border-hairline bg-canvas overflow-hidden">
-        <div className="border-b border-hairline px-4 py-3 text-sm font-semibold text-ink">
-          Kayıtlı kullanıcılar ({users.length})
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-3">
+          <div>
+            <h2 className="text-sm font-semibold text-ink">Kayıtlı kullanıcılar ({users.length})</h2>
+            <p className="mt-0.5 text-xs text-steel">{activeUserCount} aktif hesap</p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2" aria-label="Kullanıcı filtreleri">
+            <label className="sr-only" htmlFor="user-search">Kullanıcı ara</label>
+            <input
+              id="user-search"
+              className="input w-44 text-xs"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="Ad veya kullanıcı adı"
+              type="search"
+            />
+            <label className="sr-only" htmlFor="user-role-filter">Role göre filtrele</label>
+            <select
+              id="user-role-filter"
+              className="input text-xs"
+              value={roleFilter}
+              onChange={(event) => setRoleFilter(event.target.value as typeof roleFilter)}
+            >
+              <option value="all">Tüm roller</option>
+              <option value="admin">Admin</option>
+              <option value="doktor">Doktor</option>
+              <option value="ogrenci">Öğrenci</option>
+            </select>
+            <label className="sr-only" htmlFor="user-status-filter">Duruma göre filtrele</label>
+            <select
+              id="user-status-filter"
+              className="input text-xs"
+              value={activityFilter}
+              onChange={(event) => setActivityFilter(event.target.value as typeof activityFilter)}
+            >
+              <option value="all">Tüm durumlar</option>
+              <option value="active">Aktif</option>
+              <option value="inactive">Pasif</option>
+            </select>
+          </div>
         </div>
         <div className="divide-y divide-hairline-soft">
-          {users.map((u) => {
+          {filteredUsers.map((u) => {
             const locked = !!u.superAdmin;
             const isSelf = meUsername.toLowerCase() === u.username.toLowerCase();
+            const latestLogin = latestLoginByUsername.get(u.username.toLowerCase());
             return (
             <div
               key={u.id}
@@ -292,6 +359,9 @@ export default function KullanicilarPage() {
                   {" · "}
                   {new Date(u.createdAt).toLocaleDateString("tr-TR")}
                   {locked && " · rol/silme korumalı"}
+                </div>
+                <div className="mt-1 text-[11px] text-steel">
+                  Son giriş: {latestLogin ? new Date(latestLogin.createdAt).toLocaleString("tr-TR") : "kayıt yok"}
                 </div>
                 {u.role === "ogrenci" && u.istatistik && u.istatistik.vakaSayisi > 0 && (
                   <div className="mt-1 text-[11px] text-steel">
@@ -357,6 +427,9 @@ export default function KullanicilarPage() {
           })}
           {users.length === 0 && (
             <p className="p-4 text-sm text-muted">Henüz kullanıcı yok.</p>
+          )}
+          {users.length > 0 && filteredUsers.length === 0 && (
+            <p className="p-4 text-sm text-muted">Bu filtrelere uyan kullanıcı yok.</p>
           )}
         </div>
       </div>
