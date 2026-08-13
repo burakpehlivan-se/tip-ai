@@ -1,0 +1,23 @@
+# Yerel bağımlılıklar ve Next build çıktısı Dockerfile içindeki temiz aşamalarda
+# yeniden üretilir. Bunları build context'e göndermek Coolify deploylarını
+# gereksiz yere yüzlerce MB büyütür.
+node_modules
+.next
+
+# Çalışma zamanı verisi volume üzerinden gelir; imajın parçası olmamalıdır.
+data
+
+# Kaynak kontrolü, yerel araçlar, test/artifact çıktıları ve gizli yapılandırma.
+.git
+.agents
+.codex
+coverage
+reports
+*.log
+.env
+.env.*
+!.env.example
+
+# Platform / editör kalıntıları
+.DS_Store
+*.tsbuildinfo
