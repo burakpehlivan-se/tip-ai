@@ -5,6 +5,7 @@ const navigationItems = [
   { href: "/vakalar", label: "Vakalar" },
   { href: "/hakkinda", label: "Nasıl çalışır?" },
   { href: "/doktorlar", label: "Doktorlar" },
+  { href: "/gizlilik", label: "Gizlilik" },
 ];
 
 export default function HomePage() {
