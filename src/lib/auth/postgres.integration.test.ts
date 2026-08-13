@@ -22,7 +22,7 @@ import { runMigrations } from "./migrate";
 import { importUsersFromFile } from "../../../scripts/import-users";
 import { hashPassword, verifyPassword, needsRehash, versionLegacyHash } from "./password";
 import { getDb, resetDbForTests } from "./db";
-import { authSessions, users } from "./schema";
+import { authSessions, learningAttempts, users } from "./schema";
 import { authenticateUser, createUser, findUserByUsername, updateUser } from "./user-store";
 import { createAuthSession, isAuthSessionActive, revokeAuthSession } from "./session-store";
 import { eq } from "drizzle-orm";
@@ -41,9 +41,11 @@ const describePg = TEST_URL ? describe : describe.skip;
 async function dropAll(): Promise<void> {
   const pool = new Pool({ connectionString: TEST_URL! });
   try {
+    await pool.query(`DROP TABLE IF EXISTS learning_attempts CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS auth_audit_logs CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS users CASCADE`);
     await pool.query(`DROP TYPE IF EXISTS user_role CASCADE`);
+    await pool.query(`DROP TYPE IF EXISTS learning_attempt_status CASCADE`);
     await pool.query(`DROP SCHEMA IF EXISTS drizzle CASCADE`);
   } finally {
     await pool.end();
@@ -77,6 +79,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       expect(names).toContain("users");
       expect(names).toContain("auth_audit_logs");
       expect(names).toContain("auth_sessions");
+      expect(names).toContain("learning_attempts");
 
       const { rows: enumRows } = await pool.query(
         `SELECT typname FROM pg_type WHERE typname = 'user_role'`
@@ -94,7 +97,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       const { rows } = await pool.query(
         `SELECT COUNT(*)::int AS n FROM drizzle.__drizzle_migrations`
       );
-      expect(rows[0].n).toBe(2);
+      expect(rows[0].n).toBe(3);
     } finally {
       await pool.end();
     }
@@ -211,6 +214,31 @@ describePg("PostgreSQL 16 entegrasyon", () => {
 
     await revokeAuthSession(session.id);
     expect(await isAuthSessionActive({ id: session.id, userId: user.id, role: user.role })).toBe(false);
+  });
+
+  it("P2 deneme tablosu sürüm-kilitli gövde ve durum alanlarını saklar", async () => {
+    const user = await createUser({
+      username: "deneme.ogrenci",
+      password: "sifre123",
+      role: "ogrenci",
+      createdBy: "admin",
+    });
+    const db = getDb();
+    const [attempt] = await db
+      .insert(learningAttempts)
+      .values({
+        studentId: user.id,
+        caseId: "acil::gogus-agrisi",
+        caseVersion: "3",
+        poliklinikKey: "acil",
+        status: "active",
+        caseSnapshot: { version: 3, checksum: "fixture" },
+        askedActions: [],
+        requestedTests: [],
+      })
+      .returning();
+    expect(attempt.status).toBe("active");
+    expect(attempt.caseSnapshot).toEqual({ version: 3, checksum: "fixture" });
   });
 
   it("hash fonksiyonları uçtan uca çalışır (argon2 üret + doğrula)", async () => {

@@ -15,6 +15,13 @@
       "when": 1786601518147,
       "tag": "0001_goofy_titanium_man",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1786603384775,
+      "tag": "0002_hard_thunderbolt",
+      "breakpoints": true
     }
   ]
 }

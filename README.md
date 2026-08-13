@@ -136,6 +136,16 @@ aktiflik değişikliği açık PostgreSQL oturumlarını derhal iptal eder. Bu �
 `0001_goofy_titanium_man` migration'ını gerektirir; cutover öncesinde
 `npm run db:migrate` ile uygulanmalıdır.
 
+### P2 deneme deposu geçişi
+
+`learning_attempts` şeması, öğrenci denemelerini PostgreSQL'e taşımak için
+yalnızca **expand** adımıdır. Mevcut runtime hâlâ JSON deneme deposunu kullanır;
+bu sürüm veri aktarımı, dual-write veya guest denemelerinin PostgreSQL'e
+taşınmasını yapmaz. Sonraki adım, doğrulanabilir bir JSON envanteri/importu ve
+feature-flag ile yalnızca giriş yapmış öğrenci denemelerinin canary geçişidir.
+Her kayıt başladığı andaki vaka/rubrik gövdesini JSONB olarak kilitler; içerik
+sonradan değişse bile geçmiş değerlendirme yeniden yazılmaz.
+
 ## Üretim depolama ve yedekleme
 
 Uygulamanın kalıcı verisi JSON dosyaları olarak çalışma dizinindeki
