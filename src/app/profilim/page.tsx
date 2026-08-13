@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { StudentProgress } from "@/lib/student/progress";
 import { StudentPerformanceInsights } from "@/lib/student/performance-insights";
+import type { NextCaseRecommendation } from "@/lib/student/next-case-recommendation";
 
 type MeInfo = { username: string; displayName: string };
 
@@ -13,6 +14,7 @@ export default function ProfilimPage() {
   const [me, setMe] = useState<MeInfo | null>(null);
   const [progress, setProgress] = useState<StudentProgress | null>(null);
   const [insights, setInsights] = useState<StudentPerformanceInsights | null>(null);
+  const [recommendation, setRecommendation] = useState<NextCaseRecommendation | null>(null);
   const [hata, setHata] = useState("");
 
   useEffect(() => {
@@ -31,6 +33,7 @@ export default function ProfilimPage() {
           return Promise.all([
             fetch("/api/student/progress", { cache: "no-store" }).then((r) => r.json()),
             fetch("/api/student/performance", { cache: "no-store" }).then((r) => r.json()),
+            fetch("/api/student/next-case", { cache: "no-store" }).then((r) => r.json()),
           ]);
         }
         return null;
@@ -39,6 +42,7 @@ export default function ProfilimPage() {
         if (!data) return;
         if (data[0]?.progress) setProgress(data[0].progress);
         if (data[1]?.insights) setInsights(data[1].insights);
+        if (data[2]?.recommendation) setRecommendation(data[2].recommendation);
       })
       .catch(() => setHata("İlerleme yüklenemedi."));
   }, [router]);
@@ -120,6 +124,33 @@ export default function ProfilimPage() {
                 </div>
               </div>
             </div>
+
+            {recommendation && (
+              <section className="mb-10" aria-labelledby="sonraki-vaka-onerisi">
+                <div className="card border-brand/30">
+                  <div className="flex flex-col items-start justify-between gap-5 sm:flex-row sm:items-end">
+                    <div className="max-w-2xl">
+                      <span className="badge badge-brand">Önerilen çalışma</span>
+                      <h2 id="sonraki-vaka-onerisi" className="mt-3 text-xl font-semibold text-ink">
+                        {recommendation.poliklinikAd} odağında bir sonraki vaka
+                      </h2>
+                      <p className="mt-2 text-sm text-steel">{recommendation.reason}</p>
+                      <p className="mt-3 text-xs text-muted">
+                        Bu bir öneridir; dilersen başka bir poliklinik veya vaka seçebilirsin.
+                      </p>
+                    </div>
+                    <div className="flex w-full shrink-0 flex-col gap-2 sm:w-auto sm:min-w-48">
+                      <Link href={`/poliklinik/${recommendation.poliklinikKey}`} className="btn-primary justify-center">
+                        Önerilen alanda başla
+                      </Link>
+                      <Link href="/vakalar" className="btn-secondary justify-center text-center">
+                        Tüm vakaları gör
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            )}
 
             {insights && insights.practicePriorities.length > 0 && (
               <section className="mb-10" aria-labelledby="gelisim-oncelikleri">
