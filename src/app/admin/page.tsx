@@ -65,12 +65,13 @@ export default function AdminLoginPage() {
           </p>
         </div>
 
-        <form onSubmit={onSubmit} className="space-y-4">
+        <form onSubmit={onSubmit} className="space-y-4" aria-busy={loading}>
           <div>
-            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+            <label htmlFor="admin-username" className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
               Kullanıcı adı
             </label>
             <input
+              id="admin-username"
               className="input w-full"
               autoComplete="username"
               value={username}
@@ -79,10 +80,11 @@ export default function AdminLoginPage() {
             />
           </div>
           <div>
-            <label className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
+            <label htmlFor="admin-password" className="mb-1 block text-xs font-medium uppercase tracking-wide text-muted">
               Şifre
             </label>
             <input
+              id="admin-password"
               type="password"
               className="input w-full"
               autoComplete="current-password"
@@ -92,7 +94,7 @@ export default function AdminLoginPage() {
             />
           </div>
           {error && (
-            <div className="rounded-md bg-clinical-red/10 px-3 py-2 text-sm text-clinical-red">
+            <div role="alert" className="rounded-md bg-clinical-red/10 px-3 py-2 text-sm text-clinical-red">
               {error}
             </div>
           )}

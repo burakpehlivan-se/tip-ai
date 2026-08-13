@@ -2,8 +2,8 @@ import { expect, test } from "@playwright/test";
 
 async function loginAsAdmin(page: import("@playwright/test").Page) {
   await page.goto("/admin");
-  await page.locator('input[autocomplete="username"]').fill("admin");
-  await page.locator('input[autocomplete="current-password"]').fill("e2e-admin-password");
+  await page.getByLabel("Kullanıcı adı").fill("admin");
+  await page.getByLabel("Şifre").fill("e2e-admin-password");
   await page.getByRole("button", { name: "Giriş Yap" }).click();
   await expect(page).toHaveURL(/\/admin\/panel$/);
 }
