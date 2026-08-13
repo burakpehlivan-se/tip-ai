@@ -74,10 +74,17 @@ export const authSessions = pgTable(
       .references(() => users.id, { onDelete: "cascade" }),
     role: userRole("role").notNull(),
     issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    /** Ham user-agent saklanmaz; yalnızca türetilmiş kısa cihaz etiketi tutulur. */
+    deviceLabel: text("device_label"),
+    /** Idle timeout ve kullanıcının oturum listesi için en son doğrulanan etkinlik. */
+    lastSeenAt: timestamp("last_seen_at", { withTimezone: true }).notNull().defaultNow(),
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     revokedAt: timestamp("revoked_at", { withTimezone: true }),
   },
-  (table) => [index("auth_sessions_user_id_idx").on(table.userId)]
+  (table) => [
+    index("auth_sessions_user_id_idx").on(table.userId),
+    index("auth_sessions_user_active_idx").on(table.userId, table.revokedAt, table.expiresAt),
+  ]
 );
 
 export type AuthSession = typeof authSessions.$inferSelect;

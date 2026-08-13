@@ -1,4 +1,4 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { AdminRole, AdminSessionPayload } from "./types";
@@ -10,11 +10,17 @@ import {
   findUserByUsername,
 } from "@/lib/auth/runtime-user-store";
 import { createAuthSession, isAuthSessionActive, revokeAuthSession } from "@/lib/auth/session-store";
+import { sessionPolicyForRole } from "@/lib/auth/session-policy";
 
 export const SESSION_COOKIE = "tip_ai_admin_session";
-export const SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
+export const SESSION_TTL_MS = sessionPolicyForRole("admin").absoluteTtlMs; // 8 saat
 
 export { getAdminCredentials };
+
+// Geliştirme/test için süreç başına rastgele sır: kaynakta sabit fallback
+// bulunmaz ve uygulama her yeniden başladığında eski geliştirme cookie'leri
+// geçersizleşir. Production bu yola hiçbir zaman düşmez.
+const DEV_SESSION_SECRET = randomBytes(32).toString("base64url");
 
 function secret(): string {
   if (process.env.NODE_ENV === "production") {
@@ -28,7 +34,7 @@ function secret(): string {
   return (
     process.env.ADMIN_SESSION_SECRET ||
     process.env.ADMIN_PASSWORD ||
-    "dev-only-insecure-secret-change-me"
+    DEV_SESSION_SECRET
   );
 }
 
@@ -58,10 +64,11 @@ export function createSessionToken(
 export async function createRuntimeSessionId(
   userId: string,
   role: AdminRole,
-  ttlMs = SESSION_TTL_MS
+  ttlMs = sessionPolicyForRole(role).absoluteTtlMs,
+  deviceLabel?: string
 ): Promise<string | undefined> {
   if (authUserStoreMode() === "json") return undefined;
-  return (await createAuthSession({ userId, role, ttlMs })).id;
+  return (await createAuthSession({ userId, role, ttlMs, deviceLabel })).id;
 }
 
 /** Çıkışta merkezi kaydı iptal eder; JSON modunda eski cookie temizleme davranışı sürer. */

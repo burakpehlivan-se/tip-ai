@@ -16,6 +16,27 @@ type StudentAssignment = {
   instructions: string | null;
   dueAt: number | null;
 };
+type ManagedSession = {
+  id: string;
+  role: "admin" | "doktor" | "ogrenci";
+  deviceLabel: string;
+  issuedAt: number;
+  lastSeenAt: number;
+  expiresAt: number;
+  current: boolean;
+};
+
+async function fetchJsonIfOk<T>(url: string): Promise<T | null> {
+  const response = await fetch(url, { cache: "no-store" });
+  if (!response.ok) return null;
+  return response.json() as Promise<T>;
+}
+
+async function responseError(response: Response, fallback: string): Promise<Error> {
+  if (response.ok) return new Error(fallback);
+  const body = await response.json().catch(() => null);
+  return new Error(body?.error || fallback);
+}
 
 export default function ProfilimPage() {
   const router = useRouter();
@@ -25,6 +46,10 @@ export default function ProfilimPage() {
   const [recommendation, setRecommendation] = useState<NextCaseRecommendation | null>(null);
   const [assignments, setAssignments] = useState<StudentAssignment[]>([]);
   const [assignmentsAvailable, setAssignmentsAvailable] = useState(false);
+  const [sessions, setSessions] = useState<ManagedSession[]>([]);
+  const [sessionsAvailable, setSessionsAvailable] = useState(false);
+  const [sessionBusy, setSessionBusy] = useState<string | null>(null);
+  const [sessionMessage, setSessionMessage] = useState("");
   const [hata, setHata] = useState("");
 
   useEffect(() => {
@@ -41,10 +66,11 @@ export default function ProfilimPage() {
         if (data) {
           setMe(data);
           return Promise.all([
-            fetch("/api/student/progress", { cache: "no-store" }).then((r) => r.json()),
-            fetch("/api/student/performance", { cache: "no-store" }).then((r) => r.json()),
-            fetch("/api/student/next-case", { cache: "no-store" }).then((r) => r.json()),
-            fetch("/api/student/assignments", { cache: "no-store" }).then((r) => r.json()),
+            fetchJsonIfOk<{ progress?: StudentProgress }>("/api/student/progress"),
+            fetchJsonIfOk<{ insights?: StudentPerformanceInsights }>("/api/student/performance"),
+            fetchJsonIfOk<{ recommendation?: NextCaseRecommendation }>("/api/student/next-case"),
+            fetchJsonIfOk<{ available?: boolean; assignments?: StudentAssignment[] }>("/api/student/assignments"),
+            fetchJsonIfOk<{ available?: boolean; sessions?: ManagedSession[] }>("/api/sessions"),
           ]);
         }
         return null;
@@ -58,6 +84,10 @@ export default function ProfilimPage() {
           setAssignmentsAvailable(true);
           setAssignments(data[3].assignments || []);
         }
+        if (data[4]?.available) {
+          setSessionsAvailable(true);
+          setSessions(data[4].sessions || []);
+        }
       })
       .catch(() => setHata("İlerleme yüklenemedi."));
   }, [router]);
@@ -65,6 +95,41 @@ export default function ProfilimPage() {
   async function cikisYap() {
     await fetch("/api/session/logout", { method: "POST" });
     router.replace("/");
+  }
+
+  async function closeSession(id: string, current: boolean) {
+    if (!confirm(current ? "Bu cihazdan çıkış yapmak istiyor musunuz?" : "Bu cihazdaki oturumu kapatmak istiyor musunuz?")) return;
+    setSessionBusy(id);
+    setSessionMessage("");
+    try {
+      const response = await fetch(`/api/sessions/${id}`, { method: "DELETE" });
+      if (!response.ok) throw await responseError(response, "Oturum kapatılamadı.");
+      if (current) {
+        router.replace("/giris");
+        return;
+      }
+      setSessions((items) => items.filter((session) => session.id !== id));
+      setSessionMessage("Cihaz oturumu kapatıldı.");
+    } catch (error) {
+      setSessionMessage(error instanceof Error ? error.message : "Oturum kapatılamadı.");
+    } finally {
+      setSessionBusy(null);
+    }
+  }
+
+  async function closeAllSessions() {
+    if (!confirm("Tüm cihazlardaki oturumlar kapatılacak. Devam etmek istiyor musunuz?")) return;
+    setSessionBusy("all");
+    setSessionMessage("");
+    try {
+      const response = await fetch("/api/sessions", { method: "POST" });
+      if (!response.ok) throw await responseError(response, "Oturumlar kapatılamadı.");
+      router.replace("/giris");
+    } catch (error) {
+      setSessionMessage(error instanceof Error ? error.message : "Oturumlar kapatılamadı.");
+    } finally {
+      setSessionBusy(null);
+    }
   }
 
   if (!me) {
@@ -109,6 +174,68 @@ export default function ProfilimPage() {
         </div>
 
         {hata && <p className="text-sm text-clinical-red mb-6">{hata}</p>}
+
+        {sessionsAvailable && (
+          <section className="mb-10" aria-labelledby="aktif-oturumlar">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <h2 id="aktif-oturumlar" className="text-xl font-semibold text-ink">Aktif Oturumlar</h2>
+                <p className="mt-1 text-sm text-steel">
+                  Yalnızca cihaz türü ve son etkinlik zamanı gösterilir; tarayıcı ayrıntısı saklanmaz.
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => void closeAllSessions()}
+                disabled={sessionBusy !== null || sessions.length === 0}
+                className="btn-secondary shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                Tüm cihazlardan çıkış
+              </button>
+            </div>
+
+            {sessionMessage && (
+              <p
+                className={`mb-3 text-sm ${sessionMessage.includes("kapatıldı") ? "text-brand-deep" : "text-clinical-red"}`}
+                role="status"
+                aria-live="polite"
+              >
+                {sessionMessage}
+              </p>
+            )}
+
+            {sessions.length === 0 ? (
+              <div className="card"><p className="text-sm text-steel">Görüntülenecek aktif oturum yok.</p></div>
+            ) : (
+              <div className="space-y-3">
+                {sessions.map((session) => (
+                  <article key={session.id} className="card flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base font-semibold text-ink">{session.deviceLabel}</h3>
+                        {session.current && <span className="badge badge-brand">Bu cihaz</span>}
+                      </div>
+                      <p className="mt-1 text-sm text-steel">
+                        Son etkinlik: {new Date(session.lastSeenAt).toLocaleString("tr-TR")}
+                      </p>
+                      <p className="mt-1 text-xs text-muted">
+                        Oturum bitişi: {new Date(session.expiresAt).toLocaleString("tr-TR")}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void closeSession(session.id, session.current)}
+                      disabled={sessionBusy !== null}
+                      className="btn-secondary shrink-0 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {sessionBusy === session.id ? "Kapatılıyor…" : session.current ? "Bu cihazdan çıkış" : "Oturumu kapat"}
+                    </button>
+                  </article>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
 
         {p && (
           <>

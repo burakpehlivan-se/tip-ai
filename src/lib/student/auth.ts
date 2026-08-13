@@ -13,17 +13,19 @@ import {
 } from "@/lib/admin/auth";
 import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
 import { isAuthSessionActive } from "@/lib/auth/session-store";
+import { sessionPolicyForRole } from "@/lib/auth/session-policy";
 import type { AdminSessionPayload } from "@/lib/admin/types";
 import { authenticateUser, findUserById, findUserByUsername } from "@/lib/auth/runtime-user-store";
 
 export const STUDENT_SESSION_COOKIE = "tip_ai_student_session";
-export const STUDENT_SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
+export const STUDENT_SESSION_TTL_MS = sessionPolicyForRole("ogrenci").absoluteTtlMs; // 12 saat
 
 export async function createStudentSessionToken(
   username: string,
-  userId: string
+  userId: string,
+  deviceLabel?: string
 ): Promise<string> {
-  const sessionId = await createRuntimeSessionId(userId, "ogrenci", STUDENT_SESSION_TTL_MS);
+  const sessionId = await createRuntimeSessionId(userId, "ogrenci", STUDENT_SESSION_TTL_MS, deviceLabel);
   return createSessionToken(username, "ogrenci", userId, sessionId);
 }
 

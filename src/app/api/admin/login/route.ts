@@ -11,6 +11,7 @@ import {
   SESSION_COOKIE,
 } from "@/lib/admin/auth";
 import { recordSuccessfulLogin } from "@/lib/auth/runtime-user-store";
+import { deviceLabelFromUserAgent } from "@/lib/auth/client-device";
 import { observeAuthShadowRead } from "@/lib/auth/shadow-read";
 import { getRequestId, logger } from "@/lib/logger";
 import { clientRateLimitKey, rateLimitHeaders, refundRateLimit, takeRateLimit, usernameRateLimitKey } from "@/lib/security/rate-limit";
@@ -65,7 +66,12 @@ export async function POST(req: NextRequest) {
       { username: user.username, role: user.role, active: true },
       { route: "/api/admin/login", requestId: getRequestId(req) }
     );
-    const sessionId = await createRuntimeSessionId(user.userId, user.role);
+    const sessionId = await createRuntimeSessionId(
+      user.userId,
+      user.role,
+      undefined,
+      deviceLabelFromUserAgent(req.headers.get("user-agent"))
+    );
     const token = createSessionToken(user.username, user.role, user.userId, sessionId);
     const res = NextResponse.json({
       ok: true,

@@ -25,7 +25,13 @@ import { getDb, resetDbForTests } from "./db";
 import { authSessions, cohorts, learningAttempts, users } from "./schema";
 import { addCohortMember, createCohortCaseAssignment, listAssignmentsForStudent } from "@/lib/learning/cohort-store";
 import { authenticateUser, createUser, findUserByUsername, updateUser } from "./user-store";
-import { createAuthSession, isAuthSessionActive, revokeAuthSession } from "./session-store";
+import {
+  createAuthSession,
+  isAuthSessionActive,
+  listActiveAuthSessionsForUser,
+  revokeAuthSession,
+  revokeAuthSessionForUser,
+} from "./session-store";
 import { eq } from "drizzle-orm";
 
 const TEST_URL = process.env.TEST_DATABASE_URL;
@@ -104,7 +110,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       const { rows } = await pool.query(
         `SELECT COUNT(*)::int AS n FROM drizzle.__drizzle_migrations`
       );
-      expect(rows[0].n).toBe(5);
+      expect(rows[0].n).toBe(6);
     } finally {
       await pool.end();
     }
@@ -212,15 +218,42 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       userId: user.id,
       role: user.role,
       ttlMs: 60_000,
+      deviceLabel: "Firefox · Linux",
     });
 
     const db = getDb();
     const [stored] = await db.select().from(authSessions).where(eq(authSessions.id, session.id));
     expect(stored.userId).toBe(user.id);
+    expect(stored.deviceLabel).toBe("Firefox · Linux");
+    expect(stored.lastSeenAt).toBeInstanceOf(Date);
     expect(await isAuthSessionActive({ id: session.id, userId: user.id, role: user.role })).toBe(true);
 
     await revokeAuthSession(session.id);
     expect(await isAuthSessionActive({ id: session.id, userId: user.id, role: user.role })).toBe(false);
+  });
+
+  it("kullanıcı yalnızca kendi aktif oturumunu listeleyip iptal edebilir", async () => {
+    const first = await createUser({
+      username: "oturum.sahibi",
+      password: "sifre123",
+      role: "ogrenci",
+      createdBy: "admin",
+    });
+    const other = await createUser({
+      username: "oturum.diger",
+      password: "sifre123",
+      role: "ogrenci",
+      createdBy: "admin",
+    });
+    const ownSession = await createAuthSession({ userId: first.id, role: "ogrenci", ttlMs: 60_000 });
+    const otherSession = await createAuthSession({ userId: other.id, role: "ogrenci", ttlMs: 60_000 });
+
+    await expect(listActiveAuthSessionsForUser(first.id)).resolves.toEqual([
+      expect.objectContaining({ id: ownSession.id, role: "ogrenci" }),
+    ]);
+    expect(await revokeAuthSessionForUser({ id: otherSession.id, userId: first.id })).toBe(false);
+    expect(await revokeAuthSessionForUser({ id: ownSession.id, userId: first.id })).toBe(true);
+    expect(await isAuthSessionActive({ id: ownSession.id, userId: first.id, role: "ogrenci" })).toBe(false);
   });
 
   it("P2 deneme tablosu sürüm-kilitli gövde ve durum alanlarını saklar", async () => {

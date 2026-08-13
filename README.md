@@ -121,7 +121,7 @@ Geçersiz bir `AUTH_USER_STORE` değeri sessiz fallback yerine yapılandırma ha
 üretir.
 
 `GET /api/health`, JSON modunda temel canlılık yanıtı döner. PostgreSQL modunda
-ise migration journal, en az bir uygulanmış migration, `users` ve
+ise migration journal, zorunlu migration sürümü, `users` ve
 `auth_audit_logs` ile `auth_sessions` tablolarını da doğrular; herhangi biri
 yoksa `503` döner.
 Coolify healthcheck'i bu endpoint'e yönlendirin.
@@ -129,12 +129,22 @@ Coolify healthcheck'i bu endpoint'e yönlendirin.
 ### Merkezi oturum iptali
 
 `AUTH_USER_STORE=postgres` modunda her başarılı giriş için `auth_sessions`
-tablosunda yalnızca rastgele oturum kimliği, kullanıcı, rol, süre ve iptal
-zamanı tutulur; cookie veya parola saklanmaz. Her istek imza, kullanıcı durumu
-ve sunucu tarafındaki oturum kaydını birlikte doğrular. Çıkış, rol/parola veya
+tablosunda yalnızca rastgele oturum kimliği, kullanıcı, rol, süre, iptal zamanı,
+son etkinlik ve ham user-agent'tan türetilmiş kısa cihaz etiketi tutulur; cookie,
+parola, IP ve tam user-agent saklanmaz. Her istek imza, kullanıcı durumu ve
+sunucu tarafındaki oturum kaydını birlikte doğrular. Admin/doktor oturumları
+30 dakika idle / 8 saat absolute, öğrenci oturumları 2 saat idle / 12 saat
+absolute süreyle sınırlandırılır. Son etkinlik işareti yazma yükünü azaltmak
+için en fazla beş dakikada bir yenilenir.
+
+Giriş yapmış kullanıcı `GET /api/sessions` ile yalnızca kendi aktif oturumlarını
+görebilir; `DELETE /api/sessions/:id` tek bir cihazı, `POST /api/sessions` tüm
+cihazları (mevcut cihaz dahil) kapatır. İptal olayları audit kaydına yazılır.
+JSON modunda bu uçlar sahte cihaz verisi üretmez: liste `available: false`
+döner, mutation istekleri `409` ile açıkça reddedilir. Çıkış, rol/parola veya
 aktiflik değişikliği açık PostgreSQL oturumlarını derhal iptal eder. Bu özellik
-`0001_goofy_titanium_man` migration'ını gerektirir; cutover öncesinde
-`npm run db:migrate` ile uygulanmalıdır.
+`0001_goofy_titanium_man` ve `0005_session_activity_metadata` migration'larını
+gerektirir; cutover öncesinde `npm run db:migrate` ile uygulanmalıdır.
 
 ### P2 deneme deposu geçişi
 

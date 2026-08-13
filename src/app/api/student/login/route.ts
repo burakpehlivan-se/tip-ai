@@ -4,6 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { observeAuthShadowRead } from "@/lib/auth/shadow-read";
 import { recordSuccessfulLogin } from "@/lib/auth/runtime-user-store";
+import { deviceLabelFromUserAgent } from "@/lib/auth/client-device";
 import { getRequestId } from "@/lib/logger";
 import { authenticateStudent, createStudentSessionToken, studentSessionCookieOptions } from "@/lib/student/auth";
 import { clientRateLimitKey, rateLimitHeaders, refundRateLimit, takeRateLimit, usernameRateLimitKey } from "@/lib/security/rate-limit";
@@ -44,7 +45,11 @@ export async function POST(req: NextRequest) {
 
     await recordSuccessfulLogin({ id: auth.userId, username: auth.username, role: "ogrenci" });
 
-    const token = await createStudentSessionToken(auth.username, auth.userId);
+    const token = await createStudentSessionToken(
+      auth.username,
+      auth.userId,
+      deviceLabelFromUserAgent(req.headers.get("user-agent"))
+    );
     const res = NextResponse.json({ ok: true, user: { username: auth.username } });
     for (const [key, value] of Object.entries(rateLimitHeaders(accountQuota))) res.headers.set(key, value);
     res.cookies.set("tip_ai_student_session", token, studentSessionCookieOptions());

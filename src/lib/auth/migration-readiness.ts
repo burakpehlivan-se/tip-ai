@@ -29,8 +29,8 @@ const unavailable: AuthMigrationReadiness = {
   cohortAssignmentsTable: false,
 };
 
-/** `drizzle/0000`–`0003`; yeni zorunlu şema özelliği eklendiğinde artırılır. */
-export const REQUIRED_SCHEMA_MIGRATION_COUNT = 5;
+/** `drizzle/0000`–`0005`; yeni zorunlu şema özelliği eklendiğinde artırılır. */
+export const REQUIRED_SCHEMA_MIGRATION_COUNT = 6;
 
 export function isAuthMigrationReady(checks: AuthMigrationReadiness): boolean {
   return (

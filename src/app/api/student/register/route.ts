@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { registerStudent } from "@/lib/auth/runtime-user-store";
 import { appendLog } from "@/lib/admin/store";
 import { createStudentSessionToken, studentSessionCookieOptions } from "@/lib/student/auth";
+import { deviceLabelFromUserAgent } from "@/lib/auth/client-device";
 import { clientRateLimitKey, rateLimitHeaders, takeRateLimit } from "@/lib/security/rate-limit";
 
 const REGISTER_WINDOW_MS = 60 * 60 * 1000;
@@ -38,7 +39,11 @@ export async function POST(req: NextRequest) {
       patches: [],
     });
 
-    const token = await createStudentSessionToken(user.username, user.id);
+    const token = await createStudentSessionToken(
+      user.username,
+      user.id,
+      deviceLabelFromUserAgent(req.headers.get("user-agent"))
+    );
     const res = NextResponse.json({ ok: true, user: { username: user.username, displayName: user.displayName } }, { status: 201 });
     for (const [key, value] of Object.entries(rateLimitHeaders(quota))) res.headers.set(key, value);
     res.cookies.set("tip_ai_student_session", token, studentSessionCookieOptions());
