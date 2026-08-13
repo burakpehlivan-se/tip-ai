@@ -227,6 +227,10 @@ export function upgradeAdminVakaToCdm(c: AdminVaka): { vaka: AdminVaka; changed:
   vaka.incelemeyeGonderen = c.incelemeyeGonderen;
   vaka.incelemeyeGonderilmeTarihi = c.incelemeyeGonderilmeTarihi;
   vaka.incelemeNotu = c.incelemeNotu;
+  vaka.klinikKaynak = c.klinikKaynak;
+  vaka.klinikKaynakTarihi = c.klinikKaynakTarihi;
+  vaka.egitimHedefleri = c.egitimHedefleri;
+  vaka.sonKlinikGozdenGecirmeTarihi = c.sonKlinikGozdenGecirmeTarihi;
   vaka.olusturan = c.olusturan;
   vaka.sonDuzenleyen = c.sonDuzenleyen;
 

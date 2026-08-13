@@ -7,7 +7,7 @@ import { POST } from "./route";
 import { PATCH } from "./[id]/route";
 import { POST as reviewCase } from "./[id]/review/route";
 import { createSessionToken } from "@/lib/admin/auth";
-import { getCaseById, loadCasesStore, recordMutation } from "@/lib/admin/store";
+import { getCaseById, getPublishedCaseVersion, loadCasesStore, recordMutation } from "@/lib/admin/store";
 import { createUser } from "@/lib/admin/users";
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tip-ai-admin-cases-route-test-"));
@@ -217,6 +217,62 @@ describe("admin case write routes", () => {
       incelemeDurumu: "degisiklik_istendi",
       uzmanOnaylayan: "reviewer",
     });
+  });
+
+  it("records an immutable approved version before future edits create a new draft", async () => {
+    const target = loadCasesStore().cases[0];
+    recordMutation("system", "update_case", "fixture approved version state", [], (store) => {
+      const index = store.cases.findIndex((item) => item.id === target.id);
+      store.cases[index] = {
+        ...store.cases[index],
+        durum: "taslak",
+        incelemeDurumu: "incelemede",
+        olusturan: "author",
+        klinikKaynak: "Klinik rehber",
+        klinikKaynakTarihi: "2026-08-01",
+        egitimHedefleri: ["Kritik klinik bulguları tanır."],
+      };
+    });
+    expect(getCaseById(target.id)).toMatchObject({
+      durum: "taslak",
+      incelemeDurumu: "incelemede",
+      klinikKaynak: "Klinik rehber",
+    });
+
+    const approved = await reviewCase(
+      request(
+        `/api/admin/cases/${encodeURIComponent(target.id)}/review`,
+        "POST",
+        { action: "approve", expectedUpdatedAt: caseVersion(target.id) },
+        doctorToken()
+      ),
+      { params: Promise.resolve({ id: encodeURIComponent(target.id) }) }
+    );
+    expect(approved.status, JSON.stringify(await approved.clone().json())).toBe(200);
+    const approvedBody = await approved.json();
+    const published = getPublishedCaseVersion(target.id, approvedBody.case.surum);
+    expect(published).toMatchObject({
+      caseId: target.id,
+      version: approvedBody.case.surum,
+      contentChecksum: approvedBody.case.contentChecksum,
+      approvedBy: "reviewer",
+      content: { durum: "aktif", incelemeDurumu: "onayli" },
+    });
+
+    const edited = await PATCH(
+      request(
+        `/api/admin/cases/${encodeURIComponent(target.id)}`,
+        "PATCH",
+        { anaSikayet: "Sonraki taslak değişikliği", expectedUpdatedAt: approvedBody.case.updatedAt },
+        adminToken()
+      ),
+      { params: Promise.resolve({ id: encodeURIComponent(target.id) }) }
+    );
+    expect(edited.status).toBe(200);
+    expect(getCaseById(target.id)).toMatchObject({ durum: "taslak", surum: approvedBody.case.surum + 1 });
+    expect(getPublishedCaseVersion(target.id, approvedBody.case.surum)?.content.anaSikayet).toBe(
+      published?.content.anaSikayet
+    );
   });
 
   it("rejects a stale editor save without overwriting the newer case", async () => {

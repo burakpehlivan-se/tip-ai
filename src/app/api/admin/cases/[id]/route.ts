@@ -103,7 +103,7 @@ export async function PATCH(
     ]);
     const contentChanged = updateKeys.some((key) => contentFields.has(key));
     const lifecycleUpdates: Partial<AdminVaka> = { sonDuzenleyen: session!.username };
-    if (contentChanged && (existing.durum === "aktif" || existing.incelemeDurumu === "onayli")) {
+    if (contentChanged && existing.incelemeDurumu !== "taslak") {
       lifecycleUpdates.durum = "taslak";
       lifecycleUpdates.surum = existing.surum + 1;
       lifecycleUpdates.uzmanOnayi = false;

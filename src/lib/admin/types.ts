@@ -111,12 +111,30 @@ export interface AdminVaka {
   tedavi?: AdminTedavi;
 }
 
+/**
+ * Öğrencinin gördüğü ve reviewer'ın imzaladığı vaka içeriğinin değişmez kaydı.
+ * Güncel vaka düzenlenebilir; yayınlanmış bir sürüm asla yerinde güncellenmez.
+ */
+export interface PublishedCaseVersion {
+  /** `${caseId}@${version}`; aynı vaka sürümü ikinci kez yazılamaz. */
+  id: string;
+  caseId: string;
+  version: number;
+  contentChecksum: string;
+  approvedBy: string;
+  approvedAt: number;
+  /** O anda yayınlanan tam vaka/rubrik gövdesi. */
+  content: AdminVaka;
+}
+
 export interface CasesStore {
   version: number;
   seededAt: number;
   updatedAt: number;
   changeCount: number;
   cases: AdminVaka[];
+  /** Append-only yayın sürümü kaydı; geçmiş denemelerin klinik bağlamını kanıtlar. */
+  publishedVersions: PublishedCaseVersion[];
 }
 
 /** Vaka özelinde eğitmen / admin feedback’i (vaka değerleriyle birlikte) */
@@ -214,6 +232,7 @@ export type AuditAction =
   | "submit_case_review"
   | "approve_case_review"
   | "request_case_changes"
+  | "publish_case_version"
   | "create_backup"
   | "restore_backup"
   | "undo"

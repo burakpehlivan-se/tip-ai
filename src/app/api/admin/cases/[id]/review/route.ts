@@ -6,7 +6,7 @@ import { getSessionFromRequest } from "@/lib/admin/auth";
 import { caseContentChecksum } from "@/lib/admin/case-integrity";
 import { requirePermission } from "@/lib/admin/permissions";
 import { clone, getCaseById, recordMutation } from "@/lib/admin/store";
-import type { AdminVaka } from "@/lib/admin/types";
+import type { AdminVaka, AuditPatch } from "@/lib/admin/types";
 import { validateAdminVakaForPublication } from "@/lib/cdm/validate-report";
 
 type ReviewAction = "submit" | "approve" | "request_changes";
@@ -28,7 +28,7 @@ function parseBody(value: unknown): { action: ReviewAction; note?: string; expec
   return { action: body.action, note: typeof body.note === "string" ? body.note.trim() || undefined : undefined, expectedUpdatedAt: body.expectedUpdatedAt };
 }
 
-function lifecyclePatches(id: string, before: AdminVaka, after: Partial<AdminVaka>) {
+function lifecyclePatches(id: string, before: AdminVaka, after: Partial<AdminVaka>): AuditPatch[] {
   return (Object.keys(after) as Array<keyof AdminVaka>).map((field) => ({
     path: `cases.${id}.${field}`,
     caseId: id,
@@ -133,9 +133,44 @@ export async function POST(
   if (body.action === "approve") updates.contentChecksum = caseContentChecksum(candidate);
   const patches = lifecyclePatches(id, existing, updates);
   const modifiedAt = Math.max(Date.now(), existing.updatedAt + 1);
+  const publishedVersion = body.action === "approve"
+    ? {
+        id: `${id}@${existing.surum}`,
+        caseId: id,
+        version: existing.surum,
+        contentChecksum: updates.contentChecksum!,
+        approvedBy: actor,
+        approvedAt: updates.uzmanOnayTarihi!,
+        content: {
+          ...candidate,
+          ...updates,
+          updatedAt: modifiedAt,
+        },
+      }
+    : null;
+  if (publishedVersion) {
+    patches.push({
+      path: `__case_version_create__:${publishedVersion.id}`,
+      caseId: id,
+      before: null,
+      after: {
+        version: publishedVersion.version,
+        contentChecksum: publishedVersion.contentChecksum,
+        approvedBy: publishedVersion.approvedBy,
+        approvedAt: publishedVersion.approvedAt,
+      },
+    });
+  }
   const result = recordMutation(actor, action, message, patches, (store) => {
     const index = store.cases.findIndex((item) => item.id === id);
     if (index >= 0) store.cases[index] = { ...store.cases[index], ...updates, updatedAt: modifiedAt };
+    if (publishedVersion) {
+      const duplicate = store.publishedVersions.find((item) => item.id === publishedVersion.id);
+      if (duplicate) {
+        throw new Error("Bu vaka sürümü daha önce yayınlandı; aynı sürüm yeniden onaylanamaz.");
+      }
+      store.publishedVersions.push(publishedVersion);
+    }
   });
   const vaka = result.store.cases.find((item) => item.id === id);
   return NextResponse.json({ ok: true, case: vaka, log: result.log, backup: result.backup });

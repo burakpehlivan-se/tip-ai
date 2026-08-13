@@ -14,6 +14,7 @@ import {
   PlaySession,
   SystemSettings,
   VakaFeedback,
+  PublishedCaseVersion,
   normalizeAdminVaka,
 } from "./types";
 import {
@@ -58,6 +59,7 @@ export function loadCasesStore(): CasesStore {
     updatedAt: 0,
     changeCount: 0,
     cases: [],
+    publishedVersions: [],
   };
   let store = readJson<CasesStore>(casesPath(), empty);
   if (!store.cases || store.cases.length === 0) {
@@ -69,6 +71,7 @@ export function loadCasesStore(): CasesStore {
       updatedAt: Date.now(),
       changeCount: 0,
       cases: seeded,
+      publishedVersions: [],
     };
     writeJsonAtomic(casesPath(), store);
     appendLog({
@@ -95,6 +98,10 @@ export function loadCasesStore(): CasesStore {
     });
     const { cases: upgraded, upgradedCount, upgradedIds } = upgradeAllCasesToCdm(normalized);
     store.cases = upgraded;
+    if (!Array.isArray(store.publishedVersions)) {
+      store.publishedVersions = [];
+      dirty = true;
+    }
     if (dirty || upgradedCount > 0) {
       store.updatedAt = Date.now();
       writeJsonAtomic(casesPath(), store);
@@ -153,6 +160,22 @@ export function appendLog(input: {
 
 export function getCaseById(id: string): AdminVaka | undefined {
   return loadCasesStore().cases.find((c) => c.id === id);
+}
+
+/** Yayınlanmış vaka sürümleri append-only tutulur; yalnızca kopyası döndürülür. */
+export function listPublishedCaseVersions(caseId: string): PublishedCaseVersion[] {
+  return loadCasesStore()
+    .publishedVersions
+    .filter((item) => item.caseId === caseId)
+    .sort((left, right) => right.version - left.version)
+    .map((item) => clone(item));
+}
+
+export function getPublishedCaseVersion(caseId: string, version: number): PublishedCaseVersion | undefined {
+  const record = loadCasesStore().publishedVersions.find(
+    (item) => item.caseId === caseId && item.version === version
+  );
+  return record ? clone(record) : undefined;
 }
 
 export function listCasesGrouped(): {
@@ -242,7 +265,15 @@ export async function undoLog(
     const log = logsStore.logs.find((l) => l.id === logId);
     if (!log) return { ok: false, error: "Log bulunamadı." };
     if (log.undone) return { ok: false, error: "Bu işlem zaten geri alınmış." };
-    if (log.action === "undo" || log.action === "seed" || log.action === "restore_backup") {
+    if (
+      log.action === "undo" ||
+      log.action === "seed" ||
+      log.action === "restore_backup" ||
+      log.action === "submit_case_review" ||
+      log.action === "approve_case_review" ||
+      log.action === "request_case_changes" ||
+      log.action === "publish_case_version"
+    ) {
       return { ok: false, error: "Bu log türü geri alınamaz." };
     }
     if (!log.patches.length) return { ok: false, error: "Geri alınacak patch yok." };
@@ -427,6 +458,7 @@ export function recordMutation(
 
 /** Deep clone helper */
 export function clone<T>(v: T): T {
+  if (v === undefined) return v;
   return JSON.parse(JSON.stringify(v)) as T;
 }
 
