@@ -21,6 +21,7 @@ import { Pool } from "pg";
 import { runMigrations } from "./migrate";
 import { importUsersFromFile } from "../../../scripts/import-users";
 import { importCasesFromFile } from "../../../scripts/import-cases";
+import { verifyCaseStoreParity } from "../../../scripts/verify-case-store-parity";
 import { hashPassword, verifyPassword, needsRehash, versionLegacyHash } from "./password";
 import { getDb, resetDbForTests } from "./db";
 import {
@@ -253,6 +254,24 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       importedVersions: 0,
       skippedVersions: 1,
       conflictingVersions: 0,
+    });
+    await expect(verifyCaseStoreParity(casesFile)).resolves.toMatchObject({
+      equal: true,
+      sourceCases: 1,
+      postgresCases: 1,
+      sourcePublishedVersions: 1,
+      postgresPublishedVersions: 1,
+    });
+
+    fs.writeFileSync(
+      casesFile,
+      JSON.stringify({ version: 1, cases: [{ ...content, surum: 3 }], publishedVersions: [] }),
+      "utf8"
+    );
+    await expect(verifyCaseStoreParity(casesFile)).resolves.toMatchObject({
+      equal: false,
+      caseVersionMismatches: 1,
+      unexpectedPublishedVersionsInPostgres: 1,
     });
 
     const db = getDb();
