@@ -247,7 +247,9 @@ export type AuditAction =
   | "register_student"
   | "student_login"
   | "user_login"
-  | "student_data_exported";
+  | "student_data_exported"
+  | "student_privacy_request_submitted"
+  | "student_privacy_request_resolved";
 
 export interface AuditPatch {
   path: string;

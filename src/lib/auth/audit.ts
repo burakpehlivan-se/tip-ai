@@ -6,7 +6,7 @@
  * asla bu tabloya yazılmaz; şifre hash'leri loglara ve audit'e düşmez.
  */
 
-import { desc, eq } from "drizzle-orm";
+import { and, desc, eq, inArray } from "drizzle-orm";
 import { getDb } from "./db";
 import { authAuditLogs } from "./schema";
 
@@ -22,7 +22,9 @@ export type AuthEvent =
   | "user_deleted"
   | "session_revoked"
   | "sessions_revoked_all"
-  | "student_data_exported";
+  | "student_data_exported"
+  | "student_privacy_request_submitted"
+  | "student_privacy_request_resolved";
 
 export interface RecordAuthEventInput {
   event: AuthEvent;
@@ -34,7 +36,7 @@ export interface RecordAuthEventInput {
 }
 
 /** Denetim kaydını yazar; başarısızlıkta uygulama akışını kırmaz. */
-export async function recordAuthEvent(input: RecordAuthEventInput): Promise<void> {
+export async function recordAuthEvent(input: RecordAuthEventInput): Promise<boolean> {
   try {
     const db = getDb();
     await db.insert(authAuditLogs).values({
@@ -45,10 +47,50 @@ export async function recordAuthEvent(input: RecordAuthEventInput): Promise<void
       ip: input.ip ?? null,
       meta: input.meta ? JSON.stringify(input.meta) : null,
     });
+    return true;
   } catch (error) {
     // Denetim kaydı başarısız olsa bile ana istek akışı devam eder.
     console.error("[auth-audit] kayıt yazılamadı", error);
+    return false;
   }
+}
+
+/** Belirli denetim olaylarını, en az gerekli alanlarla döndürür. */
+export async function listAuthEventsByType(
+  events: readonly AuthEvent[],
+  options: { username?: string; limit?: number } = {}
+): Promise<
+  Array<{
+    id: string;
+    event: string;
+    username: string;
+    role: string | null;
+    actor: string | null;
+    meta: unknown;
+    createdAt: Date;
+  }>
+> {
+  if (events.length === 0) return [];
+  const limit = Math.min(Math.max(Math.floor(options.limit ?? 100), 1), 500);
+  const condition = options.username
+    ? and(inArray(authAuditLogs.event, [...events]), eq(authAuditLogs.username, options.username))
+    : inArray(authAuditLogs.event, [...events]);
+  const rows = await getDb()
+    .select({
+      id: authAuditLogs.id,
+      event: authAuditLogs.event,
+      username: authAuditLogs.username,
+      role: authAuditLogs.role,
+      actor: authAuditLogs.actor,
+      meta: authAuditLogs.meta,
+      createdAt: authAuditLogs.createdAt,
+    })
+    .from(authAuditLogs)
+    .where(condition)
+    .orderBy(desc(authAuditLogs.createdAt))
+    .limit(limit);
+
+  return rows.map((row) => ({ ...row, meta: row.meta === null ? null : safeParseMeta(row.meta) }));
 }
 
 /** Son N denetim kaydını döndürür (yönetim paneli gösterimi için). */

@@ -22,16 +22,33 @@ interface RecentLogin {
   createdAt: number;
 }
 
+interface PrivacyRequest {
+  id: string;
+  username: string;
+  type: "correction" | "erasure";
+  status: "pending" | "resolved";
+  requestedAt: number;
+  resolvedAt?: number;
+  resolvedBy?: string;
+}
+
 const ROLE_LABEL: Record<UserRow["role"], string> = {
   admin: "Admin",
   doktor: "Doktor",
   ogrenci: "Öğrenci",
 };
 
+const PRIVACY_REQUEST_LABEL: Record<PrivacyRequest["type"], string> = {
+  correction: "Bilgi düzeltme",
+  erasure: "Silme / anonimleştirme",
+};
+
 export default function KullanicilarPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserRow[]>([]);
   const [recentLogins, setRecentLogins] = useState<RecentLogin[]>([]);
+  const [privacyRequests, setPrivacyRequests] = useState<PrivacyRequest[]>([]);
+  const [privacyBusy, setPrivacyBusy] = useState<string | null>(null);
   const [meUsername, setMeUsername] = useState("");
   const [query, setQuery] = useState("");
   const [roleFilter, setRoleFilter] = useState<"all" | UserRow["role"]>("all");
@@ -49,19 +66,26 @@ export default function KullanicilarPage() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const [usersResponse, loginsResponse] = await Promise.all([
+      const [usersResponse, loginsResponse, privacyResponse] = await Promise.all([
         fetch("/api/admin/users"),
         fetch("/api/admin/users/recent-logins?limit=20"),
+        fetch("/api/admin/privacy-requests?limit=100"),
       ]);
-      if (usersResponse.status === 403 || loginsResponse.status === 403) {
+      if (usersResponse.status === 403 || loginsResponse.status === 403 || privacyResponse.status === 403) {
         router.replace("/admin/panel");
         return;
       }
-      const [usersData, loginsData] = await Promise.all([usersResponse.json(), loginsResponse.json()]);
+      const [usersData, loginsData, privacyData] = await Promise.all([
+        usersResponse.json(),
+        loginsResponse.json(),
+        privacyResponse.json(),
+      ]);
       if (!usersResponse.ok) throw new Error(usersData.error || "Kullanıcılar yüklenemedi");
       if (!loginsResponse.ok) throw new Error(loginsData.error || "Son girişler yüklenemedi");
+      if (!privacyResponse.ok) throw new Error(privacyData.error || "Gizlilik talepleri yüklenemedi");
       setUsers(usersData.users || []);
       setRecentLogins(loginsData.logins || []);
+      setPrivacyRequests(privacyData.requests || []);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Yüklenemedi");
     } finally {
@@ -184,6 +208,27 @@ export default function KullanicilarPage() {
     load();
   }
 
+  async function resolvePrivacyRequest(request: PrivacyRequest) {
+    if (!confirm(`${request.username} kullanıcısının talebi çözümlenmiş olarak kaydedilsin mi?`)) return;
+    setError("");
+    setPrivacyBusy(request.id);
+    try {
+      const res = await fetch(`/api/admin/privacy-requests/${encodeURIComponent(request.id)}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "resolved" }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Talep güncellenemedi");
+      setPrivacyRequests((items) => items.map((item) => (item.id === request.id ? data.request : item)));
+      setMsg("Gizlilik talebi çözümlenmiş olarak kaydedildi.");
+    } catch (error) {
+      setError(error instanceof Error ? error.message : "Talep güncellenemedi");
+    } finally {
+      setPrivacyBusy(null);
+    }
+  }
+
   if (loading) {
     return <p className="text-sm text-steel">Yükleniyor…</p>;
   }
@@ -287,6 +332,48 @@ export default function KullanicilarPage() {
           ))}
           {recentLogins.length === 0 && (
             <p className="px-4 py-5 text-sm text-steel">Henüz başarılı giriş kaydı yok.</p>
+          )}
+        </div>
+      </section>
+
+      <section className="overflow-hidden rounded-xl border border-hairline bg-canvas" aria-labelledby="privacy-requests-title">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-3">
+          <div>
+            <h2 id="privacy-requests-title" className="text-sm font-semibold text-ink">Gizlilik talepleri</h2>
+            <p className="mt-0.5 text-xs text-steel">
+              Talep türü ve işlem durumu gösterilir; serbest metin veya klinik içerik saklanmaz.
+            </p>
+          </div>
+          <span className="badge badge-steel shrink-0">
+            {privacyRequests.filter((request) => request.status === "pending").length} açık
+          </span>
+        </div>
+        <div className="divide-y divide-hairline-soft">
+          {privacyRequests.map((request) => (
+            <div key={request.id} className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-ink">{request.username} · {PRIVACY_REQUEST_LABEL[request.type]}</p>
+                <p className="mt-0.5 text-xs text-muted">
+                  Talep: {new Date(request.requestedAt).toLocaleString("tr-TR")}
+                  {request.resolvedAt ? ` · Çözüm: ${new Date(request.resolvedAt).toLocaleString("tr-TR")}` : ""}
+                </p>
+              </div>
+              {request.status === "resolved" ? (
+                <span className="badge badge-brand shrink-0">Çözümlendi</span>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => void resolvePrivacyRequest(request)}
+                  disabled={privacyBusy !== null}
+                  className="btn-secondary shrink-0 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {privacyBusy === request.id ? "Kaydediliyor…" : "Çözümlendi olarak kaydet"}
+                </button>
+              )}
+            </div>
+          ))}
+          {privacyRequests.length === 0 && (
+            <p className="px-4 py-5 text-sm text-steel">Henüz gizlilik talebi yok.</p>
           )}
         </div>
       </section>
