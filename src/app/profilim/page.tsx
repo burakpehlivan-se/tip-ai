@@ -8,6 +8,14 @@ import { StudentPerformanceInsights } from "@/lib/student/performance-insights";
 import type { NextCaseRecommendation } from "@/lib/student/next-case-recommendation";
 
 type MeInfo = { username: string; displayName: string };
+type StudentAssignment = {
+  id: string;
+  cohortName: string;
+  caseId: string;
+  title: string | null;
+  instructions: string | null;
+  dueAt: number | null;
+};
 
 export default function ProfilimPage() {
   const router = useRouter();
@@ -15,6 +23,8 @@ export default function ProfilimPage() {
   const [progress, setProgress] = useState<StudentProgress | null>(null);
   const [insights, setInsights] = useState<StudentPerformanceInsights | null>(null);
   const [recommendation, setRecommendation] = useState<NextCaseRecommendation | null>(null);
+  const [assignments, setAssignments] = useState<StudentAssignment[]>([]);
+  const [assignmentsAvailable, setAssignmentsAvailable] = useState(false);
   const [hata, setHata] = useState("");
 
   useEffect(() => {
@@ -34,6 +44,7 @@ export default function ProfilimPage() {
             fetch("/api/student/progress", { cache: "no-store" }).then((r) => r.json()),
             fetch("/api/student/performance", { cache: "no-store" }).then((r) => r.json()),
             fetch("/api/student/next-case", { cache: "no-store" }).then((r) => r.json()),
+            fetch("/api/student/assignments", { cache: "no-store" }).then((r) => r.json()),
           ]);
         }
         return null;
@@ -43,6 +54,10 @@ export default function ProfilimPage() {
         if (data[0]?.progress) setProgress(data[0].progress);
         if (data[1]?.insights) setInsights(data[1].insights);
         if (data[2]?.recommendation) setRecommendation(data[2].recommendation);
+        if (data[3]?.available) {
+          setAssignmentsAvailable(true);
+          setAssignments(data[3].assignments || []);
+        }
       })
       .catch(() => setHata("İlerleme yüklenemedi."));
   }, [router]);
@@ -149,6 +164,43 @@ export default function ProfilimPage() {
                     </div>
                   </div>
                 </div>
+              </section>
+            )}
+
+            {assignmentsAvailable && (
+              <section className="mb-10" aria-labelledby="atanan-vakalar">
+                <div className="mb-4 flex items-end justify-between gap-4">
+                  <div>
+                    <h2 id="atanan-vakalar" className="text-xl font-semibold text-ink">Atanan Vakalar</h2>
+                    <p className="mt-1 text-sm text-steel">Eğitmeninizin grubunuz için belirlediği çalışmalar.</p>
+                  </div>
+                  <span className="badge badge-steel">{assignments.length}</span>
+                </div>
+                {assignments.length === 0 ? (
+                  <div className="card">
+                    <p className="text-sm text-steel">Şu an size atanmış bir vaka yok.</p>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {assignments.map((assignment) => (
+                      <article key={assignment.id} className="card flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-end">
+                        <div className="min-w-0">
+                          <p className="text-xs font-medium uppercase tracking-wide text-muted">{assignment.cohortName}</p>
+                          <h3 className="mt-1 text-lg font-semibold text-ink">{assignment.title || assignment.caseId}</h3>
+                          {assignment.instructions && <p className="mt-2 text-sm text-steel">{assignment.instructions}</p>}
+                          {assignment.dueAt && (
+                            <p className="mt-2 text-xs text-muted">
+                              Son tarih: {new Date(assignment.dueAt).toLocaleDateString("tr-TR")}
+                            </p>
+                          )}
+                        </div>
+                        <Link href={`/atamalar/${assignment.id}`} className="btn-primary shrink-0 justify-center">
+                          Vakayı aç
+                        </Link>
+                      </article>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 

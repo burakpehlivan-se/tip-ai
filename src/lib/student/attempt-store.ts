@@ -14,6 +14,8 @@ const ATTEMPT_TTL_MS = 1000 * 60 * 60 * 12;
 interface AttemptRecord {
   id: string;
   actor: string;
+  /** Grup atamasından başlatıldıysa, aynı atamaya geri dönüş için sunucu içi bağ. */
+  assignmentId?: string;
   poliklinikKey: string;
   vaka: Vaka;
   sorulanAksiyonlar: string[];
@@ -112,20 +114,43 @@ export function startStudentAttempt(actor: string, poliklinikKey: string): Promi
     if (!candidates.length) return null;
 
     const template = candidates[Math.floor(Math.random() * candidates.length)];
-    const record: AttemptRecord = {
-      id: crypto.randomUUID(),
-      actor,
-      poliklinikKey,
-      vaka: adminVakaToPlayable(template),
-      sorulanAksiyonlar: [],
-      istenenTestler: [],
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    const store = load();
-    store.attempts.push(record);
-    save(store);
-    return toPublicAttempt(record);
+    return createAttemptFromTemplate(actor, template, poliklinikKey);
+  });
+}
+
+function createAttemptFromTemplate(
+  actor: string,
+  template: ReturnType<typeof loadCasesStore>["cases"][number],
+  poliklinikKey: string,
+  assignmentId?: string
+): PublicAttemptCase {
+  const record: AttemptRecord = {
+    id: crypto.randomUUID(),
+    actor,
+    assignmentId,
+    poliklinikKey,
+    vaka: adminVakaToPlayable(template),
+    sorulanAksiyonlar: [],
+    istenenTestler: [],
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+  };
+  const store = load();
+  store.attempts.push(record);
+  save(store);
+  return toPublicAttempt(record);
+}
+
+/** Yalnızca daha önce doğrulanmış bir grup atamasının belirttiği vaka için kullanılır. */
+export function startAssignedStudentAttempt(
+  actor: string,
+  assignmentId: string,
+  caseId: string
+): Promise<PublicAttemptCase | null> {
+  return withJsonStoreLock(() => {
+    const template = loadCasesStore().cases.find((item) => item.id === caseId && item.durum === "aktif");
+    if (!template) return null;
+    return createAttemptFromTemplate(actor, template, template.poliklinikKey, assignmentId);
   });
 }
 
@@ -142,6 +167,19 @@ export function getActiveStudentAttempt(actor: string, poliklinikKey: string): P
       null
     );
     return latest ? toResumableAttempt(latest) : null;
+  });
+}
+
+/** Öğrencinin yalnızca kendi atamasına bağlı aktif oturumunu geri döndürür. */
+export function getActiveStudentAttemptForAssignment(
+  actor: string,
+  assignmentId: string
+): Promise<ResumableAttemptCase | null> {
+  return withJsonStoreLock(() => {
+    const attempt = load().attempts
+      .filter((item) => item.actor === actor && item.assignmentId === assignmentId)
+      .sort((a, b) => b.updatedAt - a.updatedAt)[0];
+    return attempt ? toResumableAttempt(attempt) : null;
   });
 }
 

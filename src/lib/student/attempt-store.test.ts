@@ -6,7 +6,9 @@ import {
   answerStudentAttempt,
   completeStudentAttempt,
   getActiveStudentAttempt,
+  getActiveStudentAttemptForAssignment,
   requestStudentAttemptTest,
+  startAssignedStudentAttempt,
   startStudentAttempt,
 } from "./attempt-store";
 
@@ -49,6 +51,21 @@ describe("student attempt store", () => {
     expect(resumed?.ilerleme.testSonuclari[0]?.testKey).toBe(vaka!.testler[0].testKey);
     await expect(getActiveStudentAttempt("baska.ogrenci", "kardiyoloji")).resolves.toBeNull();
     await expect(getActiveStudentAttempt("ogrenci.devam", "noroloji")).resolves.toBeNull();
+  });
+
+  it("atanan vakayı ayrı bir oturumla başlatır ve yalnızca aynı atamadan sürdürür", async () => {
+    const vaka = await startAssignedStudentAttempt(
+      "ogrenci.atama",
+      "assignment-1",
+      "kardiyoloji::stemi"
+    );
+    expect(vaka).not.toBeNull();
+    await answerStudentAttempt(vaka!.id, "ogrenci.atama", "VITAL_TANSIYON");
+
+    const resumed = await getActiveStudentAttemptForAssignment("ogrenci.atama", "assignment-1");
+    expect(resumed?.id).toBe(vaka!.id);
+    await expect(getActiveStudentAttemptForAssignment("ogrenci.atama", "assignment-2")).resolves.toBeNull();
+    await expect(getActiveStudentAttemptForAssignment("baska.ogrenci", "assignment-1")).resolves.toBeNull();
   });
 
   it("bozuk oturum dosyasını sessizce boş saymak yerine karantinaya alır", async () => {

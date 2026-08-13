@@ -127,3 +127,26 @@ export async function listAssignmentsForStudent(studentId: string) {
     createdAt: row.createdAt.getTime(),
   }));
 }
+
+/** Atamayı yalnızca aktif gruptaki kendi öğrencisi için döndürür. */
+export async function getAssignmentForStudent(assignmentId: string, studentId: string) {
+  const db = getDb();
+  const [row] = await db
+    .select({
+      id: cohortCaseAssignments.id,
+      caseId: cohortCaseAssignments.caseId,
+      caseVersion: cohortCaseAssignments.caseVersion,
+    })
+    .from(cohortMemberships)
+    .innerJoin(cohorts, eq(cohortMemberships.cohortId, cohorts.id))
+    .innerJoin(cohortCaseAssignments, eq(cohortCaseAssignments.cohortId, cohorts.id))
+    .where(
+      and(
+        eq(cohortMemberships.studentId, studentId),
+        eq(cohorts.active, true),
+        eq(cohortCaseAssignments.id, assignmentId)
+      )
+    )
+    .limit(1);
+  return row ?? null;
+}
