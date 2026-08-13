@@ -100,6 +100,7 @@ export function navAllowedForRole(role: AdminRole, href: string): boolean {
   if (href.startsWith("/admin/panel/kural-motoru")) return perms.has("system.migrate");
   if (href.startsWith("/admin/panel/yedekler")) return perms.has("backups.read");
   if (href.startsWith("/admin/panel/kullanicilar")) return perms.has("users.manage");
+  if (href.startsWith("/admin/panel/diagnostics")) return perms.has("system.migrate");
   if (href.includes("/oyna/")) return perms.has("play");
   return role === "admin";
 }

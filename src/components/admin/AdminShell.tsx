@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { ReactNode, useEffect, useMemo, useState } from "react";
+import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 type Role = "admin" | "doktor";
 
@@ -17,6 +17,7 @@ const NAV: { href: string; label: string; roles: Role[] }[] = [
   { href: "/admin/panel/ayarlar", label: "Ayarlar", roles: ["admin"] },
   { href: "/admin/panel/logs", label: "Loglar", roles: ["admin"] },
   { href: "/admin/panel/yedekler", label: "Yedekler", roles: ["admin"] },
+  { href: "/admin/panel/diagnostics", label: "Sistem", roles: ["admin"] },
 ];
 
 export default function AdminShell({ children }: { children: ReactNode }) {
@@ -25,6 +26,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const [username, setUsername] = useState<string | null>(null);
   const [role, setRole] = useState<Role>("admin");
   const [ready, setReady] = useState(false);
+  const mobileNavRef = useRef<HTMLElement>(null);
 
   const isPlayMode = pathname.includes("/oyna/");
 
@@ -32,6 +34,8 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     () => NAV.filter((n) => n.roles.includes(role)),
     [role]
   );
+  const isActiveNav = (href: string) =>
+    href === "/admin/panel" ? pathname === href : pathname.startsWith(href);
 
   useEffect(() => {
     fetch("/api/admin/me")
@@ -61,6 +65,11 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       router.replace("/admin/panel/vakalar");
     }
   }, [ready, pathname, role, router]);
+
+  useEffect(() => {
+    const activeItem = mobileNavRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
+    activeItem?.scrollIntoView({ block: "nearest", inline: "center" });
+  }, [pathname, ready]);
 
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -108,10 +117,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
               </Link>
               <nav className="hidden items-center gap-0.5 md:flex" aria-label="Panel gezinme">
                 {navItems.map((n) => {
-                  const active =
-                    n.href === "/admin/panel"
-                      ? pathname === n.href
-                      : pathname.startsWith(n.href);
+                  const active = isActiveNav(n.href);
                   return (
                     <Link
                       key={n.href}
@@ -158,12 +164,9 @@ export default function AdminShell({ children }: { children: ReactNode }) {
               tıp<span className="text-brand">_ai</span>{" "}
               <span className="text-muted font-normal">panel</span>
             </Link>
-            <nav className="hidden items-center gap-1 sm:flex" aria-label="Panel gezinme">
+            <nav className="hidden items-center gap-1 lg:flex" aria-label="Panel gezinme">
               {navItems.map((n) => {
-                const active =
-                  n.href === "/admin/panel"
-                    ? pathname === n.href
-                    : pathname.startsWith(n.href);
+                const active = isActiveNav(n.href);
                 return (
                   <Link
                     key={n.href}
@@ -189,20 +192,27 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             </button>
           </div>
         </div>
-        <div className="flex gap-1 overflow-x-auto border-t border-hairline-soft px-2 py-1.5 sm:hidden">
-          {navItems.map((n) => (
-            <Link
-              key={n.href}
-              href={n.href}
-              aria-current={pathname.startsWith(n.href) ? "page" : undefined}
-              className={`inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-xs font-medium ${
-                pathname.startsWith(n.href) ? "bg-ink text-white" : "bg-surface text-steel"
-              }`}
-            >
-              {n.label}
-            </Link>
-          ))}
-        </div>
+        <nav
+          ref={mobileNavRef}
+          className="flex gap-1 overflow-x-auto border-t border-hairline-soft px-2 py-1.5 lg:hidden"
+          aria-label="Mobil panel gezinme"
+        >
+          {navItems.map((n) => {
+            const active = isActiveNav(n.href);
+            return (
+              <Link
+                key={n.href}
+                href={n.href}
+                aria-current={active ? "page" : undefined}
+                className={`inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-xs font-medium ${
+                  active ? "bg-ink text-white" : "bg-surface text-steel"
+                }`}
+              >
+                {n.label}
+              </Link>
+            );
+          })}
+        </nav>
       </header>
       <main id="panel-icerik" className="mx-auto max-w-6xl px-4 py-8">{children}</main>
     </div>
