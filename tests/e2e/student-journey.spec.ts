@@ -31,6 +31,13 @@ test.describe("öğrenci kritik yolculuğu", () => {
     await page.goto("/poliklinik/kardiyoloji");
     const questionInput = page.getByLabel("Hastaya soru sor");
     await expect(questionInput).toBeVisible();
+
+    const skipLink = page.getByRole("link", { name: "Çalışma alanına atla" });
+    await skipLink.focus();
+    await expect(skipLink).toBeFocused();
+    await skipLink.press("Enter");
+    await expect(page.locator("#vaka-calismasi")).toBeFocused();
+
     await questionInput.fill("Ağrınız ne zaman başladı?");
     await page.getByRole("button", { name: "Sor", exact: true }).click();
     await expect(page.getByRole("log", { name: "Vaka sohbeti" }).getByText("Ağrınız ne zaman başladı?")).toBeVisible();

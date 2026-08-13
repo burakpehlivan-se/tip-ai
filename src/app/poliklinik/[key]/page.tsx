@@ -126,7 +126,7 @@ export default function PoliklinikPage() {
       return (
         <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
           <div className="max-w-sm text-center">
-            <p className="text-lg font-medium text-clinical-red">{hata}</p>
+            <p role="alert" className="text-lg font-medium text-clinical-red">{hata}</p>
             <button type="button" onClick={() => void yeniVakaAl()} className="btn-primary mt-5">
               Tekrar dene
             </button>
@@ -150,10 +150,11 @@ export default function PoliklinikPage() {
 
   return (
     <div className="flex h-[100dvh] flex-col bg-canvas">
+      <a href="#vaka-calismasi" className="skip-link">Çalışma alanına atla</a>
       {/* Top Bar — Poliklinik */}
-      <div className="flex min-h-14 items-center justify-between gap-3 border-b border-hairline bg-canvas px-4 py-2">
+      <header className="flex min-h-14 items-center justify-between gap-3 border-b border-hairline bg-canvas px-4 py-2">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <Link href="/vakalar" className="shrink-0 text-sm text-steel transition-colors hover:text-ink">
+          <Link href="/vakalar" className="inline-flex min-h-11 shrink-0 items-center text-sm text-steel transition-colors hover:text-ink">
             <span className="sm:hidden">← Geri</span>
             <span className="hidden sm:inline">← Poliklinikler</span>
           </Link>
@@ -166,33 +167,35 @@ export default function PoliklinikPage() {
           <span className="sm:hidden">Yeni</span>
           <span className="hidden sm:inline">🔄 Yeni Hasta</span>
         </button>
-      </div>
+      </header>
 
-      <VakaWorkspace
-        vaka={vaka}
-        key={vaka.id}
-        embed
-        initialSnapshot={resumeSnapshot}
-        onboarding={!resumeSnapshot}
-        onAsk={async (action) => {
-          const yanit = (await attemptAction("ask", { action }))?.yanit;
-          if (!yanit) throw new Error("Hasta yanıtı alınamadı.");
-          return yanit;
-        }}
-        onTestRequest={async (testKey) => {
-          const sonuc = (await attemptAction("test", { testKey }))?.sonuc;
-          if (!sonuc) throw new Error("Test sonucu alınamadı.");
-          return sonuc;
-        }}
-        onReasoningSave={async (reasoning) => {
-          await attemptAction("reasoning", { reasoning });
-        }}
-        onEvaluate={async (attempt: CompletedAttempt) => {
-          const sonuc = (await attemptAction("complete", { taniGirildi: attempt.taniGirildi, reasoning: attempt.clinicalReasoning }))?.sonuc;
-          if (!sonuc) throw new Error("Değerlendirme alınamadı.");
-          return sonuc;
-        }}
-      />
+      <main id="vaka-calismasi" tabIndex={-1} className="flex min-h-0 flex-1">
+        <VakaWorkspace
+          vaka={vaka}
+          key={vaka.id}
+          embed
+          initialSnapshot={resumeSnapshot}
+          onboarding={!resumeSnapshot}
+          onAsk={async (action) => {
+            const yanit = (await attemptAction("ask", { action }))?.yanit;
+            if (!yanit) throw new Error("Hasta yanıtı alınamadı.");
+            return yanit;
+          }}
+          onTestRequest={async (testKey) => {
+            const sonuc = (await attemptAction("test", { testKey }))?.sonuc;
+            if (!sonuc) throw new Error("Test sonucu alınamadı.");
+            return sonuc;
+          }}
+          onReasoningSave={async (reasoning) => {
+            await attemptAction("reasoning", { reasoning });
+          }}
+          onEvaluate={async (attempt: CompletedAttempt) => {
+            const sonuc = (await attemptAction("complete", { taniGirildi: attempt.taniGirildi, reasoning: attempt.clinicalReasoning }))?.sonuc;
+            if (!sonuc) throw new Error("Değerlendirme alınamadı.");
+            return sonuc;
+          }}
+        />
+      </main>
     </div>
   );
 }
