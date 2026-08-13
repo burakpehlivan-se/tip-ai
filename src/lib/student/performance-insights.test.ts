@@ -42,6 +42,7 @@ describe("student performance insights", () => {
       averageScorePercentage: 60,
       diagnosisAccuracyPercentage: 33,
       missedRedFlagCount: 2,
+      confidenceCalibration: { recordedCaseCount: 0, averageGap: null },
     });
     expect(insights.practicePriorities[0]).toMatchObject({
       kind: "safety",
@@ -55,5 +56,16 @@ describe("student performance insights", () => {
         averageScorePercentage: 45,
       }),
     ]);
+  });
+
+  it("adds calibration as an explainable priority only with enough recorded cases", () => {
+    const insights = buildStudentPerformanceInsights([
+      session({ id: "a", confidenceCalibrationGap: 70 }),
+      session({ id: "b", confidenceCalibrationGap: 50 }),
+    ]);
+    expect(insights.overall.confidenceCalibration).toEqual({ recordedCaseCount: 2, averageGap: 60 });
+    expect(insights.practicePriorities).toEqual(expect.arrayContaining([
+      expect.objectContaining({ kind: "calibration", occurrenceCount: 2 }),
+    ]));
   });
 });

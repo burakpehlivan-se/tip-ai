@@ -265,6 +265,15 @@ export default function ProfilimPage() {
                   Atlanan red flag
                 </div>
               </div>
+              {insights && insights.overall.confidenceCalibration.averageGap !== null && (
+                <div className="card">
+                  <div className="text-3xl font-semibold text-ink">%{insights.overall.confidenceCalibration.averageGap}</div>
+                  <div className="mt-1 text-xs font-medium uppercase tracking-wide text-muted">
+                    Tanı kalibrasyon farkı
+                  </div>
+                  <p className="mt-2 text-xs leading-5 text-steel">Güvenin ile sonucun arasındaki ortalama fark; düşük olması hedeflenir.</p>
+                </div>
+              )}
             </div>
 
             {recommendation && (

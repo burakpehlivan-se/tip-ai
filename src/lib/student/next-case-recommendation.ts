@@ -19,7 +19,7 @@ export interface NextCaseRecommendation {
   seviye: Seviye;
   reason: string;
   focus: {
-    kind: "safety" | "clinic" | "foundation";
+    kind: "safety" | "calibration" | "clinic" | "foundation";
     label: string;
   };
 }
@@ -104,6 +104,24 @@ export function recommendNextCase(
         candidate,
         `Güvenlik odağı: “${label}” bulgusunu son denemelerinizde ${safety.count} kez atladınız.`,
         { kind: "safety", label }
+      );
+    }
+  }
+
+  const calibrationSessions = recentSessions.filter(
+    (session): session is PlaySession & { confidenceCalibrationGap: number } =>
+      typeof session.confidenceCalibrationGap === "number"
+  );
+  const averageCalibrationGap = calibrationSessions.length
+    ? Math.round(calibrationSessions.reduce((total, session) => total + session.confidenceCalibrationGap, 0) / calibrationSessions.length)
+    : null;
+  if (calibrationSessions.length >= 2 && averageCalibrationGap !== null && averageCalibrationGap >= 35) {
+    const candidate = choose(candidates);
+    if (candidate) {
+      return toRecommendation(
+        candidate,
+        `Son ${calibrationSessions.length} vakada tanı güveniniz ile sonuç arasındaki ortalama fark %${averageCalibrationGap}. Bir sonraki vakada ayırıcı tanı ve karşıt bulguları birlikte gözden geçirin.`,
+        { kind: "calibration", label: "Tanı kalibrasyonu" }
       );
     }
   }

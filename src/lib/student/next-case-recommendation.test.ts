@@ -41,6 +41,15 @@ describe("next case recommendation", () => {
     expect(recommendation?.reason).toContain("%50");
   });
 
+  it("uses a large recurring confidence gap after safety and before clinic performance", () => {
+    const recommendation = recommendNextCase([
+      session({ id: "a", createdAt: 20, confidenceCalibrationGap: 80 }),
+      session({ id: "b", createdAt: 10, confidenceCalibrationGap: 60 }),
+    ], candidates);
+    expect(recommendation).toMatchObject({ focus: { kind: "calibration", label: "Tanı kalibrasyonu" } });
+    expect(recommendation?.reason).toContain("%70");
+  });
+
   it("gives a deterministic beginner-level cold-start recommendation", () => {
     const recommendation = recommendNextCase([], candidates);
 

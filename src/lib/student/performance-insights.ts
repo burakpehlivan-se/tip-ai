@@ -6,6 +6,10 @@ export interface StudentPerformanceInsights {
     averageScorePercentage: number;
     diagnosisAccuracyPercentage: number;
     missedRedFlagCount: number;
+    confidenceCalibration: {
+      recordedCaseCount: number;
+      averageGap: number | null;
+    };
   };
   weakClinics: Array<{
     poliklinikKey: string;
@@ -14,7 +18,7 @@ export interface StudentPerformanceInsights {
     diagnosisAccuracyPercentage: number;
   }>;
   practicePriorities: Array<{
-    kind: "safety" | "clinic";
+    kind: "safety" | "calibration" | "clinic";
     label: string;
     occurrenceCount: number;
     guidance: string;
@@ -41,11 +45,17 @@ export function buildStudentPerformanceInsights(
   const missedRedFlags = new Map<string, number>();
   let scoreTotal = 0;
   let correctDiagnoses = 0;
+  let calibrationTotal = 0;
+  let calibrationCount = 0;
 
   for (const session of studentSessions) {
     const score = session.maxPuan > 0 ? (session.toplamPuan / session.maxPuan) * 100 : 0;
     scoreTotal += score;
     if (session.taniDogru) correctDiagnoses += 1;
+    if (typeof session.confidenceCalibrationGap === "number") {
+      calibrationTotal += session.confidenceCalibrationGap;
+      calibrationCount += 1;
+    }
 
     const clinic = clinicRows.get(session.poliklinikKey) || {
       completedCaseCount: 0,
@@ -77,6 +87,7 @@ export function buildStudentPerformanceInsights(
         a.poliklinikKey.localeCompare(b.poliklinikKey)
     );
 
+  const averageCalibrationGap = calibrationCount ? percentage(calibrationTotal, calibrationCount) : null;
   const practicePriorities = [
     ...Array.from(missedRedFlags.entries()).map(([label, occurrenceCount]) => ({
       kind: "safety" as const,
@@ -90,9 +101,17 @@ export function buildStudentPerformanceInsights(
       occurrenceCount: clinic.completedCaseCount,
       guidance: "Bu poliklinikte temel yaklaşımı tekrar edin ve yeni bir vaka ile pekiştirin.",
     })),
+    ...(calibrationCount >= 2 && averageCalibrationGap !== null && averageCalibrationGap >= 35
+      ? [{
+          kind: "calibration" as const,
+          label: "Tanı kalibrasyonu",
+          occurrenceCount: calibrationCount,
+          guidance: `Son ${calibrationCount} vakada güveniniz ile sonuç arasındaki ortalama fark %${averageCalibrationGap}. Ayırıcı tanı ve karşıt bulguları birlikte gözden geçirin.`,
+        }]
+      : []),
   ].sort(
     (a, b) =>
-      (a.kind === "safety" ? 0 : 1) - (b.kind === "safety" ? 0 : 1) ||
+      priorityOrder(a.kind) - priorityOrder(b.kind) ||
       b.occurrenceCount - a.occurrenceCount ||
       a.label.localeCompare(b.label, "tr")
   );
@@ -103,8 +122,16 @@ export function buildStudentPerformanceInsights(
       averageScorePercentage: percentage(scoreTotal, studentSessions.length),
       diagnosisAccuracyPercentage: percentage(correctDiagnoses * 100, studentSessions.length),
       missedRedFlagCount: Array.from(missedRedFlags.values()).reduce((total, count) => total + count, 0),
+      confidenceCalibration: {
+        recordedCaseCount: calibrationCount,
+        averageGap: averageCalibrationGap,
+      },
     },
     weakClinics,
     practicePriorities,
   };
+}
+
+function priorityOrder(kind: StudentPerformanceInsights["practicePriorities"][number]["kind"]): number {
+  return kind === "safety" ? 0 : kind === "calibration" ? 1 : 2;
 }
