@@ -146,6 +146,12 @@ feature-flag ile yalnızca giriş yapmış öğrenci denemelerinin canary geçi�
 Her kayıt başladığı andaki vaka/rubrik gövdesini JSONB olarak kilitler; içerik
 sonradan değişse bile geçmiş değerlendirme yeniden yazılmaz.
 
+Mevcut JSON deneme akışında da oynanabilir vaka, kaynak şablonun sürümünü ve
+SHA-256 içerik checksum'ını taşır. Deneme tamamlanınca bu damga analitik
+oturumuna eklenir; böylece P2 import/canary sonrasında eski denemelerle aynı
+vaka sürümü izlenebilir. Checksum, klinik içerik ve rubriği kapsar; etiket,
+reviewer veya güncelleme zamanı gibi yayın meta verileri checksum'ı değiştirmez.
+
 ## Üretim depolama ve yedekleme
 
 Uygulamanın kalıcı verisi JSON dosyaları olarak çalışma dizinindeki

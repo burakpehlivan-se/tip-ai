@@ -188,6 +188,8 @@ export function completeStudentAttempt(id: string, actor: string, taniGirildi: s
       eksikSorular: sonuc.eksikSorular,
       eksikTestler: sonuc.eksikTestler,
       anamnezCoverage: sonuc.anamnezAnalizi.toplamBeklenen ? Math.round(sonuc.anamnezAnalizi.toplamSoruldu / sonuc.anamnezAnalizi.toplamBeklenen * 100) : undefined,
+      caseVersion: found.attempt.vaka.sourceCaseVersion,
+      caseChecksum: found.attempt.vaka.sourceCaseChecksum,
     }, actor);
     found.store.attempts = found.store.attempts.filter((item) => item.id !== id);
     save(found.store);

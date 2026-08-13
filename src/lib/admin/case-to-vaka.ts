@@ -3,6 +3,7 @@ import { Vaka, Hasta, Cinsiyet } from "../types";
 import { birlestirTestler, buildClinicalProfile } from "../data/lab-katalog";
 import { enrichHastaYanitlari } from "../data/hasta-yanit-enrich";
 import { CHIP_HAVUZU } from "../data/case-generator";
+import { caseVersionStamp } from "./case-integrity";
 
 function rastgeleInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -14,6 +15,7 @@ const SOY = ["Yılmaz", "Kaya", "Demir", "Çelik", "Şahin"];
 
 /** Admin deposundaki vaka şablonundan oynanabilir Vaka üretir */
 export function adminVakaToPlayable(av: AdminVaka): Vaka {
+  const source = caseVersionStamp(av);
   const cinsiyet: Cinsiyet =
     av.cinsiyetTercih === "E"
       ? "E"
@@ -105,7 +107,7 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {
     profile,
     episodeZamani,
     beklenenTani: av.rubric?.kabulEdilenTani || [],
-    rubric: av.rubric,
+    rubric: structuredClone(av.rubric),
     statikTestler,
     hastaYanitlari: enrichHastaYanitlari(av.hastaYanitlari || {}, {
       chipHavuzu: CHIP_HAVUZU,
@@ -114,7 +116,7 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {
     }),
     soruChipleri: [...CHIP_HAVUZU],
     relevantAksiyonlar,
-    idealYol: av.idealYol,
+    idealYol: [...av.idealYol],
     egitimNotu: av.egitimNotu,
     tedavi,
     kaynaklar: [
@@ -122,5 +124,7 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {
       `Durum: ${av.durum} · Sürüm: v${av.surum}`,
       av.cdmVersion ? `CDM: ${av.cdmVersion}` : "CDM: legacy-flat",
     ],
+    sourceCaseVersion: source.version,
+    sourceCaseChecksum: source.checksum,
   };
 }

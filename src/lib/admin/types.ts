@@ -172,6 +172,9 @@ export interface PlaySession {
   eksikSorular: string[];
   eksikTestler: string[];
   anamnezCoverage?: number;
+  /** Denemenin başladığı kaynak vaka/rubrik sürümü; geçmiş değerlendirme izi için. */
+  caseVersion?: number;
+  caseChecksum?: string;
   createdAt: number;
 }
 

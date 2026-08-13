@@ -75,6 +75,9 @@ export interface Vaka {
   egitimNotu?: string;
   tedavi?: TedaviPlani;
   kaynaklar?: string[];
+  /** Öğrenci denemesi başlarken kaynak şablonun sürüm-kilitli kimliği. */
+  sourceCaseVersion?: number;
+  sourceCaseChecksum?: string;
 }
 
 export interface TedaviPlani {
