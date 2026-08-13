@@ -1,6 +1,7 @@
 import { drizzle as drizzlePg, NodePgDatabase } from "drizzle-orm/node-postgres";
 import type { PgliteDatabase } from "drizzle-orm/pglite";
 import { Pool } from "pg";
+import { logger } from "@/lib/logger";
 import * as schema from "./schema";
 
 export type AuthSchema = typeof schema;
@@ -72,7 +73,7 @@ export function getDb(): AuthDb {
   const pool = new Pool({ connectionString: requireDatabaseUrl() });
   pool.on("error", (err) => {
     // Boşta havuz hataları istek zincirini kırmasın; yalnızca güvenli özet loglanır.
-    console.error("[auth-db] pool error", err.message || String(err));
+    logger.exception("Kimlik veritabanı havuzu hatası", err, { component: "auth-db-pool" });
   });
   pgClient = drizzlePg(pool, { schema });
   return pgClient;

@@ -1,4 +1,5 @@
 import { TestSonucu, ClinicalProfile } from "./types";
+import { logger } from "./logger";
 import { HASTALIK_TEST_MAP } from "./data/clinical-reference";
 import {
   generateNormalValue,
@@ -293,10 +294,7 @@ export function getLabResult(
   if (normalResult) return normalResult;
 
   // ── Layer 4: Unknown test — log + null ──
-  console.warn(
-    `[getLabResult] Unknown test key: "${testKey}". Consider adding it to lab-reference-library.json.`,
-    { testKey, profile: profile.hastalikKey }
-  );
+  logger.warn("Laboratuvar referans kataloğunda bilinmeyen test anahtarı", { testKey });
   return null;
 }
 

@@ -7,6 +7,7 @@
  */
 
 import { and, desc, eq, inArray } from "drizzle-orm";
+import { logger } from "@/lib/logger";
 import { getDb } from "./db";
 import { authAuditLogs } from "./schema";
 
@@ -51,7 +52,7 @@ export async function recordAuthEvent(input: RecordAuthEventInput): Promise<bool
     return true;
   } catch (error) {
     // Denetim kaydı başarısız olsa bile ana istek akışı devam eder.
-    console.error("[auth-audit] kayıt yazılamadı", error);
+    logger.exception("Kimlik denetim kaydı yazılamadı", error, { event: input.event });
     return false;
   }
 }
