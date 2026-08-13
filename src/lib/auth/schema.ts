@@ -20,6 +20,7 @@ export const learningAttemptStatus = pgEnum("learning_attempt_status", [
   "abandoned",
   "expired",
 ]);
+export const clinicalCaseStatus = pgEnum("clinical_case_status", ["taslak", "aktif", "arsiv"]);
 
 /**
  * Tek kimlik deposu: yalnızca giriş bilgileri ve rol tutulur.
@@ -152,6 +153,74 @@ export const learningAttempts = pgTable(
 );
 
 export type LearningAttempt = typeof learningAttempts.$inferSelect;
+
+/**
+ * P2 expand adımı: düzenlenebilir vaka gövdesinin PostgreSQL doğruluk kaynağı.
+ * Klinik gövde JSONB'de esnek kalırken durum, sürüm, checksum ve zaman alanları
+ * ilişkisel kalır; böylece filtreleme, iyimser kilitleme ve denetim mümkün olur.
+ *
+ * JSON runtime henüz kaldırılmamıştır. Bu tablo önce idempotent import ve
+ * eşitlik denetimi için hazırlanır; okuma/yazma cutover'ı ayrı bir feature flag
+ * ve rollback kanıtı ile yapılacaktır.
+ */
+export const clinicalCases = pgTable(
+  "clinical_cases",
+  {
+    caseId: text("case_id").primaryKey(),
+    poliklinikKey: text("poliklinik_key").notNull(),
+    status: clinicalCaseStatus("status").notNull(),
+    reviewStatus: text("review_status").notNull().default("legacy"),
+    version: integer("version").notNull(),
+    contentChecksum: text("content_checksum"),
+    /** Tam AdminVaka gövdesi; relational indeks alanları yukarıda ayrıdır. */
+    content: jsonb("content").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("clinical_cases_poliklinik_status_updated_idx").on(
+      table.poliklinikKey,
+      table.status,
+      table.updatedAt
+    ),
+    index("clinical_cases_status_review_updated_idx").on(
+      table.status,
+      table.reviewStatus,
+      table.updatedAt
+    ),
+  ]
+);
+
+export type ClinicalCase = typeof clinicalCases.$inferSelect;
+
+/**
+ * Öğrencinin gördüğü reviewer-imzalı sürümün append-only kaydı. Case tablosuna
+ * foreign key verilmez: bir vaka geri çekilse bile geçmiş deneme/sürüm kanıtı
+ * korunur; silme işlemi gelecekte arşivleme olarak uygulanmalıdır.
+ */
+export const publishedClinicalCaseVersions = pgTable(
+  "published_clinical_case_versions",
+  {
+    caseId: text("case_id").notNull(),
+    version: integer("version").notNull(),
+    contentChecksum: text("content_checksum").notNull(),
+    approvedBy: text("approved_by").notNull(),
+    approvedAt: timestamp("approved_at", { withTimezone: true }).notNull(),
+    content: jsonb("content").notNull(),
+  },
+  (table) => [
+    primaryKey({
+      columns: [table.caseId, table.version],
+      name: "published_clinical_case_versions_pkey",
+    }),
+    index("published_clinical_case_versions_case_approved_idx").on(
+      table.caseId,
+      table.approvedAt
+    ),
+  ]
+);
+
+export type PublishedClinicalCaseVersion = typeof publishedClinicalCaseVersions.$inferSelect;
 
 /**
  * P2 sınıf/grup kapsamı. Grup üyeliği yalnızca kimlik bilgisi taşır; klinik

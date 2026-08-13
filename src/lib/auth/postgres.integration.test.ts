@@ -20,9 +20,17 @@ import { scryptSync } from "node:crypto";
 import { Pool } from "pg";
 import { runMigrations } from "./migrate";
 import { importUsersFromFile } from "../../../scripts/import-users";
+import { importCasesFromFile } from "../../../scripts/import-cases";
 import { hashPassword, verifyPassword, needsRehash, versionLegacyHash } from "./password";
 import { getDb, resetDbForTests } from "./db";
-import { authSessions, cohorts, learningAttempts, users } from "./schema";
+import {
+  authSessions,
+  clinicalCases,
+  cohorts,
+  learningAttempts,
+  publishedClinicalCaseVersions,
+  users,
+} from "./schema";
 import { addCohortMember, createCohortCaseAssignment, listAssignmentsForStudent } from "@/lib/learning/cohort-store";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 import { loadCasesStore } from "@/lib/admin/store";
@@ -35,7 +43,7 @@ import {
   revokeAuthSession,
   revokeAuthSessionForUser,
 } from "./session-store";
-import { eq } from "drizzle-orm";
+import { and, eq } from "drizzle-orm";
 import { refundRateLimit, takeRateLimit } from "@/lib/security/rate-limit";
 
 const TEST_URL = process.env.TEST_DATABASE_URL;
@@ -52,6 +60,8 @@ const describePg = TEST_URL ? describe : describe.skip;
 async function dropAll(): Promise<void> {
   const pool = new Pool({ connectionString: TEST_URL! });
   try {
+    await pool.query(`DROP TABLE IF EXISTS published_clinical_case_versions CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS clinical_cases CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS auth_sessions CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS cohort_case_assignments CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS cohort_memberships CASCADE`);
@@ -62,6 +72,7 @@ async function dropAll(): Promise<void> {
     await pool.query(`DROP TABLE IF EXISTS users CASCADE`);
     await pool.query(`DROP TYPE IF EXISTS user_role CASCADE`);
     await pool.query(`DROP TYPE IF EXISTS learning_attempt_status CASCADE`);
+    await pool.query(`DROP TYPE IF EXISTS clinical_case_status CASCADE`);
     await pool.query(`DROP SCHEMA IF EXISTS drizzle CASCADE`);
   } finally {
     await pool.end();
@@ -100,6 +111,8 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       expect(names).toContain("cohort_memberships");
       expect(names).toContain("cohort_case_assignments");
       expect(names).toContain("rate_limit_buckets");
+      expect(names).toContain("clinical_cases");
+      expect(names).toContain("published_clinical_case_versions");
 
       const { rows: enumRows } = await pool.query(
         `SELECT typname FROM pg_type WHERE typname = 'user_role'`
@@ -181,6 +194,89 @@ describePg("PostgreSQL 16 entegrasyon", () => {
     const second = await importUsersFromFile(usersFile);
     expect(second.imported).toBe(0);
     expect(second.skipped).toBe(2);
+
+    fs.rmSync(tmpDir, { recursive: true, force: true });
+  });
+
+  it("P2 vaka JSON deposunu sürümler korunarak idempotent aktarır", async () => {
+    const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tip-ai-case-import-test-"));
+    const casesFile = path.join(tmpDir, "cases.json");
+    const now = Date.now();
+    const content = {
+      id: "acil::import-fixture",
+      poliklinikKey: "acil",
+      poliklinikAd: "Acil",
+      hastalikKey: "import-fixture",
+      hastalikAdi: "İçe aktarma vakası",
+      durum: "aktif",
+      surum: 2,
+      contentChecksum: "case-checksum-v2",
+      createdAt: now - 1_000,
+      updatedAt: now,
+    };
+    fs.writeFileSync(
+      casesFile,
+      JSON.stringify({
+        version: 1,
+        cases: [content],
+        publishedVersions: [
+          {
+            id: "acil::import-fixture@1",
+            caseId: content.id,
+            version: 1,
+            contentChecksum: "published-checksum-v1",
+            approvedBy: "reviewer",
+            approvedAt: now - 500,
+            content: { ...content, surum: 1, contentChecksum: "published-checksum-v1" },
+          },
+        ],
+      }),
+      "utf8"
+    );
+
+    const first = await importCasesFromFile(casesFile);
+    expect(first).toMatchObject({
+      importedCases: 1,
+      skippedCases: 0,
+      conflictingCases: 0,
+      importedVersions: 1,
+      skippedVersions: 0,
+      conflictingVersions: 0,
+    });
+    expect(fs.existsSync(first.backupFile)).toBe(true);
+
+    const second = await importCasesFromFile(casesFile);
+    expect(second).toMatchObject({
+      importedCases: 0,
+      skippedCases: 1,
+      conflictingCases: 0,
+      importedVersions: 0,
+      skippedVersions: 1,
+      conflictingVersions: 0,
+    });
+
+    const db = getDb();
+    const [caseRow] = await db.select().from(clinicalCases).where(eq(clinicalCases.caseId, content.id));
+    expect(caseRow).toMatchObject({
+      caseId: content.id,
+      status: "aktif",
+      version: 2,
+      contentChecksum: "case-checksum-v2",
+    });
+    const [versionRow] = await db
+      .select()
+      .from(publishedClinicalCaseVersions)
+      .where(
+        and(
+          eq(publishedClinicalCaseVersions.caseId, content.id),
+          eq(publishedClinicalCaseVersions.version, 1)
+        )
+      );
+    expect(versionRow).toMatchObject({
+      caseId: content.id,
+      version: 1,
+      contentChecksum: "published-checksum-v1",
+    });
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
