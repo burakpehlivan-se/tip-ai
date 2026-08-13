@@ -6,8 +6,10 @@ import { checkAuthMigrationReadiness } from "@/lib/auth/migration-readiness";
 import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
 
 /**
- * Liveness + PostgreSQL auth cutover readiness. Yanıt yalnızca durum işaretleri
- * içerir; sır, kullanıcı, hata ayrıntısı veya bağlantı bilgisi içermez.
+ * Liveness + PostgreSQL auth/öğrenme şeması readyz kontrolü. Yanıt yalnızca
+ * durum işaretleri içerir; sır, kullanıcı, hata ayrıntısı veya bağlantı bilgisi
+ * içermez. Docker healthcheck bu uçtan 200 bekler; eksik migration'da yeni
+ * container trafik almadan unhealthy kalır.
  */
 export async function GET() {
   try {
