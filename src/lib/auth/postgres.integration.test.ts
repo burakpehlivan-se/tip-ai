@@ -22,7 +22,8 @@ import { runMigrations } from "./migrate";
 import { importUsersFromFile } from "../../../scripts/import-users";
 import { hashPassword, verifyPassword, needsRehash, versionLegacyHash } from "./password";
 import { getDb, resetDbForTests } from "./db";
-import { authSessions, cohortCaseAssignments, cohortMemberships, cohorts, learningAttempts, users } from "./schema";
+import { authSessions, cohorts, learningAttempts, users } from "./schema";
+import { addCohortMember, createCohortCaseAssignment, listAssignmentsForStudent } from "@/lib/learning/cohort-store";
 import { authenticateUser, createUser, findUserByUsername, updateUser } from "./user-store";
 import { createAuthSession, isAuthSessionActive, revokeAuthSession } from "./session-store";
 import { eq } from "drizzle-orm";
@@ -262,21 +263,19 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       .insert(cohorts)
       .values({ name: "Dönem 5 / A", createdBy: instructor.id })
       .returning();
-    await db.insert(cohortMemberships).values({
+    expect(await addCohortMember({ cohortId: cohort.id, studentId: student.id, actorId: instructor.id })).toEqual({ status: "added" });
+    expect(await addCohortMember({ cohortId: cohort.id, studentId: student.id, actorId: instructor.id })).toEqual({ status: "already_member" });
+    const assignment = await createCohortCaseAssignment({
       cohortId: cohort.id,
-      studentId: student.id,
-      addedBy: instructor.id,
+      caseId: "acil::gogus-agrisi",
+      caseVersion: "3",
+      actorId: instructor.id,
     });
-    const [assignment] = await db
-      .insert(cohortCaseAssignments)
-      .values({
-        cohortId: cohort.id,
-        caseId: "acil::gogus-agrisi",
-        caseVersion: "3",
-        createdBy: instructor.id,
-      })
-      .returning();
-    expect(assignment.caseVersion).toBe("3");
+    expect(assignment).not.toBeNull();
+    expect(assignment!.caseVersion).toBe("3");
+    await expect(listAssignmentsForStudent(student.id)).resolves.toEqual([
+      expect.objectContaining({ cohortId: cohort.id, caseId: "acil::gogus-agrisi", caseVersion: "3" }),
+    ]);
   });
 
   it("hash fonksiyonları uçtan uca çalışır (argon2 üret + doğrula)", async () => {

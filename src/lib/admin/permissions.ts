@@ -16,6 +16,7 @@ export type Permission =
   | "cases.import"
   | "cases.validate"
   | "feedback.write"
+  | "assignments.manage"
   | "play"
   | "analytics.read"
   | "settings.read"
@@ -35,6 +36,7 @@ const DOKTOR_PERMS: Permission[] = [
   "cases.export",
   "cases.validate",
   "feedback.write",
+  "assignments.manage",
   "play",
 ];
 
