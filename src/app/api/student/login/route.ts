@@ -21,8 +21,10 @@ export async function POST(req: NextRequest) {
     if (!username || !password) return NextResponse.json({ error: "Kullanıcı adı ve şifre gerekli." }, { status: 400 });
     const ipKey = clientRateLimitKey(req);
     const accountKey = usernameRateLimitKey(username);
-    const ipQuota = takeRateLimit({ namespace: "student-login:ip", key: ipKey, limit: IP_LIMIT, windowMs: LOGIN_WINDOW_MS });
-    const accountQuota = takeRateLimit({ namespace: "student-login:account", key: accountKey, limit: ACCOUNT_LIMIT, windowMs: LOGIN_WINDOW_MS });
+    const [ipQuota, accountQuota] = await Promise.all([
+      takeRateLimit({ namespace: "student-login:ip", key: ipKey, limit: IP_LIMIT, windowMs: LOGIN_WINDOW_MS }),
+      takeRateLimit({ namespace: "student-login:account", key: accountKey, limit: ACCOUNT_LIMIT, windowMs: LOGIN_WINDOW_MS }),
+    ]);
     if (!ipQuota.allowed || !accountQuota.allowed) {
       const decision = !ipQuota.allowed ? ipQuota : accountQuota;
       return NextResponse.json(
@@ -35,8 +37,10 @@ export async function POST(req: NextRequest) {
     if (!auth) {
       return NextResponse.json({ error: "Kullanıcı adı veya şifre hatalı." }, { status: 401 });
     }
-    refundRateLimit({ namespace: "student-login:ip", key: ipKey });
-    refundRateLimit({ namespace: "student-login:account", key: accountKey });
+    await Promise.all([
+      refundRateLimit({ namespace: "student-login:ip", key: ipKey }),
+      refundRateLimit({ namespace: "student-login:account", key: accountKey }),
+    ]);
 
     void observeAuthShadowRead(
       { username: auth.username, role: "ogrenci", active: true },

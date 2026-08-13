@@ -11,6 +11,7 @@ export type AuthMigrationReadiness = {
   cohortsTable: boolean;
   cohortMembershipsTable: boolean;
   cohortAssignmentsTable: boolean;
+  rateLimitBucketsTable: boolean;
 };
 
 export type AuthReadinessResult =
@@ -27,10 +28,11 @@ const unavailable: AuthMigrationReadiness = {
   cohortsTable: false,
   cohortMembershipsTable: false,
   cohortAssignmentsTable: false,
+  rateLimitBucketsTable: false,
 };
 
-/** `drizzle/0000`–`0005`; yeni zorunlu şema özelliği eklendiğinde artırılır. */
-export const REQUIRED_SCHEMA_MIGRATION_COUNT = 6;
+/** `drizzle/0000`–`0006`; yeni zorunlu şema özelliği eklendiğinde artırılır. */
+export const REQUIRED_SCHEMA_MIGRATION_COUNT = 7;
 
 export function isAuthMigrationReady(checks: AuthMigrationReadiness): boolean {
   return (
@@ -42,7 +44,8 @@ export function isAuthMigrationReady(checks: AuthMigrationReadiness): boolean {
     checks.learningAttemptsTable &&
     checks.cohortsTable &&
     checks.cohortMembershipsTable &&
-    checks.cohortAssignmentsTable
+    checks.cohortAssignmentsTable &&
+    checks.rateLimitBucketsTable
   );
 }
 
@@ -64,7 +67,8 @@ export async function checkAuthMigrationReadiness(): Promise<AuthReadinessResult
         to_regclass('public.learning_attempts') IS NOT NULL AS learning_attempts_table,
         to_regclass('public.cohorts') IS NOT NULL AS cohorts_table,
         to_regclass('public.cohort_memberships') IS NOT NULL AS cohort_memberships_table,
-        to_regclass('public.cohort_case_assignments') IS NOT NULL AS cohort_assignments_table
+        to_regclass('public.cohort_case_assignments') IS NOT NULL AS cohort_assignments_table,
+        to_regclass('public.rate_limit_buckets') IS NOT NULL AS rate_limit_buckets_table
     `);
     const row = result.rows[0] as
       | {
@@ -77,6 +81,7 @@ export async function checkAuthMigrationReadiness(): Promise<AuthReadinessResult
           cohorts_table?: boolean;
           cohort_memberships_table?: boolean;
           cohort_assignments_table?: boolean;
+          rate_limit_buckets_table?: boolean;
         }
       | undefined;
     const checks: AuthMigrationReadiness = {
@@ -89,6 +94,7 @@ export async function checkAuthMigrationReadiness(): Promise<AuthReadinessResult
       cohortsTable: row?.cohorts_table === true,
       cohortMembershipsTable: row?.cohort_memberships_table === true,
       cohortAssignmentsTable: row?.cohort_assignments_table === true,
+      rateLimitBucketsTable: row?.rate_limit_buckets_table === true,
     };
     return isAuthMigrationReady(checks) ? { ok: true, checks } : { ok: false, checks };
   } catch {

@@ -33,6 +33,7 @@ import {
   revokeAuthSessionForUser,
 } from "./session-store";
 import { eq } from "drizzle-orm";
+import { refundRateLimit, takeRateLimit } from "@/lib/security/rate-limit";
 
 const TEST_URL = process.env.TEST_DATABASE_URL;
 
@@ -52,6 +53,7 @@ async function dropAll(): Promise<void> {
     await pool.query(`DROP TABLE IF EXISTS cohort_memberships CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS cohorts CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS learning_attempts CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS rate_limit_buckets CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS auth_audit_logs CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS users CASCADE`);
     await pool.query(`DROP TYPE IF EXISTS user_role CASCADE`);
@@ -93,6 +95,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       expect(names).toContain("cohorts");
       expect(names).toContain("cohort_memberships");
       expect(names).toContain("cohort_case_assignments");
+      expect(names).toContain("rate_limit_buckets");
 
       const { rows: enumRows } = await pool.query(
         `SELECT typname FROM pg_type WHERE typname = 'user_role'`
@@ -110,7 +113,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       const { rows } = await pool.query(
         `SELECT COUNT(*)::int AS n FROM drizzle.__drizzle_migrations`
       );
-      expect(rows[0].n).toBe(6);
+      expect(rows[0].n).toBe(7);
     } finally {
       await pool.end();
     }
@@ -230,6 +233,28 @@ describePg("PostgreSQL 16 entegrasyon", () => {
 
     await revokeAuthSession(session.id);
     expect(await isAuthSessionActive({ id: session.id, userId: user.id, role: user.role })).toBe(false);
+  });
+
+  it("PostgreSQL rate limit kotası processler arasında ortak ve iade edilebilirdir", async () => {
+    const previous = process.env.RATE_LIMIT_STORE;
+    process.env.RATE_LIMIT_STORE = "postgres";
+    try {
+      const options = {
+        namespace: "integration-login:account",
+        key: "rate-limit-fixture",
+        limit: 2,
+        windowMs: 60_000,
+        now: 1_000,
+      };
+      await expect(takeRateLimit(options)).resolves.toMatchObject({ allowed: true, remaining: 1 });
+      await expect(takeRateLimit(options)).resolves.toMatchObject({ allowed: true, remaining: 0 });
+      await expect(takeRateLimit(options)).resolves.toMatchObject({ allowed: false, remaining: 0 });
+      await refundRateLimit(options, 1_001);
+      await expect(takeRateLimit({ ...options, now: 1_002 })).resolves.toMatchObject({ allowed: true, remaining: 0 });
+    } finally {
+      if (previous === undefined) delete process.env.RATE_LIMIT_STORE;
+      else process.env.RATE_LIMIT_STORE = previous;
+    }
   });
 
   it("kullanıcı yalnızca kendi aktif oturumunu listeleyip iptal edebilir", async () => {

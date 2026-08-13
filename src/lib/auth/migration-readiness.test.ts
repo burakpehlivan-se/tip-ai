@@ -11,6 +11,7 @@ const complete: AuthMigrationReadiness = {
   cohortsTable: true,
   cohortMembershipsTable: true,
   cohortAssignmentsTable: true,
+  rateLimitBucketsTable: true,
 };
 
 describe("auth migration readiness", () => {
@@ -25,5 +26,6 @@ describe("auth migration readiness", () => {
     expect(isAuthMigrationReady({ ...complete, learningAttemptsTable: false })).toBe(false);
     expect(isAuthMigrationReady({ ...complete, cohortsTable: false })).toBe(false);
     expect(isAuthMigrationReady({ ...complete, cohortAssignmentsTable: false })).toBe(false);
+    expect(isAuthMigrationReady({ ...complete, rateLimitBucketsTable: false })).toBe(false);
   });
 });

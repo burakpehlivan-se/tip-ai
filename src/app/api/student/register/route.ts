@@ -13,7 +13,7 @@ const REGISTER_IP_LIMIT = 5;
 
 export async function POST(req: NextRequest) {
   try {
-    const quota = takeRateLimit({
+    const quota = await takeRateLimit({
       namespace: "student-register:ip",
       key: clientRateLimitKey(req),
       limit: REGISTER_IP_LIMIT,

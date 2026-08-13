@@ -146,6 +146,18 @@ aktiflik değişikliği açık PostgreSQL oturumlarını derhal iptal eder. Bu �
 `0001_goofy_titanium_man` ve `0005_session_activity_metadata` migration'larını
 gerektirir; cutover öncesinde `npm run db:migrate` ile uygulanmalıdır.
 
+### Paylaşımlı rate limit
+
+Giriş ve öğrenci kayıt uçları IP ve hesap boyutlarında kota uygular. Varsayılan
+`RATE_LIMIT_STORE=memory` tek replica/geri uyumluluk modudur. Çoklu replica
+veya PostgreSQL auth cutover'ında `RATE_LIMIT_STORE=postgres` ayarlanmalıdır:
+bu modda anahtarlar SHA-256 özeti olarak `rate_limit_buckets` tablosunda tutulur
+ve kota ayırma tek bir atomik UPSERT ile tüm replica'larda ortaklaşır. PostgreSQL
+modunda veritabanı hatasında bellek fallback'i yapılmaz; aksi hâlde saldırgan
+replica değiştirerek kotayı aşabilir. Süresi geçen kayıtlar best-effort olarak
+beş dakikada bir temizlenir. Bu özellik `0006_shared_rate_limits` migration'ını
+gerektirir.
+
 ### P2 deneme deposu geçişi
 
 `learning_attempts` şeması, öğrenci denemelerini PostgreSQL'e taşımak için
@@ -197,6 +209,7 @@ ADMIN_SESSION_SECRET        # zorunlu; en az 32 byte rastgele değer
 DATABASE_URL                # PostgreSQL bağlantı dizgisi
 APP_URL
 TIP_AI_REPLICA_COUNT=1
+RATE_LIMIT_STORE=memory    # çoklu replica/cutover sonrası: postgres
 ```
 
 Gizli değerleri repoya veya istemci tarafına eklemeyin.

@@ -37,8 +37,10 @@ export async function POST(req: NextRequest) {
     }
     const ipKey = clientRateLimitKey(req);
     const accountKey = usernameRateLimitKey(username);
-    const ipQuota = takeRateLimit({ namespace: "admin-login:ip", key: ipKey, limit: IP_LIMIT, windowMs: LOGIN_WINDOW_MS });
-    const accountQuota = takeRateLimit({ namespace: "admin-login:account", key: accountKey, limit: ACCOUNT_LIMIT, windowMs: LOGIN_WINDOW_MS });
+    const [ipQuota, accountQuota] = await Promise.all([
+      takeRateLimit({ namespace: "admin-login:ip", key: ipKey, limit: IP_LIMIT, windowMs: LOGIN_WINDOW_MS }),
+      takeRateLimit({ namespace: "admin-login:account", key: accountKey, limit: ACCOUNT_LIMIT, windowMs: LOGIN_WINDOW_MS }),
+    ]);
     if (!ipQuota.allowed || !accountQuota.allowed) {
       const decision = !ipQuota.allowed ? ipQuota : accountQuota;
       const response = rateLimited();
@@ -59,8 +61,10 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
-    refundRateLimit({ namespace: "admin-login:ip", key: ipKey });
-    refundRateLimit({ namespace: "admin-login:account", key: accountKey });
+    await Promise.all([
+      refundRateLimit({ namespace: "admin-login:ip", key: ipKey }),
+      refundRateLimit({ namespace: "admin-login:account", key: accountKey }),
+    ]);
     await recordSuccessfulLogin({ id: user.userId, username: user.username, role: user.role });
     void observeAuthShadowRead(
       { username: user.username, role: user.role, active: true },

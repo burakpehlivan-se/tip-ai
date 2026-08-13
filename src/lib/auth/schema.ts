@@ -4,6 +4,7 @@ import {
   boolean,
   jsonb,
   index,
+  integer,
   primaryKey,
   text,
   timestamp,
@@ -88,6 +89,21 @@ export const authSessions = pgTable(
 );
 
 export type AuthSession = typeof authSessions.$inferSelect;
+
+/**
+ * Çoklu replica'da ortak login/kayıt kotası. Anahtar zaten SHA-256 özeti
+ * olduğundan ham IP veya kullanıcı adı saklanmaz; kayıtlar kısa ömürlüdür.
+ */
+export const rateLimitBuckets = pgTable(
+  "rate_limit_buckets",
+  {
+    bucketKey: text("bucket_key").primaryKey(),
+    count: integer("count").notNull(),
+    resetAt: timestamp("reset_at", { withTimezone: true }).notNull(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("rate_limit_buckets_reset_at_idx").on(table.resetAt)]
+);
 
 /**
  * P2 expand adımı: yalnızca giriş yapmış öğrencilerin vaka denemeleri.
