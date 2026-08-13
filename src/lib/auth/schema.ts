@@ -4,8 +4,10 @@ import {
   boolean,
   jsonb,
   index,
+  primaryKey,
   text,
   timestamp,
+  uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
 
@@ -117,3 +119,79 @@ export const learningAttempts = pgTable(
 );
 
 export type LearningAttempt = typeof learningAttempts.$inferSelect;
+
+/**
+ * P2 sınıf/grup kapsamı. Grup üyeliği yalnızca kimlik bilgisi taşır; klinik
+ * oturumların gövdesi bu tabloda tutulmaz. Böylece eğitmen atamalarının
+ * kapsamı sorgulanabilir kalır ve sağlık verisi ile kimlik verisi ayrışır.
+ */
+export const cohorts = pgTable(
+  "cohorts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    name: text("name").notNull(),
+    description: text("description"),
+    active: boolean("active").notNull().default(true),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("cohorts_name_unique").on(table.name),
+    index("cohorts_active_updated_idx").on(table.active, table.updatedAt),
+  ]
+);
+
+/** Bir öğrencinin gruba üyeliği; bileşik anahtar yinelenen üyeliği engeller. */
+export const cohortMemberships = pgTable(
+  "cohort_memberships",
+  {
+    cohortId: uuid("cohort_id")
+      .notNull()
+      .references(() => cohorts.id, { onDelete: "cascade" }),
+    studentId: uuid("student_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    addedBy: uuid("added_by").references(() => users.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    primaryKey({ columns: [table.cohortId, table.studentId], name: "cohort_memberships_pkey" }),
+    index("cohort_memberships_student_id_idx").on(table.studentId),
+  ]
+);
+
+/**
+ * Bir grubun sürüm-kilitli vaka ataması. Vaka kataloğu henüz JSON deposunda
+ * olduğundan caseId/caseVersion bilinçli olarak ilişkisel olmayan referanstır;
+ * atama oluşturma akışı bu kimliği yayımdaki vakaya karşı doğrulamalıdır.
+ */
+export const cohortCaseAssignments = pgTable(
+  "cohort_case_assignments",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    cohortId: uuid("cohort_id")
+      .notNull()
+      .references(() => cohorts.id, { onDelete: "cascade" }),
+    caseId: text("case_id").notNull(),
+    caseVersion: text("case_version").notNull(),
+    title: text("title"),
+    instructions: text("instructions"),
+    dueAt: timestamp("due_at", { withTimezone: true }),
+    createdBy: uuid("created_by")
+      .notNull()
+      .references(() => users.id, { onDelete: "restrict" }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("cohort_case_assignments_cohort_case_version_unique").on(
+      table.cohortId,
+      table.caseId,
+      table.caseVersion
+    ),
+    index("cohort_case_assignments_cohort_due_idx").on(table.cohortId, table.dueAt),
+  ]
+);

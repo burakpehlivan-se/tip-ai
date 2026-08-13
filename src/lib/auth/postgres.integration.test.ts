@@ -22,7 +22,7 @@ import { runMigrations } from "./migrate";
 import { importUsersFromFile } from "../../../scripts/import-users";
 import { hashPassword, verifyPassword, needsRehash, versionLegacyHash } from "./password";
 import { getDb, resetDbForTests } from "./db";
-import { authSessions, learningAttempts, users } from "./schema";
+import { authSessions, cohortCaseAssignments, cohortMemberships, cohorts, learningAttempts, users } from "./schema";
 import { authenticateUser, createUser, findUserByUsername, updateUser } from "./user-store";
 import { createAuthSession, isAuthSessionActive, revokeAuthSession } from "./session-store";
 import { eq } from "drizzle-orm";
@@ -80,6 +80,9 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       expect(names).toContain("auth_audit_logs");
       expect(names).toContain("auth_sessions");
       expect(names).toContain("learning_attempts");
+      expect(names).toContain("cohorts");
+      expect(names).toContain("cohort_memberships");
+      expect(names).toContain("cohort_case_assignments");
 
       const { rows: enumRows } = await pool.query(
         `SELECT typname FROM pg_type WHERE typname = 'user_role'`
@@ -97,7 +100,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       const { rows } = await pool.query(
         `SELECT COUNT(*)::int AS n FROM drizzle.__drizzle_migrations`
       );
-      expect(rows[0].n).toBe(3);
+      expect(rows[0].n).toBe(4);
     } finally {
       await pool.end();
     }
@@ -239,6 +242,41 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       .returning();
     expect(attempt.status).toBe("active");
     expect(attempt.caseSnapshot).toEqual({ version: 3, checksum: "fixture" });
+  });
+
+  it("P2 grup üyeliği ve sürüm-kilitli vaka ataması saklanır", async () => {
+    const instructor = await createUser({
+      username: "egitmen.doktor",
+      password: "sifre123",
+      role: "doktor",
+      createdBy: "admin",
+    });
+    const student = await createUser({
+      username: "grup.ogrenci",
+      password: "sifre123",
+      role: "ogrenci",
+      createdBy: "admin",
+    });
+    const db = getDb();
+    const [cohort] = await db
+      .insert(cohorts)
+      .values({ name: "Dönem 5 / A", createdBy: instructor.id })
+      .returning();
+    await db.insert(cohortMemberships).values({
+      cohortId: cohort.id,
+      studentId: student.id,
+      addedBy: instructor.id,
+    });
+    const [assignment] = await db
+      .insert(cohortCaseAssignments)
+      .values({
+        cohortId: cohort.id,
+        caseId: "acil::gogus-agrisi",
+        caseVersion: "3",
+        createdBy: instructor.id,
+      })
+      .returning();
+    expect(assignment.caseVersion).toBe("3");
   });
 
   it("hash fonksiyonları uçtan uca çalışır (argon2 üret + doğrula)", async () => {
