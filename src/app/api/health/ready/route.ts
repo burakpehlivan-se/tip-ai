@@ -4,11 +4,7 @@ export const runtime = "nodejs";
 import { NextResponse } from "next/server";
 import { getReadiness } from "@/lib/health/readiness";
 
-/**
- * Geriye uyumlu readiness ucu. Docker healthcheck bu uçtan 200 bekler; eksik
- * migration'da yeni container trafik almadan unhealthy kalır. Yeni entegrasyonlar
- * doğrudan `/api/health/ready` kullanmalıdır.
- */
+/** Load balancer/readiness probe için bağımlılık ve şema kontrolü. */
 export async function GET() {
   const result = await getReadiness();
   return NextResponse.json(result.payload, {
