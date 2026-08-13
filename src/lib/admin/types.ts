@@ -182,6 +182,11 @@ export interface PlaySession {
   eksikSorular: string[];
   eksikTestler: string[];
   anamnezCoverage?: number;
+  /** Serbest metin değil, yalnızca öğrenme eğilimi için türetilmiş özet metrikler. */
+  clinicalReasoningRecorded?: boolean;
+  differentialCount?: number;
+  clinicalConfidence?: number;
+  confidenceCalibrationGap?: number;
   /** Denemenin başladığı kaynak vaka/rubrik sürümü; geçmiş değerlendirme izi için. */
   caseVersion?: number;
   caseChecksum?: string;

@@ -11,11 +11,17 @@ import { recordPlaySession } from "@/lib/admin/store";
 import { assertSupportedAttemptStore } from "./attempt-store-mode";
 import { shouldUsePostgresAttemptStore } from "./attempt-store-mode";
 import {
+  clinicalReasoningFeedback,
+  type ClinicalReasoningInput,
+  withClinicalReasoningFeedback,
+} from "./clinical-reasoning";
+import {
   answerPostgresAttempt,
   completePostgresAttempt,
   getPostgresActiveAttempt,
   getPostgresAssignedAttempt,
   requestPostgresAttemptTest,
+  savePostgresAttemptClinicalReasoning,
   startPostgresAssignedAttempt,
   startPostgresStudentAttempt,
 } from "./postgres-attempt-store";
@@ -31,6 +37,7 @@ interface AttemptRecord {
   vaka: Vaka;
   sorulanAksiyonlar: string[];
   istenenTestler: string[];
+  clinicalReasoning?: ClinicalReasoningInput | null;
   createdAt: number;
   updatedAt: number;
 }
@@ -72,6 +79,7 @@ export interface ResumableAttemptCase extends PublicAttemptCase {
   ilerleme: {
     yanitlar: Array<{ aksiyon: string; yanit: string }>;
     testSonuclari: TestSonucu[];
+    clinicalReasoning: ClinicalReasoningInput | null;
   };
 }
 
@@ -107,6 +115,7 @@ function toResumableAttempt(record: AttemptRecord): ResumableAttemptCase {
       testSonuclari: record.istenenTestler
         .map((testKey) => attemptTest(record, testKey))
         .filter((test): test is TestSonucu => test !== null),
+      clinicalReasoning: record.clinicalReasoning || null,
     },
   };
 }
@@ -150,6 +159,7 @@ function createAttemptFromTemplate(
     vaka: adminVakaToPlayable(template),
     sorulanAksiyonlar: [],
     istenenTestler: [],
+    clinicalReasoning: null,
     createdAt: Date.now(),
     updatedAt: Date.now(),
   };
@@ -252,16 +262,48 @@ export function requestStudentAttemptTest(id: string, actor: string, testKey: st
   });
 }
 
-export function completeStudentAttempt(id: string, actor: string, taniGirildi: string, studentId?: string): Promise<DegerlendirmeSonuc | null> {
+export function saveStudentAttemptClinicalReasoning(
+  id: string,
+  actor: string,
+  reasoning: ClinicalReasoningInput,
+  studentId?: string
+): Promise<boolean> {
   assertSupportedAttemptStore(actor);
   if (shouldUsePostgresAttemptStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
-    return completePostgresAttempt(id, studentId, actor, taniGirildi);
+    return savePostgresAttemptClinicalReasoning(id, studentId, reasoning);
+  }
+  return withJsonStoreLock(() => {
+    const found = ownAttempt(id, actor);
+    if (!found) return false;
+    found.attempt.clinicalReasoning = reasoning;
+    found.attempt.updatedAt = Date.now();
+    save(found.store);
+    return true;
+  });
+}
+
+export function completeStudentAttempt(
+  id: string,
+  actor: string,
+  taniGirildi: string,
+  reasoning: ClinicalReasoningInput | null,
+  studentId?: string
+): Promise<DegerlendirmeSonuc | null> {
+  assertSupportedAttemptStore(actor);
+  if (shouldUsePostgresAttemptStore(actor)) {
+    if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
+    return completePostgresAttempt(id, studentId, actor, taniGirildi, reasoning);
   }
   return withJsonStoreLock(() => {
     const found = ownAttempt(id, actor);
     if (!found) return null;
-    const sonuc = degerlendir(found.attempt.vaka, found.attempt.sorulanAksiyonlar, found.attempt.istenenTestler, taniGirildi);
+    const effectiveReasoning = reasoning ?? found.attempt.clinicalReasoning ?? null;
+    const sonuc = withClinicalReasoningFeedback(
+      degerlendir(found.attempt.vaka, found.attempt.sorulanAksiyonlar, found.attempt.istenenTestler, taniGirildi),
+      effectiveReasoning
+    );
+    const reasoningFeedback = clinicalReasoningFeedback(effectiveReasoning, sonuc.taniDogru);
     if (!actor.startsWith("guest:")) recordPlaySession({
       caseId: found.attempt.vaka.id,
       hastalikKey: found.attempt.vaka.hastalik,
@@ -276,6 +318,10 @@ export function completeStudentAttempt(id: string, actor: string, taniGirildi: s
       eksikSorular: sonuc.eksikSorular,
       eksikTestler: sonuc.eksikTestler,
       anamnezCoverage: sonuc.anamnezAnalizi.toplamBeklenen ? Math.round(sonuc.anamnezAnalizi.toplamSoruldu / sonuc.anamnezAnalizi.toplamBeklenen * 100) : undefined,
+      clinicalReasoningRecorded: reasoningFeedback.recorded,
+      differentialCount: reasoningFeedback.differentialCount || undefined,
+      clinicalConfidence: reasoningFeedback.confidence ?? undefined,
+      confidenceCalibrationGap: reasoningFeedback.calibrationGap ?? undefined,
       caseVersion: found.attempt.vaka.sourceCaseVersion,
       caseChecksum: found.attempt.vaka.sourceCaseChecksum,
     }, actor);

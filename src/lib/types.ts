@@ -185,6 +185,11 @@ export interface DegerlendirmeSonuc {
   egitimNotu: string;
   tedavi?: TedaviPlani;
   anamnezAnalizi: AnamnezAnalizi;
+  /** Öğrencinin kendine ait klinik muhakeme notu ve kalibrasyon özeti. */
+  clinicalReasoning?: {
+    input: import("@/lib/student/clinical-reasoning").ClinicalReasoningInput;
+    feedback: import("@/lib/student/clinical-reasoning").ClinicalReasoningFeedback;
+  };
 }
 
 export interface AnamnezAnalizi {

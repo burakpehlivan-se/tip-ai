@@ -20,6 +20,9 @@ import SonucEkrani from "./SonucEkrani";
 import { DebugTestKarti, TestSonucKarti } from "./TestResultCards";
 import VakaHastaPanel from "./VakaHastaPanel";
 import Link from "next/link";
+import {
+  type ClinicalReasoningInput,
+} from "@/lib/student/clinical-reasoning";
 
 export type WorkspaceFaz = "anamnez" | "test" | "tani" | "tedavi";
 
@@ -31,12 +34,14 @@ export interface WorkspaceSnapshot {
   faz: WorkspaceFaz;
   taniInput: string;
   tedaviInput: string;
+  clinicalReasoning?: ClinicalReasoningInput | null;
 }
 
 export interface CompletedAttempt {
   sorulanAksiyonlar: string[];
   istenenTestler: string[];
   taniGirildi: string;
+  clinicalReasoning: ClinicalReasoningInput;
 }
 
 interface Props {
@@ -58,6 +63,8 @@ interface Props {
   onAsk?: (action: string) => Promise<string>;
   onTestRequest?: (testKey: string) => Promise<TestSonucu | null>;
   onEvaluate?: (attempt: CompletedAttempt) => Promise<DegerlendirmeSonuc | null>;
+  /** Sunucudaki aktif öğrenci denemesine debounced muhakeme taslağını kaydeder. */
+  onReasoningSave?: (reasoning: ClinicalReasoningInput) => Promise<void>;
   /** İlk öğrenci vakasında kısa ve kapatılabilir çalışma rehberi gösterir. */
   onboarding?: boolean;
 }
@@ -87,6 +94,14 @@ function mesajlaraSonucEkle(mesajlar: ChatMesaj[], testler: TestIstegi[]): ChatM
   });
 }
 
+function toReasoningList(value: string): string[] {
+  return value
+    .split("\n")
+    .map((item) => item.trim())
+    .filter(Boolean)
+    .slice(0, 5);
+}
+
 export default function VakaWorkspace({
   vaka,
   mod = "normal",
@@ -101,6 +116,7 @@ export default function VakaWorkspace({
   onAsk,
   onTestRequest,
   onEvaluate,
+  onReasoningSave,
   onboarding = false,
 }: Props) {
   // Debug modda sonuçlar her zaman açık
@@ -122,6 +138,13 @@ export default function VakaWorkspace({
   const [faz, setFaz] = useState<WorkspaceFaz>(initialSnapshot?.faz || "anamnez");
   const [taniInput, setTaniInput] = useState(initialSnapshot?.taniInput || "");
   const [tedaviInput, setTedaviInput] = useState(initialSnapshot?.tedaviInput || "");
+  const [problemRepresentation, setProblemRepresentation] = useState(initialSnapshot?.clinicalReasoning?.problemRepresentation || "");
+  const [differentialsText, setDifferentialsText] = useState(initialSnapshot?.clinicalReasoning?.differentials.join("\n") || "");
+  const [supportingFindingsText, setSupportingFindingsText] = useState(initialSnapshot?.clinicalReasoning?.supportingFindings.join("\n") || "");
+  const [opposingFindingsText, setOpposingFindingsText] = useState(initialSnapshot?.clinicalReasoning?.opposingFindings.join("\n") || "");
+  const [confidence, setConfidence] = useState<number | null>(initialSnapshot?.clinicalReasoning?.confidence ?? null);
+  const [reasoningDirty, setReasoningDirty] = useState(false);
+  const [reasoningSaveState, setReasoningSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [sonuc, setSonuc] = useState<DegerlendirmeSonuc | null>(null);
   const [testArama, setTestArama] = useState("");
   const [chipArama, setChipArama] = useState("");
@@ -146,6 +169,13 @@ export default function VakaWorkspace({
     () => new Set(vaka.relevantAksiyonlar),
     [vaka.relevantAksiyonlar]
   );
+  const clinicalReasoning = useMemo<ClinicalReasoningInput>(() => ({
+    problemRepresentation: problemRepresentation.trim(),
+    differentials: toReasoningList(differentialsText),
+    supportingFindings: toReasoningList(supportingFindingsText),
+    opposingFindings: toReasoningList(opposingFindingsText),
+    confidence,
+  }), [problemRepresentation, differentialsText, supportingFindingsText, opposingFindingsText, confidence]);
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const skipFirstSnapshot = useRef(true);
@@ -163,6 +193,7 @@ export default function VakaWorkspace({
         faz,
         taniInput,
         tedaviInput,
+        clinicalReasoning,
       });
       return;
     }
@@ -173,8 +204,20 @@ export default function VakaWorkspace({
       faz,
       taniInput,
       tedaviInput,
+      clinicalReasoning,
     });
-  }, [mesajlar, testIstekleri, sorulanAksiyonlar, faz, taniInput, tedaviInput, onSnapshotChange]);
+  }, [mesajlar, testIstekleri, sorulanAksiyonlar, faz, taniInput, tedaviInput, clinicalReasoning, onSnapshotChange]);
+
+  useEffect(() => {
+    if (!onReasoningSave || !reasoningDirty) return;
+    const timer = window.setTimeout(() => {
+      setReasoningSaveState("saving");
+      void onReasoningSave(clinicalReasoning)
+        .then(() => setReasoningSaveState("saved"))
+        .catch(() => setReasoningSaveState("error"));
+    }, 900);
+    return () => window.clearTimeout(timer);
+  }, [clinicalReasoning, onReasoningSave, reasoningDirty]);
 
   const toggleKategori = (kat: ChipKategorisi) => {
     setAcikKategoriler((prev) => {
@@ -353,7 +396,7 @@ export default function VakaWorkspace({
     setIslemHatasi("");
     try {
     const istenenTestKeyleri = testIstekleri.map((t) => t.testKey);
-    const attempt = { sorulanAksiyonlar, istenenTestler: istenenTestKeyleri, taniGirildi: taniInput };
+    const attempt = { sorulanAksiyonlar, istenenTestler: istenenTestKeyleri, taniGirildi: taniInput, clinicalReasoning };
     const deg = onEvaluate ? await onEvaluate(attempt) : degerlendir(vaka, sorulanAksiyonlar, istenenTestKeyleri, taniInput);
     if (!deg) return;
     setSonuc(deg);
@@ -997,6 +1040,21 @@ export default function VakaWorkspace({
             {/* Tanı ve Tedavi Girişi — her zaman görünür */}
             {testIstekleri.length > 0 && (
               <div className="mt-6 border-t border-hairline pt-4">
+                {(faz === "tani" || faz === "tedavi") && (
+                  <ClinicalReasoningFields
+                    problemRepresentation={problemRepresentation}
+                    differentialsText={differentialsText}
+                    supportingFindingsText={supportingFindingsText}
+                    opposingFindingsText={opposingFindingsText}
+                    confidence={confidence}
+                    savedState={reasoningSaveState}
+                    onProblemRepresentationChange={(value) => { setProblemRepresentation(value); setReasoningDirty(true); }}
+                    onDifferentialsChange={(value) => { setDifferentialsText(value); setReasoningDirty(true); }}
+                    onSupportingFindingsChange={(value) => { setSupportingFindingsText(value); setReasoningDirty(true); }}
+                    onOpposingFindingsChange={(value) => { setOpposingFindingsText(value); setReasoningDirty(true); }}
+                    onConfidenceChange={(value) => { setConfidence(value); setReasoningDirty(true); }}
+                  />
+                )}
                 {faz === "tani" ? (
                   <>
                     <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
@@ -1056,6 +1114,75 @@ export default function VakaWorkspace({
         </button>
       </div>
     </div>
+  );
+}
+
+function ClinicalReasoningFields({
+  problemRepresentation,
+  differentialsText,
+  supportingFindingsText,
+  opposingFindingsText,
+  confidence,
+  savedState,
+  onProblemRepresentationChange,
+  onDifferentialsChange,
+  onSupportingFindingsChange,
+  onOpposingFindingsChange,
+  onConfidenceChange,
+}: {
+  problemRepresentation: string;
+  differentialsText: string;
+  supportingFindingsText: string;
+  opposingFindingsText: string;
+  confidence: number | null;
+  savedState: "idle" | "saving" | "saved" | "error";
+  onProblemRepresentationChange: (value: string) => void;
+  onDifferentialsChange: (value: string) => void;
+  onSupportingFindingsChange: (value: string) => void;
+  onOpposingFindingsChange: (value: string) => void;
+  onConfidenceChange: (value: number | null) => void;
+}) {
+  const savedLabel = savedState === "saving"
+    ? "Taslak kaydediliyor…"
+    : savedState === "saved"
+      ? "Taslak kaydedildi"
+      : savedState === "error"
+        ? "Taslak kaydedilemedi; vaka tamamlanırken yeniden gönderilecek."
+        : "";
+
+  return (
+    <fieldset className="mb-6 rounded-lg border border-hairline bg-canvas p-3">
+      <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">Klinik muhakeme</legend>
+      <p className="mb-3 text-xs leading-5 text-steel">Düşünme sürecini kaydet. Her listeye satır başına bir madde yaz; en fazla 5 madde eklenir.</p>
+      <div className="space-y-3">
+        <div>
+          <label htmlFor="problem-temsili" className="mb-1 block text-xs font-medium text-ink">Problem temsili</label>
+          <textarea id="problem-temsili" value={problemRepresentation} maxLength={600} onChange={(event) => onProblemRepresentationChange(event.target.value)} className="input h-20 resize-none text-sm" placeholder="Yaş, bağlam, temel sorun ve ayırt edici bulguları özetle." rows={3} />
+        </div>
+        <div>
+          <label htmlFor="ayirici-tanilar" className="mb-1 block text-xs font-medium text-ink">Ayırıcı tanılar</label>
+          <textarea id="ayirici-tanilar" value={differentialsText} maxLength={604} onChange={(event) => onDifferentialsChange(event.target.value)} className="input h-20 resize-none text-sm" placeholder={"Akut koroner sendrom\nPulmoner emboli"} rows={3} />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor="destekleyen-bulgular" className="mb-1 block text-xs font-medium text-ink">Destekleyen bulgular</label>
+            <textarea id="destekleyen-bulgular" value={supportingFindingsText} maxLength={904} onChange={(event) => onSupportingFindingsChange(event.target.value)} className="input h-20 resize-none text-sm" placeholder="Her satıra bir bulgu" rows={3} />
+          </div>
+          <div>
+            <label htmlFor="karsi-bulgular" className="mb-1 block text-xs font-medium text-ink">Karşı çıkan bulgular</label>
+            <textarea id="karsi-bulgular" value={opposingFindingsText} maxLength={904} onChange={(event) => onOpposingFindingsChange(event.target.value)} className="input h-20 resize-none text-sm" placeholder="Her satıra bir bulgu" rows={3} />
+          </div>
+        </div>
+        <div>
+          <label htmlFor="tani-guveni" className="mb-1 block text-xs font-medium text-ink">Tanına güvenin</label>
+          <select id="tani-guveni" value={confidence ?? ""} onChange={(event) => onConfidenceChange(event.target.value === "" ? null : Number(event.target.value))} className="input text-sm">
+            <option value="">Belirtmek istemiyorum</option>
+            {[20, 40, 60, 80, 100].map((value) => <option key={value} value={value}>%{value}</option>)}
+          </select>
+        </div>
+      </div>
+      <p aria-live="polite" className={`mt-3 text-xs ${savedState === "error" ? "text-clinical-red" : "text-steel"}`}>{savedLabel}</p>
+    </fieldset>
   );
 }
 

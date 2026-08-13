@@ -1,6 +1,7 @@
 import type { ChatMesaj, TestIstegi, Vaka } from "@/lib/types";
 import { humanizeKey } from "@/lib/types";
 import type { PublicAttemptCase, ResumableAttemptCase } from "@/lib/student/attempt-store";
+import type { ClinicalReasoningInput } from "@/lib/student/clinical-reasoning";
 
 export interface AttemptResumeSnapshot {
   mesajlar: ChatMesaj[];
@@ -9,6 +10,7 @@ export interface AttemptResumeSnapshot {
   faz: "anamnez" | "test" | "tani" | "tedavi";
   taniInput: string;
   tedaviInput: string;
+  clinicalReasoning: ClinicalReasoningInput | null;
 }
 
 /** Sunucu oturumundan gelen gizli olmayan vaka görünümünü çalışma alanı modeline çevirir. */
@@ -60,5 +62,6 @@ export function resumableAttemptToSnapshot(remote: ResumableAttemptCase): Attemp
     faz: remote.ilerleme.testSonuclari.length ? "test" : "anamnez",
     taniInput: "",
     tedaviInput: "",
+    clinicalReasoning: remote.ilerleme.clinicalReasoning,
   };
 }

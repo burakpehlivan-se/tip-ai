@@ -71,6 +71,32 @@ export default function SonucEkrani({
           </div>
         </div>
 
+        {sonuc.clinicalReasoning?.feedback.recorded && (
+          <section className="mb-8" aria-labelledby="muhakeme-geribildirim-baslik">
+            <h3 id="muhakeme-geribildirim-baslik" className="mb-4 text-lg font-semibold text-ink">🧠 Klinik Muhakeme Özeti</h3>
+            <div className="card-feature grid gap-4 sm:grid-cols-2">
+              <div>
+                <p className="text-xs font-medium uppercase tracking-wide text-muted">Ayırıcı tanı</p>
+                <p className="mt-1 text-sm text-ink">{sonuc.clinicalReasoning.feedback.differentialCount} olasılık kaydettin</p>
+              </div>
+              {sonuc.clinicalReasoning.feedback.confidence !== null && (
+                <div>
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted">Tanı kalibrasyonu</p>
+                  <p className="mt-1 text-sm text-ink">
+                    Güvenin %{sonuc.clinicalReasoning.feedback.confidence} · {calibrationCopy(sonuc.clinicalReasoning.feedback.calibrationLabel)}
+                  </p>
+                </div>
+              )}
+              {sonuc.clinicalReasoning.input.problemRepresentation && (
+                <div className="sm:col-span-2">
+                  <p className="text-xs font-medium uppercase tracking-wide text-muted">Problem temsili</p>
+                  <p className="mt-1 text-sm leading-6 text-steel">{sonuc.clinicalReasoning.input.problemRepresentation}</p>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
         {/* Güçlü Yönler */}
         {sonuc.gucluYonler.length > 0 && (
           <div className="mb-8">
@@ -303,6 +329,13 @@ export default function SonucEkrani({
       </div>
     </div>
   );
+}
+
+function calibrationCopy(label: "iyi-kalibre" | "asiri-guvenli" | "temkinli" | null): string {
+  if (label === "iyi-kalibre") return "güvenin sonuçla uyumlu";
+  if (label === "asiri-guvenli") return "sonuçla karşılaştırınca güvenin yüksekti";
+  if (label === "temkinli") return "sonuçla karşılaştırınca temkinliydin";
+  return "güven düzeyini değerlendirdin";
 }
 function OzetKart({ baslik, deger, renk }: { baslik: string; deger: number; renk: string }) {
   const renkSinif =

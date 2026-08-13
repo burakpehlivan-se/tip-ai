@@ -31,8 +31,8 @@ const unavailable: AuthMigrationReadiness = {
   rateLimitBucketsTable: false,
 };
 
-/** `drizzle/0000`–`0006`; yeni zorunlu şema özelliği eklendiğinde artırılır. */
-export const REQUIRED_SCHEMA_MIGRATION_COUNT = 7;
+/** `drizzle/0000`–`0007`; yeni zorunlu şema özelliği eklendiğinde artırılır. */
+export const REQUIRED_SCHEMA_MIGRATION_COUNT = 8;
 
 export function isAuthMigrationReady(checks: AuthMigrationReadiness): boolean {
   return (

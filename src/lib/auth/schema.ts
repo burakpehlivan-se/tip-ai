@@ -128,6 +128,8 @@ export const learningAttempts = pgTable(
     caseSnapshot: jsonb("case_snapshot").notNull(),
     askedActions: jsonb("asked_actions").notNull(),
     requestedTests: jsonb("requested_tests").notNull(),
+    /** Aktif denemenin öğrencinin sahip olduğu, doğrulanmış muhakeme taslağı. */
+    clinicalReasoning: jsonb("clinical_reasoning"),
     evaluation: jsonb("evaluation"),
     startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
     updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),

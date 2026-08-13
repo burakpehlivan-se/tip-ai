@@ -8,6 +8,7 @@ import {
   getActiveStudentAttempt,
   getActiveStudentAttemptForAssignment,
   requestStudentAttemptTest,
+  saveStudentAttemptClinicalReasoning,
   startAssignedStudentAttempt,
   startStudentAttempt,
 } from "./attempt-store";
@@ -34,9 +35,9 @@ describe("student attempt store", () => {
     expect(yanit).toBeTruthy();
     const test = await requestStudentAttemptTest(vaka!.id, "ogrenci.test", vaka!.testler[0].testKey);
     expect(test?.testAdi).toBe(vaka!.testler[0].testAdi);
-    const sonuc = await completeStudentAttempt(vaka!.id, "ogrenci.test", "rastgele tanı");
+    const sonuc = await completeStudentAttempt(vaka!.id, "ogrenci.test", "rastgele tanı", null);
     expect(sonuc).not.toBeNull();
-    await expect(completeStudentAttempt(vaka!.id, "ogrenci.test", "rastgele tanı")).resolves.toBeNull();
+    await expect(completeStudentAttempt(vaka!.id, "ogrenci.test", "rastgele tanı", null)).resolves.toBeNull();
   });
 
   it("aynı kullanıcının güncel oturumunu ilerleme verisiyle sürdürür, diğer kullanıcıya göstermez", async () => {
@@ -51,6 +52,24 @@ describe("student attempt store", () => {
     expect(resumed?.ilerleme.testSonuclari[0]?.testKey).toBe(vaka!.testler[0].testKey);
     await expect(getActiveStudentAttempt("baska.ogrenci", "kardiyoloji")).resolves.toBeNull();
     await expect(getActiveStudentAttempt("ogrenci.devam", "noroloji")).resolves.toBeNull();
+  });
+
+  it("klinik muhakeme taslağını aktif vakada saklar ve değerlendirmeye kalibrasyon özeti ekler", async () => {
+    const vaka = await startStudentAttempt("ogrenci.muhakeme", "kardiyoloji");
+    expect(vaka).not.toBeNull();
+    await expect(saveStudentAttemptClinicalReasoning(vaka!.id, "ogrenci.muhakeme", {
+      problemRepresentation: "Yeni başlayan eforla artan göğüs ağrısı olan erişkin.",
+      differentials: ["Akut koroner sendrom", "Pulmoner emboli"],
+      supportingFindings: ["Eforla artan ağrı"],
+      opposingFindings: [],
+      confidence: 80,
+    })).resolves.toBe(true);
+
+    const resumed = await getActiveStudentAttempt("ogrenci.muhakeme", "kardiyoloji");
+    expect(resumed?.ilerleme.clinicalReasoning?.differentials).toEqual(["Akut koroner sendrom", "Pulmoner emboli"]);
+
+    const sonuc = await completeStudentAttempt(vaka!.id, "ogrenci.muhakeme", "rastgele tanı", null);
+    expect(sonuc?.clinicalReasoning?.feedback).toEqual(expect.objectContaining({ recorded: true, confidence: 80 }));
   });
 
   it("atanan vakayı ayrı bir oturumla başlatır ve yalnızca aynı atamadan sürdürür", async () => {

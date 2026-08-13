@@ -3,7 +3,13 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getStudentSessionFromRequest } from "@/lib/student/auth";
-import { answerStudentAttempt, completeStudentAttempt, requestStudentAttemptTest } from "@/lib/student/attempt-store";
+import {
+  answerStudentAttempt,
+  completeStudentAttempt,
+  requestStudentAttemptTest,
+  saveStudentAttemptClinicalReasoning,
+} from "@/lib/student/attempt-store";
+import { ClinicalReasoningValidationError, normalizeClinicalReasoning } from "@/lib/student/clinical-reasoning";
 import { JsonStoreReadError } from "@/lib/admin/json-store";
 import { getRequestId, logger } from "@/lib/logger";
 
@@ -34,12 +40,20 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const sonuc = await requestStudentAttemptTest(id, actor, body.testKey, session?.userId);
       return sonuc == null ? NextResponse.json({ error: "Test veya vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ sonuc });
     }
+    if (body.type === "reasoning") {
+      const reasoning = normalizeClinicalReasoning(body.reasoning);
+      if (!reasoning) return NextResponse.json({ error: "Klinik muhakeme bilgisi gerekli." }, { status: 400 });
+      const saved = await saveStudentAttemptClinicalReasoning(id, actor, reasoning, session?.userId);
+      return saved ? NextResponse.json({ saved: true }) : NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 });
+    }
     if (body.type === "complete" && typeof body.taniGirildi === "string" && body.taniGirildi.trim().length <= 500) {
-      const sonuc = await completeStudentAttempt(id, actor, body.taniGirildi.trim(), session?.userId);
+      const reasoning = normalizeClinicalReasoning(body.reasoning);
+      const sonuc = await completeStudentAttempt(id, actor, body.taniGirildi.trim(), reasoning, session?.userId);
       return sonuc == null ? NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ sonuc });
     }
   } catch (error) {
     if (error instanceof JsonStoreReadError) return attemptStoreUnavailable(req, error);
+    if (error instanceof ClinicalReasoningValidationError) return NextResponse.json({ error: error.message }, { status: 400 });
     throw error;
   }
   return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });

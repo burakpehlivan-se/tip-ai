@@ -7,6 +7,12 @@ import { getLabResult } from "@/lib/lab-motor";
 import { degerlendir } from "@/lib/scoring/degerlendir";
 import type { DegerlendirmeSonuc, TestSonucu, Vaka } from "@/lib/types";
 import type { PublicAttemptCase, ResumableAttemptCase } from "./attempt-store";
+import {
+  clinicalReasoningFeedback,
+  normalizeClinicalReasoning,
+  type ClinicalReasoningInput,
+  withClinicalReasoningFeedback,
+} from "./clinical-reasoning";
 
 type AttemptRow = typeof learningAttempts.$inferSelect;
 
@@ -15,6 +21,7 @@ interface StoredAttempt {
   vaka: Vaka;
   askedActions: string[];
   requestedTests: string[];
+  clinicalReasoning: ClinicalReasoningInput | null;
 }
 
 function stringList(value: unknown): string[] {
@@ -26,7 +33,13 @@ function fromRow(row: AttemptRow): StoredAttempt {
   if (!vaka || typeof vaka !== "object" || typeof vaka.id !== "string" || !vaka.hasta || !vaka.rubric) {
     throw new Error("PostgreSQL deneme anlık görüntüsü geçersiz.");
   }
-  return { id: row.id, vaka, askedActions: stringList(row.askedActions), requestedTests: stringList(row.requestedTests) };
+  return {
+    id: row.id,
+    vaka,
+    askedActions: stringList(row.askedActions),
+    requestedTests: stringList(row.requestedTests),
+    clinicalReasoning: normalizeClinicalReasoning(row.clinicalReasoning),
+  };
 }
 
 function publicAttempt(record: StoredAttempt): PublicAttemptCase {
@@ -56,6 +69,7 @@ function resumableAttempt(record: StoredAttempt): ResumableAttemptCase {
     ilerleme: {
       yanitlar: record.askedActions.map((aksiyon) => ({ aksiyon, yanit: answer(record, aksiyon) })),
       testSonuclari: record.requestedTests.map((testKey) => testResult(record, testKey)).filter((item): item is TestSonucu => item !== null),
+      clinicalReasoning: record.clinicalReasoning,
     },
   };
 }
@@ -102,6 +116,7 @@ async function insertAttempt(studentId: string, caseId: string, poliklinikKey: s
       caseSnapshot: vaka,
       askedActions: [],
       requestedTests: [],
+      clinicalReasoning: null,
       startedAt: now,
       updatedAt: now,
     })
@@ -151,11 +166,33 @@ export async function requestPostgresAttemptTest(id: string, studentId: string, 
   return result;
 }
 
-export async function completePostgresAttempt(id: string, studentId: string, actor: string, taniGirildi: string): Promise<DegerlendirmeSonuc | null> {
+export async function savePostgresAttemptClinicalReasoning(
+  id: string,
+  studentId: string,
+  reasoning: ClinicalReasoningInput
+): Promise<boolean> {
+  const row = await findActive(studentId, id);
+  if (!row) return false;
+  await getDb().update(learningAttempts).set({ clinicalReasoning: reasoning, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
+  return true;
+}
+
+export async function completePostgresAttempt(
+  id: string,
+  studentId: string,
+  actor: string,
+  taniGirildi: string,
+  reasoning: ClinicalReasoningInput | null
+): Promise<DegerlendirmeSonuc | null> {
   const row = await findActive(studentId, id);
   if (!row) return null;
   const record = fromRow(row);
-  const sonuc = degerlendir(record.vaka, record.askedActions, record.requestedTests, taniGirildi);
+  const effectiveReasoning = reasoning ?? record.clinicalReasoning;
+  const sonuc = withClinicalReasoningFeedback(
+    degerlendir(record.vaka, record.askedActions, record.requestedTests, taniGirildi),
+    effectiveReasoning
+  );
+  const reasoningFeedback = clinicalReasoningFeedback(effectiveReasoning, sonuc.taniDogru);
   recordPlaySession({
     caseId: record.vaka.id,
     hastalikKey: record.vaka.hastalik,
@@ -170,9 +207,19 @@ export async function completePostgresAttempt(id: string, studentId: string, act
     eksikSorular: sonuc.eksikSorular,
     eksikTestler: sonuc.eksikTestler,
     anamnezCoverage: sonuc.anamnezAnalizi.toplamBeklenen ? Math.round((sonuc.anamnezAnalizi.toplamSoruldu / sonuc.anamnezAnalizi.toplamBeklenen) * 100) : undefined,
+    clinicalReasoningRecorded: reasoningFeedback.recorded,
+    differentialCount: reasoningFeedback.differentialCount || undefined,
+    clinicalConfidence: reasoningFeedback.confidence ?? undefined,
+    confidenceCalibrationGap: reasoningFeedback.calibrationGap ?? undefined,
     caseVersion: record.vaka.sourceCaseVersion,
     caseChecksum: record.vaka.sourceCaseChecksum,
   }, actor);
-  await getDb().update(learningAttempts).set({ status: "completed", evaluation: sonuc, completedAt: new Date(), updatedAt: new Date() }).where(eq(learningAttempts.id, id));
+  await getDb().update(learningAttempts).set({
+    status: "completed",
+    clinicalReasoning: effectiveReasoning,
+    evaluation: sonuc,
+    completedAt: new Date(),
+    updatedAt: new Date(),
+  }).where(eq(learningAttempts.id, id));
   return sonuc;
 }

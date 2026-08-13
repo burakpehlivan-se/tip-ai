@@ -60,7 +60,7 @@ export default function DenemePage() {
     };
   }, [router]);
 
-  async function actionIstek(type: "ask" | "test" | "complete", payload: Record<string, string>) {
+  async function actionIstek(type: "ask" | "test" | "reasoning" | "complete", payload: Record<string, unknown>) {
     if (!vaka) throw new Error("Vaka oturumu bulunamadı.");
     const response = await fetch(`/api/student/attempts/${vaka.id}`, {
       method: "POST",
@@ -132,8 +132,11 @@ export default function DenemePage() {
             if (!sonuc) throw new Error("Test sonucu alınamadı.");
             return sonuc;
           }}
+          onReasoningSave={async (reasoning) => {
+            await actionIstek("reasoning", { reasoning });
+          }}
           onEvaluate={async (attempt: CompletedAttempt) => {
-            const sonuc = (await actionIstek("complete", { taniGirildi: attempt.taniGirildi }))?.sonuc;
+            const sonuc = (await actionIstek("complete", { taniGirildi: attempt.taniGirildi, reasoning: attempt.clinicalReasoning }))?.sonuc;
             if (!sonuc) throw new Error("Değerlendirme alınamadı.");
             return sonuc;
           }}

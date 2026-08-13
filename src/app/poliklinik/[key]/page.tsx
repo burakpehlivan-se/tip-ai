@@ -95,7 +95,7 @@ export default function PoliklinikPage() {
     }
   };
 
-  async function attemptAction(type: "ask" | "test" | "complete", payload: Record<string, string>) {
+  async function attemptAction(type: "ask" | "test" | "reasoning" | "complete", payload: Record<string, unknown>) {
     if (!vaka) throw new Error("Vaka oturumu bulunamadı.");
     const response = await fetch(`/api/student/attempts/${vaka.id}`, {
       method: "POST",
@@ -184,8 +184,11 @@ export default function PoliklinikPage() {
           if (!sonuc) throw new Error("Test sonucu alınamadı.");
           return sonuc;
         }}
+        onReasoningSave={async (reasoning) => {
+          await attemptAction("reasoning", { reasoning });
+        }}
         onEvaluate={async (attempt: CompletedAttempt) => {
-          const sonuc = (await attemptAction("complete", { taniGirildi: attempt.taniGirildi }))?.sonuc;
+          const sonuc = (await attemptAction("complete", { taniGirildi: attempt.taniGirildi, reasoning: attempt.clinicalReasoning }))?.sonuc;
           if (!sonuc) throw new Error("Değerlendirme alınamadı.");
           return sonuc;
         }}
