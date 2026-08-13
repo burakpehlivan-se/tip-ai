@@ -51,7 +51,13 @@ function serializeError(error: unknown): Record<string, string> {
 }
 
 function emit(level: LogLevel, msg: string, meta?: Record<string, unknown>): void {
-  const entry: LogEntry = { ts: new Date().toISOString(), level, msg: redactString(msg), ...(sanitizeMeta(meta) as Record<string, unknown>) };
+  const sanitizedMeta = meta ? sanitizeMeta(meta) : undefined;
+  const entry: LogEntry = {
+    ts: new Date().toISOString(),
+    level,
+    msg: redactString(msg),
+    ...(sanitizedMeta && typeof sanitizedMeta === "object" ? (sanitizedMeta as Record<string, unknown>) : {}),
+  };
   const line = JSON.stringify(entry);
   if (level === "error") console.error(line);
   else if (level === "warn") console.warn(line);

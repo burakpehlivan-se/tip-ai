@@ -39,4 +39,15 @@ describe("logger", () => {
     expect(logged).toMatchObject({ token: "[redacted]", nested: { password: "[redacted]", route: "/api/test" } });
     spy.mockRestore();
   });
+
+  it("does not add synthetic metadata when a log has no context", () => {
+    const spy = vi.spyOn(console, "log").mockImplementation(() => undefined);
+
+    logger.info("Başlatıldı");
+
+    const logged = JSON.parse(spy.mock.calls[0][0]);
+    expect(logged).toMatchObject({ level: "info", msg: "Başlatıldı" });
+    expect(Object.keys(logged)).toEqual(["ts", "level", "msg"]);
+    spy.mockRestore();
+  });
 });
