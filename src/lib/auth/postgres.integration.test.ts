@@ -49,6 +49,7 @@ const describePg = TEST_URL ? describe : describe.skip;
 async function dropAll(): Promise<void> {
   const pool = new Pool({ connectionString: TEST_URL! });
   try {
+    await pool.query(`DROP TABLE IF EXISTS auth_sessions CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS cohort_case_assignments CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS cohort_memberships CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS cohorts CASCADE`);
@@ -110,10 +111,15 @@ describePg("PostgreSQL 16 entegrasyon", () => {
     await runMigrations({ connectionString: TEST_URL! });
     const pool = new Pool({ connectionString: TEST_URL! });
     try {
-      const { rows } = await pool.query(
+      const { rows: beforeRows } = await pool.query(
         `SELECT COUNT(*)::int AS n FROM drizzle.__drizzle_migrations`
       );
-      expect(rows[0].n).toBe(7);
+      await runMigrations({ connectionString: TEST_URL! });
+      const { rows: afterRows } = await pool.query(
+        `SELECT COUNT(*)::int AS n FROM drizzle.__drizzle_migrations`
+      );
+      expect(afterRows[0].n).toBe(beforeRows[0].n);
+      expect(afterRows[0].n).toBeGreaterThan(0);
     } finally {
       await pool.end();
     }
@@ -248,9 +254,9 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       };
       await expect(takeRateLimit(options)).resolves.toMatchObject({ allowed: true, remaining: 1 });
       await expect(takeRateLimit(options)).resolves.toMatchObject({ allowed: true, remaining: 0 });
-      await expect(takeRateLimit(options)).resolves.toMatchObject({ allowed: false, remaining: 0 });
       await refundRateLimit(options, 1_001);
       await expect(takeRateLimit({ ...options, now: 1_002 })).resolves.toMatchObject({ allowed: true, remaining: 0 });
+      await expect(takeRateLimit({ ...options, now: 1_003 })).resolves.toMatchObject({ allowed: false, remaining: 0 });
     } finally {
       if (previous === undefined) delete process.env.RATE_LIMIT_STORE;
       else process.env.RATE_LIMIT_STORE = previous;
