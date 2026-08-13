@@ -23,4 +23,15 @@ describe("API origin proxy", () => {
     );
     expect(response.headers.get("x-middleware-next")).toBe("1");
   });
+
+  it("sınırı aşan bildirilen API mutation gövdesini reddeder", async () => {
+    const response = proxy(
+      new NextRequest("https://tip-ai.example.test/api/admin/users", {
+        method: "POST",
+        headers: { "content-length": String(1024 * 1024 + 1) },
+      })
+    );
+    expect(response.status).toBe(413);
+    await expect(response.json()).resolves.toEqual({ error: "İstek gövdesi izin verilen boyutu aşıyor." });
+  });
 });

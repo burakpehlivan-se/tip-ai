@@ -10,6 +10,7 @@ export const REQUIRED_SECURITY_HEADERS = [
   "permissions-policy",
   "cross-origin-opener-policy",
   "x-dns-prefetch-control",
+  "content-security-policy",
 ] as const;
 
 export function hasRequiredSecurityHeaders(headers: Headers): boolean {
