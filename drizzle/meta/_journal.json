@@ -8,6 +8,13 @@
       "when": 1786455391339,
       "tag": "0000_init_auth",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1786601518147,
+      "tag": "0001_goofy_titanium_man",
+      "breakpoints": true
     }
   ]
 }

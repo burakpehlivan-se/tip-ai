@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       patches: [],
     });
 
-    const token = createStudentSessionToken(auth.username, auth.userId);
+    const token = await createStudentSessionToken(auth.username, auth.userId);
     const res = NextResponse.json({ ok: true, user: { username: auth.username } });
     res.cookies.set("tip_ai_student_session", token, studentSessionCookieOptions());
     return res;

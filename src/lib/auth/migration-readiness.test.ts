@@ -6,6 +6,7 @@ const complete: AuthMigrationReadiness = {
   migrationApplied: true,
   usersTable: true,
   auditTable: true,
+  sessionsTable: true,
 };
 
 describe("auth migration readiness", () => {
@@ -16,5 +17,6 @@ describe("auth migration readiness", () => {
   it("eksik bir migration işaretinde hazır kabul etmez", () => {
     expect(isAuthMigrationReady({ ...complete, migrationApplied: false })).toBe(false);
     expect(isAuthMigrationReady({ ...complete, usersTable: false })).toBe(false);
+    expect(isAuthMigrationReady({ ...complete, sessionsTable: false })).toBe(false);
   });
 });

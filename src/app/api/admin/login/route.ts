@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   createSessionToken,
   loginUser,
+  createRuntimeSessionId,
   isPanelRole,
   sessionCookieOptions,
   SESSION_COOKIE,
@@ -40,7 +41,8 @@ export async function POST(req: NextRequest) {
       { username: user.username, role: user.role, active: true },
       { route: "/api/admin/login", requestId: getRequestId(req) }
     );
-    const token = createSessionToken(user.username, user.role, user.userId);
+    const sessionId = await createRuntimeSessionId(user.userId, user.role);
+    const token = createSessionToken(user.username, user.role, user.userId, sessionId);
     const res = NextResponse.json({
       ok: true,
       username: user.username,

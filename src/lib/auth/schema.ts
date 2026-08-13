@@ -3,6 +3,7 @@ import {
   pgTable,
   boolean,
   jsonb,
+  index,
   text,
   timestamp,
   uuid,
@@ -51,3 +52,24 @@ export const authAuditLogs = pgTable("auth_audit_logs", {
 });
 
 export type AuthAuditLog = typeof authAuditLogs.$inferSelect;
+
+/**
+ * PostgreSQL runtime modunda imzalı cookie'nin sunucu tarafındaki kaydı.
+ * Token saklanmaz; yalnızca rastgele oturum kimliği, kullanıcı ve süre tutulur.
+ */
+export const authSessions = pgTable(
+  "auth_sessions",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    role: userRole("role").notNull(),
+    issuedAt: timestamp("issued_at", { withTimezone: true }).notNull().defaultNow(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    revokedAt: timestamp("revoked_at", { withTimezone: true }),
+  },
+  (table) => [index("auth_sessions_user_id_idx").on(table.userId)]
+);
+
+export type AuthSession = typeof authSessions.$inferSelect;

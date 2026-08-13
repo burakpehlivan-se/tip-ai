@@ -22,8 +22,9 @@ import { runMigrations } from "./migrate";
 import { importUsersFromFile } from "../../../scripts/import-users";
 import { hashPassword, verifyPassword, needsRehash, versionLegacyHash } from "./password";
 import { getDb, resetDbForTests } from "./db";
-import { users } from "./schema";
+import { authSessions, users } from "./schema";
 import { authenticateUser, createUser, findUserByUsername, updateUser } from "./user-store";
+import { createAuthSession, isAuthSessionActive, revokeAuthSession } from "./session-store";
 import { eq } from "drizzle-orm";
 
 const TEST_URL = process.env.TEST_DATABASE_URL;
@@ -75,6 +76,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       const names = rows.map((r) => r.tablename);
       expect(names).toContain("users");
       expect(names).toContain("auth_audit_logs");
+      expect(names).toContain("auth_sessions");
 
       const { rows: enumRows } = await pool.query(
         `SELECT typname FROM pg_type WHERE typname = 'user_role'`
@@ -92,7 +94,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       const { rows } = await pool.query(
         `SELECT COUNT(*)::int AS n FROM drizzle.__drizzle_migrations`
       );
-      expect(rows[0].n).toBe(1);
+      expect(rows[0].n).toBe(2);
     } finally {
       await pool.end();
     }
@@ -187,6 +189,28 @@ describePg("PostgreSQL 16 entegrasyon", () => {
 
     const updated = await updateUser(student.id, { role: "doktor" }, { username: "admin" });
     expect(updated.role).toBe("doktor");
+  });
+
+  it("merkezi oturum sunucu tarafında iptal edilebilir", async () => {
+    const user = await createUser({
+      username: "oturum.ogrenci",
+      password: "sifre123",
+      role: "ogrenci",
+      createdBy: "admin",
+    });
+    const session = await createAuthSession({
+      userId: user.id,
+      role: user.role,
+      ttlMs: 60_000,
+    });
+
+    const db = getDb();
+    const [stored] = await db.select().from(authSessions).where(eq(authSessions.id, session.id));
+    expect(stored.userId).toBe(user.id);
+    expect(await isAuthSessionActive({ id: session.id, userId: user.id, role: user.role })).toBe(true);
+
+    await revokeAuthSession(session.id);
+    expect(await isAuthSessionActive({ id: session.id, userId: user.id, role: user.role })).toBe(false);
   });
 
   it("hash fonksiyonları uçtan uca çalışır (argon2 üret + doğrula)", async () => {

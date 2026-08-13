@@ -13,6 +13,7 @@ const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tip-ai-rbac-test-"));
 const oldCwd = process.cwd();
 const oldPassword = process.env.ADMIN_PASSWORD;
 const oldSecret = process.env.ADMIN_SESSION_SECRET;
+const oldAuthStore = process.env.AUTH_USER_STORE;
 
 function adminRequest(
   pathname: string,
@@ -33,6 +34,7 @@ describe("admin RBAC", () => {
     process.chdir(tmpDir);
     process.env.ADMIN_PASSWORD = "test-admin-password";
     process.env.ADMIN_SESSION_SECRET = "test-admin-session-secret-at-least-32-chars";
+    delete process.env.AUTH_USER_STORE;
   });
 
   afterAll(() => {
@@ -40,6 +42,8 @@ describe("admin RBAC", () => {
     else process.env.ADMIN_PASSWORD = oldPassword;
     if (oldSecret === undefined) delete process.env.ADMIN_SESSION_SECRET;
     else process.env.ADMIN_SESSION_SECRET = oldSecret;
+    if (oldAuthStore === undefined) delete process.env.AUTH_USER_STORE;
+    else process.env.AUTH_USER_STORE = oldAuthStore;
     process.chdir(oldCwd);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

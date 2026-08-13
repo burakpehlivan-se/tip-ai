@@ -6,6 +6,7 @@ import path from "path";
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tip-ai-student-auth-test-"));
 const oldCwd = process.cwd();
 const oldPassword = process.env.ADMIN_PASSWORD;
+const oldAuthStore = process.env.AUTH_USER_STORE;
 
 import {
   createStudentSessionToken,
@@ -20,16 +21,19 @@ describe("student auth", () => {
   beforeAll(() => {
     process.chdir(tmpDir);
     process.env.ADMIN_PASSWORD = "test-admin-password";
+    delete process.env.AUTH_USER_STORE;
   });
   afterAll(() => {
     if (oldPassword === undefined) delete process.env.ADMIN_PASSWORD;
     else process.env.ADMIN_PASSWORD = oldPassword;
+    if (oldAuthStore === undefined) delete process.env.AUTH_USER_STORE;
+    else process.env.AUTH_USER_STORE = oldAuthStore;
     process.chdir(oldCwd);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("öğrenci token üretir ve doğrular", () => {
-    const token = createStudentSessionToken("ali.veli", "user_123");
+  it("öğrenci token üretir ve doğrular", async () => {
+    const token = await createStudentSessionToken("ali.veli", "user_123");
     const session = verifyStudentSessionToken(token);
     expect(session).not.toBeNull();
     expect(session!.username).toBe("ali.veli");
@@ -42,16 +46,16 @@ describe("student auth", () => {
     expect(verifyStudentSessionToken(token)).toBeNull();
   });
 
-  it("kurcalanmış token'ı reddeder", () => {
-    const token = createStudentSessionToken("ali.veli", "user_123");
+  it("kurcalanmış token'ı reddeder", async () => {
+    const token = await createStudentSessionToken("ali.veli", "user_123");
     const tampered = token.slice(0, -3) + "abc";
     expect(verifyStudentSessionToken(tampered)).toBeNull();
   });
 
-  it("süresi dolmuş token'ı reddeder", () => {
+  it("süresi dolmuş token'ı reddeder", async () => {
     vi.useFakeTimers();
     try {
-      const token = createStudentSessionToken("ali.veli", "user_123");
+      const token = await createStudentSessionToken("ali.veli", "user_123");
       vi.setSystemTime(Date.now() + 1000 * 60 * 60 * 13); // 13 saat sonra
       expect(verifyStudentSessionToken(token)).toBeNull();
     } finally {
@@ -82,7 +86,7 @@ describe("student auth", () => {
 
   it("pasifleştirilen öğrenci mevcut oturumunu da kaybeder", async () => {
     const student = registerStudent({ username: "oturum.pasif", password: "sifre123" });
-    const token = createStudentSessionToken(student.username, student.id);
+    const token = await createStudentSessionToken(student.username, student.id);
     expect((await getCurrentStudentSession(token))?.username).toBe(student.username);
 
     updateUser(student.id, { active: false }, { username: "admin" });

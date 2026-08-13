@@ -12,6 +12,7 @@ import { getDb } from "./db";
 import { users, type UserRole } from "./schema";
 import { hashPassword, needsRehash, verifyPassword } from "./password";
 import { recordAuthEvent } from "./audit";
+import { revokeAuthSessionsForUser } from "./session-store";
 import { getAdminCredentials } from "../admin/auth-env";
 
 export type DbUserRow = typeof users.$inferSelect;
@@ -287,6 +288,12 @@ export async function updateUser(
       actor: actor?.username || "system",
       meta: { from: row.role, to: updated.role },
     });
+  }
+
+  // İmzalı cookie'ler token süresini beklemesin: kritik hesap değişikliği
+  // mevcut PostgreSQL oturumlarını anında geçersizleştirir.
+  if (patch.password || updated.role !== row.role || (patch.active === false && row.active)) {
+    await revokeAuthSessionsForUser(updated.id);
   }
 
   return updated;

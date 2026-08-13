@@ -3,10 +3,16 @@ import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import { AdminRole, AdminSessionPayload } from "./types";
 import { getAdminCredentials } from "./auth-env";
-import { authenticateUser, findUserById, findUserByUsername } from "@/lib/auth/runtime-user-store";
+import {
+  authenticateUser,
+  authUserStoreMode,
+  findUserById,
+  findUserByUsername,
+} from "@/lib/auth/runtime-user-store";
+import { createAuthSession, isAuthSessionActive, revokeAuthSession } from "@/lib/auth/session-store";
 
 export const SESSION_COOKIE = "tip_ai_admin_session";
-const SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
+export const SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
 
 export { getAdminCredentials };
 
@@ -33,17 +39,37 @@ function sign(payloadB64: string): string {
 export function createSessionToken(
   username: string,
   role: AdminRole = "admin",
-  userId?: string
+  userId?: string,
+  sessionId?: string
 ): string {
   const payload: AdminSessionPayload = {
     username,
     role,
     userId,
+    sessionId,
     exp: Date.now() + SESSION_TTL_MS,
   };
   const payloadB64 = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
   const sig = sign(payloadB64);
   return `${payloadB64}.${sig}`;
+}
+
+/** PostgreSQL kullanıcı deposunda her login için iptal edilebilir bir kayıt açar. */
+export async function createRuntimeSessionId(
+  userId: string,
+  role: AdminRole,
+  ttlMs = SESSION_TTL_MS
+): Promise<string | undefined> {
+  if (authUserStoreMode() === "json") return undefined;
+  return (await createAuthSession({ userId, role, ttlMs })).id;
+}
+
+/** Çıkışta merkezi kaydı iptal eder; JSON modunda eski cookie temizleme davranışı sürer. */
+export async function revokeRuntimeSession(token: string | undefined | null): Promise<void> {
+  if (authUserStoreMode() === "json") return;
+  const session = verifySessionToken(token);
+  if (!session?.sessionId) return;
+  await revokeAuthSession(session.sessionId);
 }
 
 export function verifySessionToken(token: string | undefined | null): AdminSessionPayload | null {
@@ -113,6 +139,12 @@ export async function getCurrentSession(
   if (!user || !user.active) return null;
   if (user.username.toLowerCase() !== session.username.toLowerCase()) return null;
   if (user.role !== session.role) return null;
+  if (authUserStoreMode() === "postgres") {
+    if (!session.sessionId) return null;
+    if (!(await isAuthSessionActive({ id: session.sessionId, userId: user.id, role: user.role }))) {
+      return null;
+    }
+  }
 
   return {
     ...session,

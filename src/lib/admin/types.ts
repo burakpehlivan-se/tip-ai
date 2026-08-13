@@ -274,6 +274,8 @@ export interface AdminSessionPayload {
   role: AdminRole;
   exp: number;
   userId?: string;
+  /** PostgreSQL modunda sunucu tarafındaki iptal edilebilir oturum kaydı. */
+  sessionId?: string;
 }
 
 export const DEFAULT_CEMICEGEK: CemicegekAyarlari = {

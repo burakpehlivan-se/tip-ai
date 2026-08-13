@@ -13,7 +13,9 @@ describe("session API", () => {
   });
 
   it("ortak çıkış iki oturum cookie'sini de sonlandırır", async () => {
-    const response = await POST();
+    const response = await POST(
+      new NextRequest("http://localhost/api/session/logout", { method: "POST" })
+    );
     const cookie = response.headers.get("set-cookie") || "";
 
     expect(response.status).toBe(200);

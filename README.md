@@ -122,8 +122,19 @@ Geçersiz bir `AUTH_USER_STORE` değeri sessiz fallback yerine yapılandırma ha
 
 `GET /api/health`, JSON modunda temel canlılık yanıtı döner. PostgreSQL modunda
 ise migration journal, en az bir uygulanmış migration, `users` ve
-`auth_audit_logs` tablolarını da doğrular; herhangi biri yoksa `503` döner.
+`auth_audit_logs` ile `auth_sessions` tablolarını da doğrular; herhangi biri
+yoksa `503` döner.
 Coolify healthcheck'i bu endpoint'e yönlendirin.
+
+### Merkezi oturum iptali
+
+`AUTH_USER_STORE=postgres` modunda her başarılı giriş için `auth_sessions`
+tablosunda yalnızca rastgele oturum kimliği, kullanıcı, rol, süre ve iptal
+zamanı tutulur; cookie veya parola saklanmaz. Her istek imza, kullanıcı durumu
+ve sunucu tarafındaki oturum kaydını birlikte doğrular. Çıkış, rol/parola veya
+aktiflik değişikliği açık PostgreSQL oturumlarını derhal iptal eder. Bu özellik
+`0001_goofy_titanium_man` migration'ını gerektirir; cutover öncesinde
+`npm run db:migrate` ile uygulanmalıdır.
 
 ## Üretim depolama ve yedekleme
 

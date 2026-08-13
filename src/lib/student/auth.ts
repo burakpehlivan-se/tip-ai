@@ -7,20 +7,24 @@ import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
 import {
   createSessionToken,
+  createRuntimeSessionId,
   verifySessionToken,
   sessionCookieOptions,
 } from "@/lib/admin/auth";
+import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
+import { isAuthSessionActive } from "@/lib/auth/session-store";
 import type { AdminSessionPayload } from "@/lib/admin/types";
 import { authenticateUser, findUserById, findUserByUsername } from "@/lib/auth/runtime-user-store";
 
 export const STUDENT_SESSION_COOKIE = "tip_ai_student_session";
 export const STUDENT_SESSION_TTL_MS = 1000 * 60 * 60 * 12; // 12 saat
 
-export function createStudentSessionToken(
+export async function createStudentSessionToken(
   username: string,
   userId: string
-): string {
-  return createSessionToken(username, "ogrenci", userId);
+): Promise<string> {
+  const sessionId = await createRuntimeSessionId(userId, "ogrenci", STUDENT_SESSION_TTL_MS);
+  return createSessionToken(username, "ogrenci", userId, sessionId);
 }
 
 export function verifyStudentSessionToken(
@@ -47,6 +51,12 @@ export async function getCurrentStudentSession(
     : await findUserByUsername(session.username);
   if (!user || !user.active || user.role !== "ogrenci") return null;
   if (user.username.toLowerCase() !== session.username.toLowerCase()) return null;
+  if (authUserStoreMode() === "postgres") {
+    if (!session.sessionId) return null;
+    if (!(await isAuthSessionActive({ id: session.sessionId, userId: user.id, role: user.role }))) {
+      return null;
+    }
+  }
 
   return { ...session, username: user.username, role: user.role, userId: user.id };
 }
