@@ -42,6 +42,9 @@ const describePg = TEST_URL ? describe : describe.skip;
 async function dropAll(): Promise<void> {
   const pool = new Pool({ connectionString: TEST_URL! });
   try {
+    await pool.query(`DROP TABLE IF EXISTS cohort_case_assignments CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS cohort_memberships CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS cohorts CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS learning_attempts CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS auth_audit_logs CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS users CASCADE`);
@@ -101,7 +104,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       const { rows } = await pool.query(
         `SELECT COUNT(*)::int AS n FROM drizzle.__drizzle_migrations`
       );
-      expect(rows[0].n).toBe(4);
+      expect(rows[0].n).toBe(5);
     } finally {
       await pool.end();
     }
@@ -232,6 +235,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       .insert(learningAttempts)
       .values({
         studentId: user.id,
+        assignmentId: null,
         caseId: "acil::gogus-agrisi",
         caseVersion: "3",
         poliklinikKey: "acil",

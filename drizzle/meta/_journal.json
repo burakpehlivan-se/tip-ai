@@ -29,6 +29,13 @@
       "when": 1786610201383,
       "tag": "0003_add_cohort_assignments",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1786614573809,
+      "tag": "0004_link_attempts_to_assignments",
+      "breakpoints": true
     }
   ]
 }

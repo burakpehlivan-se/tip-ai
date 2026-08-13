@@ -30,7 +30,7 @@ const unavailable: AuthMigrationReadiness = {
 };
 
 /** `drizzle/0000`–`0003`; yeni zorunlu şema özelliği eklendiğinde artırılır. */
-export const REQUIRED_SCHEMA_MIGRATION_COUNT = 4;
+export const REQUIRED_SCHEMA_MIGRATION_COUNT = 5;
 
 export function isAuthMigrationReady(checks: AuthMigrationReadiness): boolean {
   return (

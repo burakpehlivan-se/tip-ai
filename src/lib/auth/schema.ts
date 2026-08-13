@@ -95,6 +95,8 @@ export const learningAttempts = pgTable(
     studentId: uuid("student_id")
       .notNull()
       .references(() => users.id, { onDelete: "restrict" }),
+    /** Grup atamasıyla açılan oturumun isteğe bağlı kaynağı. Legacy denemeler boş kalır. */
+    assignmentId: uuid("assignment_id").references(() => cohortCaseAssignments.id, { onDelete: "set null" }),
     caseId: text("case_id").notNull(),
     caseVersion: text("case_version"),
     poliklinikKey: text("poliklinik_key").notNull(),
@@ -115,6 +117,12 @@ export const learningAttempts = pgTable(
       table.updatedAt
     ),
     index("learning_attempts_case_id_idx").on(table.caseId),
+    index("learning_attempts_student_assignment_status_updated_idx").on(
+      table.studentId,
+      table.assignmentId,
+      table.status,
+      table.updatedAt
+    ),
   ]
 );
 

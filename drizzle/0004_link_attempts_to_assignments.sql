@@ -1,0 +1,3 @@
+ALTER TABLE "learning_attempts" ADD COLUMN "assignment_id" uuid;--> statement-breakpoint
+ALTER TABLE "learning_attempts" ADD CONSTRAINT "learning_attempts_assignment_id_cohort_case_assignments_id_fk" FOREIGN KEY ("assignment_id") REFERENCES "public"."cohort_case_assignments"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
+CREATE INDEX "learning_attempts_student_assignment_status_updated_idx" ON "learning_attempts" USING btree ("student_id","assignment_id","status","updated_at");
