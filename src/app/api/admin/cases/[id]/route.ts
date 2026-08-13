@@ -10,9 +10,8 @@ import {
   loadCasesStore,
   recordMutation,
 } from "@/lib/admin/store";
-import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
+import { AdminVaka } from "@/lib/admin/types";
 import { parseCasePatchInput } from "@/lib/admin/case-input";
-import { validateAdminVakaForPublication } from "@/lib/cdm/validate-report";
 import { getRequestId, logger } from "@/lib/logger";
 
 function decodeId(raw: string): string {
@@ -56,33 +55,62 @@ export async function PATCH(
       );
     }
     const updates = parsed.value;
+    const protectedFields: Array<keyof AdminVaka> = [
+      "surum",
+      "uzmanOnayi",
+      "uzmanOnaylayan",
+      "uzmanOnayTarihi",
+    ];
+    if (protectedFields.some((field) => updates[field] !== undefined)) {
+      return NextResponse.json(
+        { error: "Sürüm ve uzman onayı yalnızca inceleme akışıyla değiştirilebilir." },
+        { status: 400 }
+      );
+    }
+    if (updates.durum === "aktif") {
+      return NextResponse.json(
+        { error: "Vaka doğrudan yayınlanamaz; önce incelemeye gönderilmelidir." },
+        { status: 409 }
+      );
+    }
+
     const updateKeys = Object.keys(updates) as (keyof AdminVaka)[];
-    const patches = updateKeys.map((key) => ({
+    const contentFields = new Set<keyof AdminVaka>([
+      "hastalikAdi", "seviye", "yasAraligi", "cinsiyetTercih", "anaSikayet",
+      "ozetBilgiler", "semptomSablon", "rubric", "statikTestler", "generatedTests",
+      "testOverrides", "hastaYanitlari", "idealYol", "egitimNotu", "cdmVersion",
+      "patientProfil", "vitals", "conditions", "tedavi",
+    ]);
+    const contentChanged = updateKeys.some((key) => contentFields.has(key));
+    const lifecycleUpdates: Partial<AdminVaka> = { sonDuzenleyen: session!.username };
+    if (contentChanged && (existing.durum === "aktif" || existing.incelemeDurumu === "onayli")) {
+      lifecycleUpdates.durum = "taslak";
+      lifecycleUpdates.surum = existing.surum + 1;
+      lifecycleUpdates.uzmanOnayi = false;
+      lifecycleUpdates.uzmanOnaylayan = undefined;
+      lifecycleUpdates.uzmanOnayTarihi = undefined;
+      lifecycleUpdates.contentChecksum = undefined;
+      lifecycleUpdates.incelemeDurumu = "taslak";
+      lifecycleUpdates.incelemeyeGonderen = undefined;
+      lifecycleUpdates.incelemeyeGonderilmeTarihi = undefined;
+      lifecycleUpdates.incelemeNotu = undefined;
+    } else if (contentChanged && existing.incelemeDurumu === "incelemede") {
+      lifecycleUpdates.incelemeDurumu = "taslak";
+      lifecycleUpdates.incelemeyeGonderen = undefined;
+      lifecycleUpdates.incelemeyeGonderilmeTarihi = undefined;
+    }
+    const persistedUpdates = { ...updates, ...lifecycleUpdates };
+    const patchKeys = Object.keys(persistedUpdates) as (keyof AdminVaka)[];
+    const patches = patchKeys.map((key) => ({
       path: `cases.${id}.${key}`,
       caseId: id,
       field: key,
       before: clone(existing[key]),
-      after: clone(updates[key]),
+      after: clone(persistedUpdates[key]),
     }));
 
     if (!patches.length) {
       return NextResponse.json({ error: "Güncellenecek alan yok." }, { status: 400 });
-    }
-
-    // Eski aktif kayıtları düzenlemeyi kilitlemeden, taslak/arsivden yeni bir
-    // aktif vakaya geçişte klinik veri doğrulamasını zorunlu tut.
-    const candidate = normalizeAdminVaka({ ...existing, ...updates, updatedAt: Date.now() });
-    if (existing.durum !== "aktif" && candidate.durum === "aktif") {
-      const publication = validateAdminVakaForPublication(candidate);
-      if (!publication.allowed) {
-        return NextResponse.json(
-          {
-            error: "Vaka aktif olarak yayınlanamaz. Zorunlu klinik alanları tamamlayın.",
-            validation: publication.validation,
-          },
-          { status: 422 }
-        );
-      }
     }
 
     const result = recordMutation(
@@ -93,7 +121,7 @@ export async function PATCH(
       (s) => {
         const idx = s.cases.findIndex((c) => c.id === id);
         if (idx >= 0) {
-          s.cases[idx] = { ...s.cases[idx], ...updates, updatedAt: Date.now() };
+          s.cases[idx] = { ...s.cases[idx], ...persistedUpdates, updatedAt: Date.now() };
         }
       }
     );

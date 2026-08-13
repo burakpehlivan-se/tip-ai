@@ -86,6 +86,7 @@ export function loadCasesStore(): CasesStore {
         (c as AdminVaka).durum === undefined ||
         (c as AdminVaka).etiketler === undefined ||
         (c as AdminVaka).surum === undefined ||
+        (c as AdminVaka).incelemeDurumu === undefined ||
         (c as AdminVaka).cdmVersion === undefined
       ) {
         dirty = true;

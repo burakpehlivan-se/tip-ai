@@ -1,6 +1,7 @@
 import { Rubric, Seviye, TestSonucu } from "../types";
 
 export type VakaDurum = "taslak" | "aktif" | "arsiv";
+export type VakaIncelemeDurumu = "taslak" | "incelemede" | "onayli" | "degisiklik_istendi" | "legacy";
 
 export type VakaEtiket =
   | "OSCE"
@@ -84,6 +85,15 @@ export interface AdminVaka {
   uzmanOnayi: boolean;
   uzmanOnaylayan?: string;
   uzmanOnayTarihi?: number;
+  /** Reviewer onayladığında klinik içerik/rubrik kimliği. */
+  contentChecksum?: string;
+  /** Yeni vaka ve düzenlemelerde iki aşamalı içerik review akışı. */
+  incelemeDurumu?: VakaIncelemeDurumu;
+  incelemeyeGonderen?: string;
+  incelemeyeGonderilmeTarihi?: number;
+  incelemeNotu?: string;
+  olusturan?: string;
+  sonDuzenleyen?: string;
   updatedAt: number;
   createdAt: number;
 
@@ -191,6 +201,9 @@ export type AuditAction =
   | "create_case"
   | "update_case"
   | "delete_case"
+  | "submit_case_review"
+  | "approve_case_review"
+  | "request_case_changes"
   | "create_backup"
   | "restore_backup"
   | "undo"
@@ -325,6 +338,14 @@ export function normalizeAdminVaka(c: Partial<AdminVaka> & { id: string }): Admi
     uzmanOnayi: c.uzmanOnayi ?? false,
     uzmanOnaylayan: c.uzmanOnaylayan,
     uzmanOnayTarihi: c.uzmanOnayTarihi,
+    contentChecksum: c.contentChecksum,
+    incelemeDurumu:
+      c.incelemeDurumu || (c.uzmanOnayi ? "onayli" : c.durum === "aktif" ? "legacy" : "taslak"),
+    incelemeyeGonderen: c.incelemeyeGonderen,
+    incelemeyeGonderilmeTarihi: c.incelemeyeGonderilmeTarihi,
+    incelemeNotu: c.incelemeNotu,
+    olusturan: c.olusturan,
+    sonDuzenleyen: c.sonDuzenleyen,
     updatedAt: c.updatedAt || now,
     createdAt: c.createdAt || now,
     cdmVersion: c.cdmVersion,

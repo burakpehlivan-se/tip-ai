@@ -152,6 +152,17 @@ oturumuna eklenir; böylece P2 import/canary sonrasında eski denemelerle aynı
 vaka sürümü izlenebilir. Checksum, klinik içerik ve rubriği kapsar; etiket,
 reviewer veya güncelleme zamanı gibi yayın meta verileri checksum'ı değiştirmez.
 
+### İçerik inceleme akışı
+
+Yeni vakalar taslak olarak oluşturulur. İçeriğin `aktif` olarak yayınlanması
+doğrudan PATCH ile yapılamaz: vaka önce `POST /api/admin/cases/:id/review` ile
+incelemeye gönderilir, ardından yazardan farklı bir admin/doktor klinik yayın
+doğrulamasını geçerek onaylar veya değişiklik ister. Onayda reviewer, zaman ve
+klinik içerik checksum'ı audit kaydına bağlanır. Onaylı/yayındaki vakada skoru
+etkileyen bir değişiklik yeni sürüm oluşturur, yayını taslağa çeker ve onayı
+temizler. Eski içerik için `legacy` inceleme etiketi korunur; bu kayıtlar
+otomatik olarak yeniden yayımlanmaz.
+
 ## Üretim depolama ve yedekleme
 
 Uygulamanın kalıcı verisi JSON dosyaları olarak çalışma dizinindeki

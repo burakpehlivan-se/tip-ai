@@ -12,7 +12,6 @@ import {
 } from "@/lib/admin/store";
 import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
 import { parseCreateCaseInput } from "@/lib/admin/case-input";
-import { validateAdminVakaForPublication } from "@/lib/cdm/validate-report";
 import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
@@ -90,10 +89,14 @@ export async function POST(req: NextRequest) {
       hastaYanitlari: input.hastaYanitlari || { OZEL: "Anlamadım" },
       idealYol: input.idealYol || [],
       egitimNotu: input.egitimNotu || "",
-      durum: input.durum || "taslak",
+      // Yeni vaka önce taslak olur; yayın yalnızca bağımsız review endpoint'iyle yapılır.
+      durum: input.durum === "arsiv" ? "arsiv" : "taslak",
       etiketler: input.etiketler || ["Poliklinik"],
       surum: 1,
       uzmanOnayi: false,
+      incelemeDurumu: "taslak",
+      olusturan: session!.username,
+      sonDuzenleyen: session!.username,
       createdAt: now,
       updatedAt: now,
       cdmVersion: input.cdmVersion,
@@ -102,19 +105,6 @@ export async function POST(req: NextRequest) {
       conditions: input.conditions,
       tedavi: input.tedavi,
     });
-
-    if (vaka.durum === "aktif") {
-      const publication = validateAdminVakaForPublication(vaka);
-      if (!publication.allowed) {
-        return NextResponse.json(
-          {
-            error: "Vaka aktif olarak oluşturulamaz. Zorunlu klinik alanları tamamlayın.",
-            validation: publication.validation,
-          },
-          { status: 422 }
-        );
-      }
-    }
 
     const result = recordMutation(
       session!.username,

@@ -5,8 +5,10 @@ import path from "path";
 import { NextRequest } from "next/server";
 import { POST } from "./route";
 import { PATCH } from "./[id]/route";
+import { POST as reviewCase } from "./[id]/review/route";
 import { createSessionToken } from "@/lib/admin/auth";
-import { getCaseById, loadCasesStore } from "@/lib/admin/store";
+import { getCaseById, loadCasesStore, recordMutation } from "@/lib/admin/store";
+import { createUser } from "@/lib/admin/users";
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tip-ai-admin-cases-route-test-"));
 const oldCwd = process.cwd();
@@ -28,6 +30,11 @@ function request(pathname: string, method: "POST" | "PATCH", body: unknown, toke
 
 function adminToken() {
   return createSessionToken("admin", "admin");
+}
+
+function doctorToken() {
+  const user = createUser({ username: "reviewer", password: "sifre123", role: "doktor", createdBy: "admin" });
+  return createSessionToken(user.username, user.role, user.id);
 }
 
 async function createDraft() {
@@ -114,7 +121,7 @@ describe("admin case write routes", () => {
     });
   });
 
-  it("rejects publication of an incomplete draft without changing its status", async () => {
+  it("rejects direct publication so the independent review flow is mandatory", async () => {
     await createDraft();
 
     const response = await PATCH(
@@ -127,11 +134,82 @@ describe("admin case write routes", () => {
       { params: Promise.resolve({ id: encodeURIComponent(caseId) }) }
     );
 
-    expect(response.status).toBe(422);
+    expect(response.status).toBe(409);
     expect(await response.json()).toMatchObject({
-      error: "Vaka aktif olarak yayınlanamaz. Zorunlu klinik alanları tamamlayın.",
-      validation: { errors: expect.any(Array) },
+      error: "Vaka doğrudan yayınlanamaz; önce incelemeye gönderilmelidir.",
     });
     expect(getCaseById(caseId)?.durum).toBe("taslak");
+  });
+
+  it("rejects client-controlled version and approval fields", async () => {
+    await createDraft();
+    const response = await PATCH(
+      request(
+        `/api/admin/cases/${encodeURIComponent(caseId)}`,
+        "PATCH",
+        { surum: 999, uzmanOnayi: true },
+        adminToken()
+      ),
+      { params: Promise.resolve({ id: encodeURIComponent(caseId) }) }
+    );
+    expect(response.status).toBe(400);
+    expect(getCaseById(caseId)?.surum).toBe(1);
+    expect(getCaseById(caseId)?.uzmanOnayi).toBe(false);
+  });
+
+  it("prevents the author from reviewing their own case", async () => {
+    await createDraft();
+    const submitted = await reviewCase(
+      request(
+        `/api/admin/cases/${encodeURIComponent(caseId)}/review`,
+        "POST",
+        { action: "submit" },
+        adminToken()
+      ),
+      { params: Promise.resolve({ id: encodeURIComponent(caseId) }) }
+    );
+    const submittedBody = await submitted.json();
+    expect(submittedBody).toMatchObject({ ok: true });
+    expect(submittedBody.case.incelemeDurumu).toBe("incelemede");
+    expect(getCaseById(caseId)?.incelemeDurumu).toBe("incelemede");
+
+    const response = await reviewCase(
+      request(
+        `/api/admin/cases/${encodeURIComponent(caseId)}/review`,
+        "POST",
+        { action: "request_changes" },
+        adminToken()
+      ),
+      { params: Promise.resolve({ id: encodeURIComponent(caseId) }) }
+    );
+    expect(await response.json()).toMatchObject({ error: "Vaka yazarı kendi vakasını onaylayamaz veya değişiklik talebi veremez." });
+  });
+
+  it("allows a different doctor to request changes on a submitted case", async () => {
+    const target = loadCasesStore().cases[0];
+    recordMutation("system", "update_case", "fixture review state", [], (store) => {
+      const index = store.cases.findIndex((item) => item.id === target.id);
+      store.cases[index] = {
+        ...store.cases[index],
+        durum: "taslak",
+        incelemeDurumu: "incelemede",
+        olusturan: "author",
+      };
+    });
+    const response = await reviewCase(
+      request(
+        `/api/admin/cases/${encodeURIComponent(target.id)}/review`,
+        "POST",
+        { action: "request_changes", note: "Klinik kaynak ekleyin." },
+        doctorToken()
+      ),
+      { params: Promise.resolve({ id: encodeURIComponent(target.id) }) }
+    );
+    expect(await response.json()).toMatchObject({ ok: true });
+    expect(getCaseById(target.id)).toMatchObject({
+      durum: "taslak",
+      incelemeDurumu: "degisiklik_istendi",
+      uzmanOnaylayan: "reviewer",
+    });
   });
 });

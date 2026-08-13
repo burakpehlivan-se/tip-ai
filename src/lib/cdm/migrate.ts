@@ -214,6 +214,21 @@ export function upgradeAdminVakaToCdm(c: AdminVaka): { vaka: AdminVaka; changed:
   vaka.poliklinikIcon = c.poliklinikIcon;
   vaka.poliklinikAciklama = c.poliklinikAciklama;
   vaka.hastalikKey = c.hastalikKey;
+  // CDM v1 belgesi henüz içerik yönetişim alanlarının tamamını taşımaz.
+  // Round-trip sırasında review/audit yaşam döngüsünü kaybetmemek zorunludur.
+  vaka.durum = c.durum;
+  vaka.etiketler = c.etiketler;
+  vaka.surum = c.surum;
+  vaka.uzmanOnayi = c.uzmanOnayi;
+  vaka.uzmanOnaylayan = c.uzmanOnaylayan;
+  vaka.uzmanOnayTarihi = c.uzmanOnayTarihi;
+  vaka.contentChecksum = c.contentChecksum;
+  vaka.incelemeDurumu = c.incelemeDurumu;
+  vaka.incelemeyeGonderen = c.incelemeyeGonderen;
+  vaka.incelemeyeGonderilmeTarihi = c.incelemeyeGonderilmeTarihi;
+  vaka.incelemeNotu = c.incelemeNotu;
+  vaka.olusturan = c.olusturan;
+  vaka.sonDuzenleyen = c.sonDuzenleyen;
 
   const after = JSON.stringify(normalizeAdminVaka(vaka));
   return { vaka, changed: before !== after };

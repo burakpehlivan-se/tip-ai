@@ -61,6 +61,10 @@ interface AdminVaka {
   etiketler: string[];
   surum: number;
   uzmanOnayi: boolean;
+  incelemeDurumu?: "taslak" | "incelemede" | "onayli" | "degisiklik_istendi" | "legacy";
+  incelemeNotu?: string;
+  uzmanOnaylayan?: string;
+  contentChecksum?: string;
   cdmVersion?: string;
   patientProfil?: { bmi?: number; sigara?: string; komorbiditeler?: string[] };
   vitals?: {
@@ -351,12 +355,13 @@ export default function AdminVakaDetailPage() {
   const [flash, setFlash] = useState("");
   const [tab, setTab] = useState<TabId>("meta");
   const [saving, setSaving] = useState(false);
+  const [reviewing, setReviewing] = useState(false);
 
   // ── form state (CDM sections) ──
   const [meta, setMeta] = useState({
     hastalikAdi: "",
     seviye: "orta",
-    durum: "aktif",
+    durum: "taslak",
     etiketler: "",
     surum: 1,
     uzmanOnayi: false,
@@ -409,7 +414,7 @@ export default function AdminVakaDetailPage() {
     setMeta({
       hastalikAdi: c.hastalikAdi || "",
       seviye: c.seviye || "orta",
-      durum: c.durum || "aktif",
+      durum: c.durum || "taslak",
       etiketler: (c.etiketler || []).join(", "),
       surum: c.surum ?? 1,
       uzmanOnayi: !!c.uzmanOnayi,
@@ -551,12 +556,7 @@ export default function AdminVakaDetailPage() {
       cdmVersion: "tip-ai-cdm-v1",
       hastalikAdi: meta.hastalikAdi,
       seviye: meta.seviye,
-      durum: meta.durum,
       etiketler: csvToList(meta.etiketler),
-      surum: Number(meta.surum) || 1,
-      uzmanOnayi: meta.uzmanOnayi,
-      uzmanOnaylayan: meta.uzmanOnayi ? "admin" : undefined,
-      uzmanOnayTarihi: meta.uzmanOnayi ? Date.now() : undefined,
       yasAraligi: [Number(patient.yasMin), Number(patient.yasMax)] as [number, number],
       cinsiyetTercih: patient.cinsiyetTercih,
       patientProfil: {
@@ -618,6 +618,30 @@ export default function AdminVakaDetailPage() {
       setError("Kayıt başarısız.");
     } finally {
       setSaving(false);
+    }
+  }
+
+  async function reviewCase(action: "submit" | "approve" | "request_changes") {
+    if (!vaka) return;
+    setReviewing(true);
+    setError("");
+    try {
+      const res = await fetch(`/api/admin/cases/${encodeURIComponent(id)}/review`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error || "İnceleme işlemi başarısız.");
+        return;
+      }
+      hydrate(data.case);
+      notify(data.log?.message || "İnceleme durumu güncellendi.");
+    } catch {
+      setError("İnceleme işlemi başarısız.");
+    } finally {
+      setReviewing(false);
     }
   }
 
@@ -794,6 +818,21 @@ export default function AdminVakaDetailPage() {
           >
             {saving ? "Kaydediliyor…" : "CDM kaydet"}
           </button>
+          {vaka.incelemeDurumu !== "incelemede" && vaka.durum !== "aktif" && (
+            <button type="button" className="btn-secondary text-sm" disabled={reviewing} onClick={() => void reviewCase("submit")}>
+              {reviewing ? "İşleniyor…" : "İncelemeye gönder"}
+            </button>
+          )}
+          {vaka.incelemeDurumu === "incelemede" && (
+            <>
+              <button type="button" className="btn-secondary text-sm" disabled={reviewing} onClick={() => void reviewCase("request_changes")}>
+                Değişiklik iste
+              </button>
+              <button type="button" className="btn-primary text-sm" disabled={reviewing} onClick={() => void reviewCase("approve")}>
+                Bağımsız onayla
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -827,7 +866,7 @@ export default function AdminVakaDetailPage() {
       {tab === "meta" && (
         <Section
           title="meta — kimlik & yayın"
-          hint="poliklinikKey / hastalikKey depoda sabit; burada klinik ad, seviye, durum, etiket."
+          hint="poliklinikKey / hastalikKey depoda sabit; yayın ve onay bağımsız inceleme akışından yönetilir."
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -843,16 +882,10 @@ export default function AdminVakaDetailPage() {
               <input className="input w-full bg-surface-soft" value={vaka.hastalikKey} readOnly />
             </div>
             <div>
-              <label className="text-xs text-muted">Durum</label>
-              <select
-                className="input w-full"
-                value={meta.durum}
-                onChange={(e) => setMeta({ ...meta, durum: e.target.value })}
-              >
-                <option value="taslak">Taslak</option>
-                <option value="aktif">Aktif</option>
-                <option value="arsiv">Arşiv</option>
-              </select>
+              <label className="text-xs text-muted">Yayın / inceleme</label>
+              <div className="input flex min-h-10 items-center bg-surface-soft text-sm">
+                {vaka.durum} · {vaka.incelemeDurumu || "legacy"}
+              </div>
             </div>
             <div>
               <label className="text-xs text-muted">Seviye</label>
@@ -868,25 +901,13 @@ export default function AdminVakaDetailPage() {
             </div>
             <div>
               <label className="text-xs text-muted">Sürüm</label>
-              <input
-                type="number"
-                min={1}
-                className="input w-full"
-                value={meta.surum}
-                onChange={(e) => setMeta({ ...meta, surum: Number(e.target.value) })}
-              />
+              <div className="input flex min-h-10 items-center bg-surface-soft text-sm">v{vaka.surum}</div>
             </div>
-            <div className="flex items-end pb-2">
-              <label className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={meta.uzmanOnayi}
-                  onChange={(e) => setMeta({ ...meta, uzmanOnayi: e.target.checked })}
-                />
-                Uzman onayı
-              </label>
+            <div className="flex items-end pb-2 text-sm text-steel">
+              {vaka.uzmanOnayi ? `✓ Reviewer: ${vaka.uzmanOnaylayan || "kayıtlı"}` : "Reviewer onayı bekleniyor"}
             </div>
           </div>
+          {vaka.incelemeNotu && <p className="mt-2 text-sm text-steel">Reviewer notu: {vaka.incelemeNotu}</p>}
           <div>
             <label className="text-xs text-muted">Etiketler (virgülle)</label>
             <input
