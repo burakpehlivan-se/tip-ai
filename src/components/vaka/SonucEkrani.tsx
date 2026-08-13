@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { DegerlendirmeSonuc, Vaka } from "@/lib/types";
+import { buildFeedbackPriorities } from "@/lib/student/feedback-priorities";
 
 export default function SonucEkrani({
   vaka,
@@ -18,6 +19,7 @@ export default function SonucEkrani({
   const tedaviTakvimiVar = Boolean(
     sonuc.tedavi?.ilaclar.some((ilac) => ilac.siklik || ilac.sure)
   );
+  const priorities = buildFeedbackPriorities(sonuc);
 
   return (
     <div
@@ -71,6 +73,26 @@ export default function SonucEkrani({
           </div>
         </div>
 
+        {priorities.length > 0 && (
+          <section className="mb-8" aria-labelledby="oncelikli-geribildirim-baslik">
+            <div className="mb-4 flex flex-wrap items-baseline justify-between gap-2">
+              <h3 id="oncelikli-geribildirim-baslik" className="text-lg font-semibold text-ink">Bir sonraki vaka için ilk adımlar</h3>
+              <p className="text-xs text-steel">Öncelik sırasıyla en fazla 3 gelişim noktası</p>
+            </div>
+            <ol className="space-y-3">
+              {priorities.map((priority, index) => (
+                <li key={`${priority.id}-${index}`} className={`flex gap-4 rounded-lg border px-4 py-4 ${priority.severity === "critical" ? "border-clinical-red/30 bg-clinical-red/5" : "border-hairline bg-surface-soft"}`}>
+                  <span className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${priority.severity === "critical" ? "bg-clinical-red text-white" : "bg-ink text-white"}`}>{index + 1}</span>
+                  <div>
+                    <h4 className="text-sm font-semibold text-ink">{priority.title}</h4>
+                    <p className="mt-1 text-sm leading-6 text-steel">{priority.detail}</p>
+                  </div>
+                </li>
+              ))}
+            </ol>
+          </section>
+        )}
+
         {sonuc.clinicalReasoning?.feedback.recorded && (
           <section className="mb-8" aria-labelledby="muhakeme-geribildirim-baslik">
             <h3 id="muhakeme-geribildirim-baslik" className="mb-4 text-lg font-semibold text-ink">🧠 Klinik Muhakeme Özeti</h3>
@@ -91,6 +113,12 @@ export default function SonucEkrani({
                 <div className="sm:col-span-2">
                   <p className="text-xs font-medium uppercase tracking-wide text-muted">Problem temsili</p>
                   <p className="mt-1 text-sm leading-6 text-steel">{sonuc.clinicalReasoning.input.problemRepresentation}</p>
+                </div>
+              )}
+              {(sonuc.clinicalReasoning.input.supportingFindings.length > 0 || sonuc.clinicalReasoning.input.opposingFindings.length > 0) && (
+                <div className="grid gap-4 border-t border-hairline pt-4 sm:col-span-2 sm:grid-cols-2">
+                  <EvidenceList heading="Destekleyen bulgular" items={sonuc.clinicalReasoning.input.supportingFindings} />
+                  <EvidenceList heading="Karşı çıkan bulgular" items={sonuc.clinicalReasoning.input.opposingFindings} />
                 </div>
               )}
             </div>
@@ -327,6 +355,19 @@ export default function SonucEkrani({
           </Link>
         </div>
       </div>
+    </div>
+  );
+}
+
+function EvidenceList({ heading, items }: { heading: string; items: string[] }) {
+  return (
+    <div>
+      <p className="text-xs font-medium uppercase tracking-wide text-muted">{heading}</p>
+      {items.length ? (
+        <ul className="mt-2 space-y-1.5 text-sm leading-5 text-steel">
+          {items.map((item) => <li key={item} className="flex gap-2"><span aria-hidden="true">•</span><span>{item}</span></li>)}
+        </ul>
+      ) : <p className="mt-2 text-sm text-muted">Belirtilmedi.</p>}
     </div>
   );
 }
