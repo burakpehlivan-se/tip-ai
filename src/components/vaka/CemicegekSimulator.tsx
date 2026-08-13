@@ -58,15 +58,20 @@ export default function CemicegekSimulator() {
   const [geriDonusEsik, setGeriDonusEsik] = useState(DEFAULT_GERI_DONUS);
 
   const aktifIndexRef = useRef(aktifIndex);
-  aktifIndexRef.current = aktifIndex;
   const kuyrukRef = useRef(kuyruk);
-  kuyrukRef.current = kuyruk;
   const toplamRef = useRef(toplamGorulen);
-  toplamRef.current = toplamGorulen;
   const siraRef = useRef(siraSayaci);
-  siraRef.current = siraSayaci;
   const esikRef = useRef(geriDonusEsik);
-  esikRef.current = geriDonusEsik;
+
+  // Olay işleyicileri en son queue/sıra değerini kullanır; ref güncellemeleri
+  // render saf kalacak şekilde commit sonrasında yapılır.
+  useEffect(() => {
+    aktifIndexRef.current = aktifIndex;
+    kuyrukRef.current = kuyruk;
+    toplamRef.current = toplamGorulen;
+    siraRef.current = siraSayaci;
+    esikRef.current = geriDonusEsik;
+  }, [aktifIndex, geriDonusEsik, kuyruk, siraSayaci, toplamGorulen]);
 
   useEffect(() => {
     fetch("/api/admin/settings/public")
