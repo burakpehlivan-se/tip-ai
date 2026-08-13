@@ -605,7 +605,7 @@ export default function AdminVakaDetailPage() {
       const res = await fetch(`/api/admin/cases/${encodeURIComponent(id)}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, expectedUpdatedAt: vaka.updatedAt }),
       });
       const d = await res.json();
       if (!res.ok) {
@@ -629,7 +629,7 @@ export default function AdminVakaDetailPage() {
       const res = await fetch(`/api/admin/cases/${encodeURIComponent(id)}/review`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ action }),
+        body: JSON.stringify({ action, expectedUpdatedAt: vaka.updatedAt }),
       });
       const data = await res.json();
       if (!res.ok) {

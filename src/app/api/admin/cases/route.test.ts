@@ -18,6 +18,12 @@ const oldUsername = process.env.ADMIN_USERNAME;
 
 const caseId = "test-poliklinik::guvenli-taslak";
 
+function caseVersion(id: string): number {
+  const updatedAt = getCaseById(id)?.updatedAt;
+  if (updatedAt === undefined) throw new Error(`Fixture vaka bulunamadı: ${id}`);
+  return updatedAt;
+}
+
 function request(pathname: string, method: "POST" | "PATCH", body: unknown, token?: string) {
   const headers = new Headers({ "content-type": "application/json" });
   if (token) headers.set("cookie", `tip_ai_admin_session=${token}`);
@@ -97,7 +103,7 @@ describe("admin case write routes", () => {
       request(
         `/api/admin/cases/${encodeURIComponent(caseId)}`,
         "PATCH",
-        { yasAraligi: "30,70" },
+        { yasAraligi: "30,70", expectedUpdatedAt: caseVersion(caseId) },
         adminToken()
       ),
       { params: Promise.resolve({ id: encodeURIComponent(caseId) }) }
@@ -128,7 +134,7 @@ describe("admin case write routes", () => {
       request(
         `/api/admin/cases/${encodeURIComponent(caseId)}`,
         "PATCH",
-        { durum: "aktif" },
+        { durum: "aktif", expectedUpdatedAt: caseVersion(caseId) },
         adminToken()
       ),
       { params: Promise.resolve({ id: encodeURIComponent(caseId) }) }
@@ -147,7 +153,7 @@ describe("admin case write routes", () => {
       request(
         `/api/admin/cases/${encodeURIComponent(caseId)}`,
         "PATCH",
-        { surum: 999, uzmanOnayi: true },
+        { surum: 999, uzmanOnayi: true, expectedUpdatedAt: caseVersion(caseId) },
         adminToken()
       ),
       { params: Promise.resolve({ id: encodeURIComponent(caseId) }) }
@@ -163,7 +169,7 @@ describe("admin case write routes", () => {
       request(
         `/api/admin/cases/${encodeURIComponent(caseId)}/review`,
         "POST",
-        { action: "submit" },
+        { action: "submit", expectedUpdatedAt: caseVersion(caseId) },
         adminToken()
       ),
       { params: Promise.resolve({ id: encodeURIComponent(caseId) }) }
@@ -177,7 +183,7 @@ describe("admin case write routes", () => {
       request(
         `/api/admin/cases/${encodeURIComponent(caseId)}/review`,
         "POST",
-        { action: "request_changes" },
+        { action: "request_changes", expectedUpdatedAt: submittedBody.case.updatedAt },
         adminToken()
       ),
       { params: Promise.resolve({ id: encodeURIComponent(caseId) }) }
@@ -200,7 +206,7 @@ describe("admin case write routes", () => {
       request(
         `/api/admin/cases/${encodeURIComponent(target.id)}/review`,
         "POST",
-        { action: "request_changes", note: "Klinik kaynak ekleyin." },
+        { action: "request_changes", note: "Klinik kaynak ekleyin.", expectedUpdatedAt: caseVersion(target.id) },
         doctorToken()
       ),
       { params: Promise.resolve({ id: encodeURIComponent(target.id) }) }
@@ -211,5 +217,23 @@ describe("admin case write routes", () => {
       incelemeDurumu: "degisiklik_istendi",
       uzmanOnaylayan: "reviewer",
     });
+  });
+
+  it("rejects a stale editor save without overwriting the newer case", async () => {
+    await createDraft();
+    const staleVersion = caseVersion(caseId);
+    const first = await PATCH(
+      request(`/api/admin/cases/${encodeURIComponent(caseId)}`, "PATCH", { hastalikAdi: "Yeni başlık", expectedUpdatedAt: staleVersion }, adminToken()),
+      { params: Promise.resolve({ id: encodeURIComponent(caseId) }) }
+    );
+    expect(first.status).toBe(200);
+
+    const stale = await PATCH(
+      request(`/api/admin/cases/${encodeURIComponent(caseId)}`, "PATCH", { hastalikAdi: "Eski ekran başlığı", expectedUpdatedAt: staleVersion }, adminToken()),
+      { params: Promise.resolve({ id: encodeURIComponent(caseId) }) }
+    );
+    expect(stale.status).toBe(409);
+    expect((await stale.json()).error).toContain("Vaka başka bir kullanıcı tarafından güncellendi.");
+    expect(getCaseById(caseId)?.hastalikAdi).toBe("Yeni başlık");
   });
 });

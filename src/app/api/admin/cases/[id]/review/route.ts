@@ -19,12 +19,13 @@ function sameUser(left: string | undefined, right: string): boolean {
   return left?.toLowerCase() === right.toLowerCase();
 }
 
-function parseBody(value: unknown): { action: ReviewAction; note?: string } | null {
+function parseBody(value: unknown): { action: ReviewAction; note?: string; expectedUpdatedAt: number } | null {
   if (!value || typeof value !== "object") return null;
-  const body = value as { action?: unknown; note?: unknown };
+  const body = value as { action?: unknown; note?: unknown; expectedUpdatedAt?: unknown };
   if (body.action !== "submit" && body.action !== "approve" && body.action !== "request_changes") return null;
   if (body.note !== undefined && (typeof body.note !== "string" || body.note.trim().length > 2_000)) return null;
-  return { action: body.action, note: typeof body.note === "string" ? body.note.trim() || undefined : undefined };
+  if (typeof body.expectedUpdatedAt !== "number" || !Number.isSafeInteger(body.expectedUpdatedAt) || body.expectedUpdatedAt < 0) return null;
+  return { action: body.action, note: typeof body.note === "string" ? body.note.trim() || undefined : undefined, expectedUpdatedAt: body.expectedUpdatedAt };
 }
 
 function lifecyclePatches(id: string, before: AdminVaka, after: Partial<AdminVaka>) {
@@ -52,6 +53,12 @@ export async function POST(
   const id = decodeId(rawId);
   const existing = getCaseById(id);
   if (!existing) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
+  if (body.expectedUpdatedAt !== existing.updatedAt) {
+    return NextResponse.json(
+      { error: "Vaka başka bir kullanıcı tarafından güncellendi. Değişiklikleri yeniden yükleyip tekrar deneyin.", currentUpdatedAt: existing.updatedAt },
+      { status: 409 }
+    );
+  }
 
   const actor = session!.username;
   let updates: Partial<AdminVaka>;
@@ -124,9 +131,10 @@ export async function POST(
   const candidate = { ...existing, ...updates } as AdminVaka;
   if (body.action === "approve") updates.contentChecksum = caseContentChecksum(candidate);
   const patches = lifecyclePatches(id, existing, updates);
+  const modifiedAt = Math.max(Date.now(), existing.updatedAt + 1);
   const result = recordMutation(actor, action, message, patches, (store) => {
     const index = store.cases.findIndex((item) => item.id === id);
-    if (index >= 0) store.cases[index] = { ...store.cases[index], ...updates, updatedAt: Date.now() };
+    if (index >= 0) store.cases[index] = { ...store.cases[index], ...updates, updatedAt: modifiedAt };
   });
   const vaka = result.store.cases.find((item) => item.id === id);
   return NextResponse.json({ ok: true, case: vaka, log: result.log, backup: result.backup });

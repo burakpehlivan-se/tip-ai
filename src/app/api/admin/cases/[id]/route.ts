@@ -18,6 +18,20 @@ function decodeId(raw: string): string {
   return decodeURIComponent(raw);
 }
 
+function expectedUpdatedAtFrom(value: unknown): number | null {
+  return typeof value === "number" && Number.isSafeInteger(value) && value >= 0 ? value : null;
+}
+
+function staleCaseResponse(currentUpdatedAt: number) {
+  return NextResponse.json(
+    {
+      error: "Vaka başka bir kullanıcı tarafından güncellendi. Değişiklikleri yeniden yükleyip tekrar deneyin.",
+      currentUpdatedAt,
+    },
+    { status: 409 }
+  );
+}
+
 export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> }
@@ -47,7 +61,13 @@ export async function PATCH(
   if (!existing) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
   try {
-    const parsed = parseCasePatchInput(await req.json().catch(() => null));
+    const rawBody = await req.json().catch(() => null);
+    const expectedUpdatedAt = expectedUpdatedAtFrom((rawBody as { expectedUpdatedAt?: unknown } | null)?.expectedUpdatedAt);
+    if (expectedUpdatedAt === null) {
+      return NextResponse.json({ error: "Güncel vaka sürümü belirtilmelidir." }, { status: 400 });
+    }
+    if (expectedUpdatedAt !== existing.updatedAt) return staleCaseResponse(existing.updatedAt);
+    const parsed = parseCasePatchInput(rawBody);
     if (!parsed.ok) {
       return NextResponse.json(
         { error: "Geçersiz vaka verisi.", issues: parsed.issues },
@@ -113,6 +133,7 @@ export async function PATCH(
       return NextResponse.json({ error: "Güncellenecek alan yok." }, { status: 400 });
     }
 
+    const modifiedAt = Math.max(Date.now(), existing.updatedAt + 1);
     const result = recordMutation(
       session!.username,
       "update_case",
@@ -121,7 +142,7 @@ export async function PATCH(
       (s) => {
         const idx = s.cases.findIndex((c) => c.id === id);
         if (idx >= 0) {
-          s.cases[idx] = { ...s.cases[idx], ...persistedUpdates, updatedAt: Date.now() };
+          s.cases[idx] = { ...s.cases[idx], ...persistedUpdates, updatedAt: modifiedAt };
         }
       }
     );
