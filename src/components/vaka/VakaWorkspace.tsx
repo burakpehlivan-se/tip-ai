@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo } from "react";
+import { useState, useRef, useEffect, useMemo, type MouseEvent } from "react";
 import {
   Vaka,
   ChatMesaj,
@@ -152,6 +152,11 @@ export default function VakaWorkspace({
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
   const soruDrawerRef = useRef<HTMLDialogElement>(null);
   const drawerKapatBtnRef = useRef<HTMLButtonElement>(null);
+  const drawerTetikleyiciRef = useRef<HTMLButtonElement>(null);
+  const [showCompletionConfirm, setShowCompletionConfirm] = useState(false);
+  const completionConfirmRef = useRef<HTMLDialogElement>(null);
+  const completionCancelRef = useRef<HTMLButtonElement>(null);
+  const completionTetikleyiciRef = useRef<HTMLButtonElement>(null);
   const [showKatDropdown, setShowKatDropdown] = useState(false);
   const [mobilPanel, setMobilPanel] = useState<"hasta" | "sohbet" | "testler">("sohbet");
   const [debugDetayAcik, setDebugDetayAcik] = useState(false);
@@ -249,6 +254,14 @@ export default function VakaWorkspace({
     drawerKapatBtnRef.current?.focus();
     return () => drawer.close();
   }, [showSoruDrawer]);
+
+  useEffect(() => {
+    const dialog = completionConfirmRef.current;
+    if (!showCompletionConfirm || !dialog) return;
+    dialog.showModal();
+    completionCancelRef.current?.focus();
+    return () => dialog.close();
+  }, [showCompletionConfirm]);
 
   useEffect(() => {
     if (onboarding) {
@@ -391,21 +404,57 @@ export default function VakaWorkspace({
     ]);
   };
 
-  const vakaTamamla = async () => {
-    if (islemYukleniyor) return;
+  const soruDrawerAc = (event: MouseEvent<HTMLButtonElement>) => {
+    drawerTetikleyiciRef.current = event.currentTarget;
+    setShowSoruDrawer(true);
+  };
+
+  const soruDrawerKapat = () => {
+    setShowSoruDrawer(false);
+    window.requestAnimationFrame(() => drawerTetikleyiciRef.current?.focus());
+  };
+
+  const vakaTamamlamayiIste = (event: MouseEvent<HTMLButtonElement>) => {
+    if (!taniInput.trim()) {
+      setIslemHatasi("Değerlendirmeye geçmeden önce bir ön tanı girin.");
+      setFaz("tani");
+      return;
+    }
+    completionTetikleyiciRef.current = event.currentTarget;
+    setIslemHatasi("");
+    setShowCompletionConfirm(true);
+  };
+
+  const vakaTamamlamaTeyidiniKapat = () => {
+    setShowCompletionConfirm(false);
+    window.requestAnimationFrame(() => completionTetikleyiciRef.current?.focus());
+  };
+
+  const vakaTamamla = async (): Promise<boolean> => {
+    if (islemYukleniyor) return false;
     setIslemYukleniyor(true);
     setIslemHatasi("");
     try {
     const istenenTestKeyleri = testIstekleri.map((t) => t.testKey);
     const attempt = { sorulanAksiyonlar, istenenTestler: istenenTestKeyleri, taniGirildi: taniInput, clinicalReasoning };
     const deg = onEvaluate ? await onEvaluate(attempt) : degerlendir(vaka, sorulanAksiyonlar, istenenTestKeyleri, taniInput);
-    if (!deg) return;
+    if (!deg) return false;
     setSonuc(deg);
     onComplete?.(deg, attempt);
+    return true;
     } catch {
       setIslemHatasi("Değerlendirme alınamadı. Bağlantınızı kontrol edip tekrar deneyin.");
+      return false;
     } finally {
       setIslemYukleniyor(false);
+    }
+  };
+
+  const vakaTamamlamayiOnayla = async () => {
+    setShowCompletionConfirm(false);
+    const basarili = await vakaTamamla();
+    if (!basarili) {
+      window.requestAnimationFrame(() => completionTetikleyiciRef.current?.focus());
     }
   };
 
@@ -671,12 +720,16 @@ export default function VakaWorkspace({
               <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted hidden sm:inline">SORULAR</span>
               {/* Kategori dropdown */}
               <div className="relative">
-                <button onClick={() => setShowKatDropdown(!showKatDropdown)}
+                <button
+                  type="button"
+                  onClick={() => setShowKatDropdown(!showKatDropdown)}
+                  aria-expanded={showKatDropdown}
+                  aria-controls="soru-kategori-listesi"
                   className="flex min-h-11 items-center gap-1 rounded-full border border-hairline bg-canvas px-3 py-1.5 text-xs font-medium text-ink hover:border-ink/30 transition-colors">
                   {CHIP_KATEGORI_ETIKETLERI[Array.from(acikKategoriler)[0] || "anamnez-agri"]} ▾
                 </button>
                 {showKatDropdown && (
-                  <div className="absolute top-full left-0 mt-1 z-30 w-48 rounded-lg border border-hairline bg-canvas shadow-lg overflow-hidden">
+                  <div id="soru-kategori-listesi" className="absolute top-full left-0 mt-1 z-30 w-48 rounded-lg border border-hairline bg-canvas shadow-lg overflow-hidden">
                     {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => (
                       <button key={kat} onClick={() => { setAcikKategoriler(new Set([kat])); setShowKatDropdown(false); }}
                         className={`flex w-full items-center px-3 py-2 text-left text-xs hover:bg-surface transition-colors ${acikKategoriler.has(kat) ? "bg-surface font-semibold text-ink" : "text-steel"}`}>
@@ -686,7 +739,7 @@ export default function VakaWorkspace({
                   </div>
                 )}
               </div>
-              <button onClick={() => setShowSoruDrawer(true)}
+              <button onClick={soruDrawerAc}
                 className="min-h-11 rounded-full border border-hairline bg-canvas px-3 py-1.5 text-xs font-medium text-steel hover:border-ink/30 hover:text-ink transition-colors">
                 Tümü ▸
               </button>
@@ -728,20 +781,21 @@ export default function VakaWorkspace({
               ref={soruDrawerRef}
               onCancel={(event) => {
                 event.preventDefault();
-                setShowSoruDrawer(false);
+                soruDrawerKapat();
               }}
-              aria-label="Tüm sorular"
+              aria-labelledby="tum-sorular-baslik"
               className="fixed inset-0 z-50 m-0 flex h-[100dvh] w-full max-w-none justify-end border-0 bg-transparent p-0 backdrop:bg-black/20"
             >
               <button
                 type="button"
                 tabIndex={-1}
                 aria-label="Soru panelini kapat"
-                onClick={() => setShowSoruDrawer(false)}
+                onClick={soruDrawerKapat}
                 className="absolute inset-0 cursor-default border-0 bg-transparent p-0"
               />
               <div className="relative h-full w-full max-w-md overflow-y-auto border-l border-hairline bg-canvas shadow-xl">
                 <div className="sticky top-0 z-10 flex items-center justify-between border-b border-hairline bg-canvas px-4 py-3">
+                  <h2 id="tum-sorular-baslik" className="sr-only">Tüm anamnez soruları</h2>
                   {/* Kategori seçici */}
                   <div className="flex flex-wrap gap-1">
                     {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => (
@@ -751,7 +805,7 @@ export default function VakaWorkspace({
                       </button>
                     ))}
                   </div>
-                  <button ref={drawerKapatBtnRef} onClick={() => setShowSoruDrawer(false)} aria-label="Soru panelini kapat" className="min-h-11 min-w-11 rounded-full p-1 hover:bg-surface text-steel shrink-0">✕</button>
+                  <button ref={drawerKapatBtnRef} onClick={soruDrawerKapat} aria-label="Soru panelini kapat" className="min-h-11 min-w-11 rounded-full p-1 hover:bg-surface text-steel shrink-0">✕</button>
                 </div>
                 <div className="p-4 space-y-3">
                   <label htmlFor="soru-arama" className="sr-only">Sorularda ara</label>
@@ -769,7 +823,7 @@ export default function VakaWorkspace({
                           {chips.map((chip) => {
                             const soruldu = sorulanAksiyonSeti.has(chip.aksiyon);
                             return (
-                              <button key={chip.aksiyon} onClick={() => { chipSor(chip); if (!soruldu) setShowSoruDrawer(false); }} disabled={soruldu || islemYukleniyor}
+                              <button key={chip.aksiyon} onClick={() => { chipSor(chip); if (!soruldu) soruDrawerKapat(); }} disabled={soruldu || islemYukleniyor}
                                 className={`rounded-full border px-2.5 py-1.5 text-xs font-medium transition-[background-color,border-color,color] ${
                                   soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
                                 }`}>{chip.etiket}</button>
@@ -809,7 +863,7 @@ export default function VakaWorkspace({
                   <textarea id="tedavi-plani-ana" value={tedaviInput} onChange={(e) => setTedaviInput(e.target.value)} aria-describedby="simule-vaka-uyarisi"
                     placeholder="Tedavi planınızı yazın (ilaçlar, dozlar, prosedürler)…"
                     className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none resize-none" rows={1} />
-                  <button onClick={vakaTamamla} disabled={islemYukleniyor} className="btn-accent h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Puanlanıyor…" : "Puanla ✓"}</button>
+                  <button onClick={vakaTamamlamayiIste} disabled={islemYukleniyor} className="btn-accent h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Puanlanıyor…" : "Puanla ✓"}</button>
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-2">
@@ -1095,7 +1149,7 @@ export default function VakaWorkspace({
                       className="input mb-3 h-28 text-sm resize-none"
                       rows={5}
                     />
-                    <button onClick={vakaTamamla} disabled={islemYukleniyor} className="btn-accent w-full justify-center">
+                    <button onClick={vakaTamamlamayiIste} disabled={islemYukleniyor} className="btn-accent w-full justify-center">
                       {islemYukleniyor ? "Puanlanıyor…" : "Vakayı Tamamla ve Puanla"}
                     </button>
                   </>
@@ -1105,6 +1159,61 @@ export default function VakaWorkspace({
           </div>
         </div>
       </div>
+
+      {showCompletionConfirm && (
+        <dialog
+          ref={completionConfirmRef}
+          aria-labelledby="vaka-tamamlama-baslik"
+          aria-describedby="vaka-tamamlama-aciklama"
+          onCancel={(event) => {
+            event.preventDefault();
+            vakaTamamlamaTeyidiniKapat();
+          }}
+          className="fixed inset-0 z-[60] m-auto w-[calc(100%-2rem)] max-w-lg rounded-xl border border-hairline bg-canvas p-0 text-ink shadow-xl backdrop:bg-black/30"
+        >
+          <div className="p-5 sm:p-6">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-deep">Değerlendirme özeti</p>
+            <h2 id="vaka-tamamlama-baslik" className="mt-1 text-xl font-semibold tracking-tight text-ink">
+              Vakayı tamamlamak istiyor musunuz?
+            </h2>
+            <p id="vaka-tamamlama-aciklama" className="mt-2 text-sm leading-6 text-steel">
+              Puanlama, aşağıdaki çalışma kaydınız üzerinden hazırlanır. Onaylamadan önce bilgileri gözden geçirebilirsiniz.
+            </p>
+
+            <dl className="mt-5 divide-y divide-hairline rounded-lg border border-hairline bg-surface-soft text-sm">
+              <div className="px-4 py-3">
+                <dt className="text-xs font-medium text-steel">Ön tanı</dt>
+                <dd className="mt-1 font-medium text-ink">{taniInput.trim()}</dd>
+              </div>
+              <div className="grid grid-cols-2 gap-4 px-4 py-3">
+                <div>
+                  <dt className="text-xs font-medium text-steel">Sorulan bilgi</dt>
+                  <dd className="mt-1 font-medium text-ink">{sorulanAksiyonlar.length} soru</dd>
+                </div>
+                <div>
+                  <dt className="text-xs font-medium text-steel">İstenen tetkik</dt>
+                  <dd className="mt-1 font-medium text-ink">{testIstekleri.length} test</dd>
+                </div>
+              </div>
+              <div className="px-4 py-3">
+                <dt className="text-xs font-medium text-steel">Tedavi planı</dt>
+                <dd className="mt-1 line-clamp-3 text-ink">
+                  {tedaviInput.trim() || "Tedavi planı eklenmedi."}
+                </dd>
+              </div>
+            </dl>
+
+            <div className="mt-6 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+              <button ref={completionCancelRef} type="button" onClick={vakaTamamlamaTeyidiniKapat} className="btn-secondary min-h-11 justify-center">
+                Geri dön
+              </button>
+              <button type="button" onClick={() => void vakaTamamlamayiOnayla()} disabled={islemYukleniyor} className="btn-accent min-h-11 justify-center">
+                {islemYukleniyor ? "Puanlanıyor…" : "Onayla ve puanla"}
+              </button>
+            </div>
+          </div>
+        </dialog>
+      )}
 
       {/* Mobile Bottom Tabs */}
       <div className="flex border-t border-hairline bg-canvas xl:hidden" role="group" aria-label="Mobil çalışma alanı">
