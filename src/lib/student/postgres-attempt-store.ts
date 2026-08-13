@@ -75,16 +75,6 @@ function resumableAttempt(record: StoredAttempt): ResumableAttemptCase {
   };
 }
 
-async function findActive(studentId: string, id: string): Promise<AttemptRow | null> {
-  const db = getDb();
-  const [row] = await db
-    .select()
-    .from(learningAttempts)
-    .where(and(eq(learningAttempts.id, id), eq(learningAttempts.studentId, studentId), eq(learningAttempts.status, "active")))
-    .limit(1);
-  return row ?? null;
-}
-
 export async function startPostgresStudentAttempt(studentId: string, poliklinikKey: string): Promise<PublicAttemptCase | null> {
   const candidates = loadCasesStore().cases.filter(
     (item) => item.durum === "aktif" && (poliklinikKey === "*" || item.poliklinikKey === poliklinikKey)
@@ -148,23 +138,42 @@ export async function getPostgresAssignedAttempt(studentId: string, assignmentId
 }
 
 export async function answerPostgresAttempt(id: string, studentId: string, action: string): Promise<string | null> {
-  const row = await findActive(studentId, id);
-  if (!row) return null;
-  const record = fromRow(row);
-  const askedActions = record.askedActions.includes(action) ? record.askedActions : [...record.askedActions, action];
-  await getDb().update(learningAttempts).set({ askedActions, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
-  return answer(record, action);
+  return getDb().transaction(async (tx) => {
+    // Aynı denemeye gelen paralel istekler, read-modify-write yarışında
+    // birbirinin aksiyonlarını ezmemelidir. Satır kilidi, değerlendirme
+    // gövdesi JSONB kaldığı sürece de tek doğruluk kaynağını korur.
+    const [row] = await tx
+      .select()
+      .from(learningAttempts)
+      .where(and(eq(learningAttempts.id, id), eq(learningAttempts.studentId, studentId), eq(learningAttempts.status, "active")))
+      .limit(1)
+      .for("update");
+    if (!row) return null;
+
+    const record = fromRow(row);
+    const askedActions = record.askedActions.includes(action) ? record.askedActions : [...record.askedActions, action];
+    await tx.update(learningAttempts).set({ askedActions, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
+    return answer(record, action);
+  });
 }
 
 export async function requestPostgresAttemptTest(id: string, studentId: string, testKey: string): Promise<TestSonucu | null> {
-  const row = await findActive(studentId, id);
-  if (!row) return null;
-  const record = fromRow(row);
-  const result = testResult(record, testKey);
-  if (!result) return null;
-  const requestedTests = record.requestedTests.includes(testKey) ? record.requestedTests : [...record.requestedTests, testKey];
-  await getDb().update(learningAttempts).set({ requestedTests, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
-  return result;
+  return getDb().transaction(async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(learningAttempts)
+      .where(and(eq(learningAttempts.id, id), eq(learningAttempts.studentId, studentId), eq(learningAttempts.status, "active")))
+      .limit(1)
+      .for("update");
+    if (!row) return null;
+
+    const record = fromRow(row);
+    const result = testResult(record, testKey);
+    if (!result) return null;
+    const requestedTests = record.requestedTests.includes(testKey) ? record.requestedTests : [...record.requestedTests, testKey];
+    await tx.update(learningAttempts).set({ requestedTests, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
+    return result;
+  });
 }
 
 export async function savePostgresAttemptClinicalReasoning(
@@ -172,10 +181,17 @@ export async function savePostgresAttemptClinicalReasoning(
   studentId: string,
   reasoning: ClinicalReasoningInput
 ): Promise<boolean> {
-  const row = await findActive(studentId, id);
-  if (!row) return false;
-  await getDb().update(learningAttempts).set({ clinicalReasoning: reasoning, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
-  return true;
+  return getDb().transaction(async (tx) => {
+    const [row] = await tx
+      .select({ id: learningAttempts.id })
+      .from(learningAttempts)
+      .where(and(eq(learningAttempts.id, id), eq(learningAttempts.studentId, studentId), eq(learningAttempts.status, "active")))
+      .limit(1)
+      .for("update");
+    if (!row) return false;
+    await tx.update(learningAttempts).set({ clinicalReasoning: reasoning, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
+    return true;
+  });
 }
 
 export async function completePostgresAttempt(
@@ -185,14 +201,35 @@ export async function completePostgresAttempt(
   taniGirildi: string,
   reasoning: ClinicalReasoningInput | null
 ): Promise<DegerlendirmeSonuc | null> {
-  const row = await findActive(studentId, id);
-  if (!row) return null;
-  const record = fromRow(row);
-  const effectiveReasoning = reasoning ?? record.clinicalReasoning;
-  const sonuc = withClinicalReasoningFeedback(
-    degerlendir(record.vaka, record.askedActions, record.requestedTests, taniGirildi),
-    effectiveReasoning
-  );
+  const completed = await getDb().transaction(async (tx) => {
+    // Completion is terminal. Kilit, iki "tamamla" isteğinin aynı denemeyi
+    // iki kez puanlamasını veya aktif verinin arasında değişmesini önler.
+    const [row] = await tx
+      .select()
+      .from(learningAttempts)
+      .where(and(eq(learningAttempts.id, id), eq(learningAttempts.studentId, studentId), eq(learningAttempts.status, "active")))
+      .limit(1)
+      .for("update");
+    if (!row) return null;
+
+    const record = fromRow(row);
+    const effectiveReasoning = reasoning ?? record.clinicalReasoning;
+    const sonuc = withClinicalReasoningFeedback(
+      degerlendir(record.vaka, record.askedActions, record.requestedTests, taniGirildi),
+      effectiveReasoning
+    );
+    await tx.update(learningAttempts).set({
+      status: "completed",
+      clinicalReasoning: effectiveReasoning,
+      evaluation: sonuc,
+      completedAt: new Date(),
+      updatedAt: new Date(),
+    }).where(eq(learningAttempts.id, id));
+    return { record, reasoning: effectiveReasoning, sonuc };
+  });
+  if (!completed) return null;
+
+  const { record, reasoning: effectiveReasoning, sonuc } = completed;
   const reasoningFeedback = clinicalReasoningFeedback(effectiveReasoning, sonuc.taniDogru);
   recordPlaySession({
     caseId: record.vaka.id,
@@ -215,12 +252,5 @@ export async function completePostgresAttempt(
     caseVersion: record.vaka.sourceCaseVersion,
     caseChecksum: record.vaka.sourceCaseChecksum,
   }, actor);
-  await getDb().update(learningAttempts).set({
-    status: "completed",
-    clinicalReasoning: effectiveReasoning,
-    evaluation: sonuc,
-    completedAt: new Date(),
-    updatedAt: new Date(),
-  }).where(eq(learningAttempts.id, id));
   return sonuc;
 }

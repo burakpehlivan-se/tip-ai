@@ -24,6 +24,9 @@ import { hashPassword, verifyPassword, needsRehash, versionLegacyHash } from "./
 import { getDb, resetDbForTests } from "./db";
 import { authSessions, cohorts, learningAttempts, users } from "./schema";
 import { addCohortMember, createCohortCaseAssignment, listAssignmentsForStudent } from "@/lib/learning/cohort-store";
+import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
+import { loadCasesStore } from "@/lib/admin/store";
+import { answerPostgresAttempt } from "@/lib/student/postgres-attempt-store";
 import { authenticateUser, createUser, findUserByUsername, updateUser } from "./user-store";
 import {
   createAuthSession,
@@ -311,6 +314,42 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       .returning();
     expect(attempt.status).toBe("active");
     expect(attempt.caseSnapshot).toEqual({ version: 3, checksum: "fixture" });
+  });
+
+  it("P2 eşzamanlı deneme güncellemelerinde iki aksiyonu da korur", async () => {
+    const user = await createUser({
+      username: "deneme.eszamanli",
+      password: "sifre123",
+      role: "ogrenci",
+      createdBy: "admin",
+    });
+    const template = loadCasesStore().cases.find((item) => item.durum === "aktif");
+    expect(template).toBeDefined();
+    const snapshot = adminVakaToPlayable(template!);
+    const db = getDb();
+    const [attempt] = await db
+      .insert(learningAttempts)
+      .values({
+        studentId: user.id,
+        assignmentId: null,
+        caseId: template!.id,
+        caseVersion: String(template!.surum),
+        poliklinikKey: template!.poliklinikKey,
+        status: "active",
+        caseSnapshot: snapshot,
+        askedActions: [],
+        requestedTests: [],
+      })
+      .returning();
+
+    await Promise.all([
+      answerPostgresAttempt(attempt.id, user.id, "VITAL_TANSIYON"),
+      answerPostgresAttempt(attempt.id, user.id, "VITAL_NABIZ"),
+    ]);
+
+    const [stored] = await db.select().from(learningAttempts).where(eq(learningAttempts.id, attempt.id));
+    expect(stored.askedActions).toEqual(expect.arrayContaining(["VITAL_TANSIYON", "VITAL_NABIZ"]));
+    expect(stored.askedActions).toHaveLength(2);
   });
 
   it("P2 grup üyeliği ve sürüm-kilitli vaka ataması saklanır", async () => {
