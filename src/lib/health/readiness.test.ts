@@ -3,12 +3,15 @@ import { getReadiness } from "./readiness";
 
 const oldAuthStore = process.env.AUTH_USER_STORE;
 const oldAttemptStore = process.env.ATTEMPT_STORE;
+const oldRateLimitStore = process.env.RATE_LIMIT_STORE;
 
 afterEach(() => {
   if (oldAuthStore === undefined) delete process.env.AUTH_USER_STORE;
   else process.env.AUTH_USER_STORE = oldAuthStore;
   if (oldAttemptStore === undefined) delete process.env.ATTEMPT_STORE;
   else process.env.ATTEMPT_STORE = oldAttemptStore;
+  if (oldRateLimitStore === undefined) delete process.env.RATE_LIMIT_STORE;
+  else process.env.RATE_LIMIT_STORE = oldRateLimitStore;
 });
 
 describe("health readiness", () => {
@@ -22,6 +25,7 @@ describe("health readiness", () => {
         status: "ok",
         auth: { store: "json", migration: "not_required" },
         attempts: { store: "json", runtime: "ready" },
+        rateLimit: { store: "memory", runtime: "ready" },
       },
     });
   });
@@ -31,6 +35,15 @@ describe("health readiness", () => {
     await expect(getReadiness()).resolves.toMatchObject({
       ready: false,
       payload: { status: "not_ready", auth: { store: "invalid", migration: "not_checked" } },
+    });
+  });
+
+  it("geçersiz rate limit yapılandırmasını hazır kabul etmez", async () => {
+    process.env.AUTH_USER_STORE = "json";
+    process.env.RATE_LIMIT_STORE = "unsupported";
+    await expect(getReadiness()).resolves.toMatchObject({
+      ready: false,
+      payload: { status: "not_ready", rateLimit: { store: "invalid", runtime: "not_ready" } },
     });
   });
 });
