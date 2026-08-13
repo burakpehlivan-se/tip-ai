@@ -22,6 +22,13 @@ interface Group {
   cases: AdminVakaLite[];
 }
 
+type PendingCdmImport = {
+  payload: unknown;
+  confirmationToken: string;
+  expiresAt: number;
+  summary: { create?: number; update?: number; conflict?: number };
+};
+
 async function downloadExport(opts: {
   format: "json" | "pdf" | "cdm";
   poliklinik?: string;
@@ -73,6 +80,7 @@ export default function AdminVakalarPage() {
   const [cdmOverwrite, setCdmOverwrite] = useState(false);
   const [cdmBusy, setCdmBusy] = useState(false);
   const [cdmReport, setCdmReport] = useState("");
+  const [pendingCdmImport, setPendingCdmImport] = useState<PendingCdmImport | null>(null);
   const [migrating, setMigrating] = useState(false);
 
   function load() {
@@ -205,7 +213,9 @@ export default function AdminVakalarPage() {
       const text = await file.text();
       const json = JSON.parse(text);
       const qs = new URLSearchParams();
-      if (dryRun) qs.set("dryRun", "1");
+      // Uygulama öncesinde her zaman aynı dry-run planı oluşturulur. Gerçek
+      // import yalnızca bu planın kısa ömürlü token'ıyla yapılabilir.
+      qs.set("dryRun", "1");
       if (cdmOverwrite) qs.set("overwrite", "1");
       const res = await fetch(`/api/admin/cases/import-cdm?${qs.toString()}`, {
         method: "POST",
@@ -230,6 +240,7 @@ export default function AdminVakalarPage() {
           0
         ) || 0;
       if (dryRun) {
+        setPendingCdmImport(null);
         const summary = data.summary || {};
         setMsg(`Doğrulama OK · ${data.count} belge · +${summary.create || 0} yeni · ${summary.update || 0} güncelleme · ${summary.conflict || 0} çakışma · ${warnCount} uyarı`);
         setCdmReport(
@@ -248,12 +259,55 @@ export default function AdminVakalarPage() {
               : "")
         );
       } else {
+        if (!data.confirmation?.token || typeof data.confirmation.expiresAt !== "number") {
+          throw new Error("Dry-run planı için güvenli onay anahtarı üretilemedi.");
+        }
+        const summary = data.summary || {};
+        setPendingCdmImport({
+          payload: json,
+          confirmationToken: data.confirmation.token,
+          expiresAt: data.confirmation.expiresAt,
+          summary,
+        });
         setMsg(
-          `CDM import: +${(data.imported || []).length} yeni, ${(data.updated || []).length} güncelleme, ${(data.skipped || []).length} atlandı.`
+          `Import planı hazır · +${summary.create || 0} yeni · ${summary.update || 0} güncelleme · ${summary.conflict || 0} çakışma. Uygulamak için aşağıdaki onayı kullanın.`
         );
-        load();
+        setCdmReport(
+          (data.plan || []).map((item: { id?: string; action?: string }) => {
+            const label = item.action === "create" ? "EKLENECEK" : item.action === "update" ? "GÜNCELLENECEK" : "ÇAKIŞMA";
+            return `• [${label}] ${item.id}`;
+          }).join("\n")
+        );
       }
     } catch (e) {
+      setErr(e instanceof Error ? e.message : "Import hatası");
+    } finally {
+      setCdmBusy(false);
+    }
+  }
+
+  async function applyCdmImport() {
+    if (!pendingCdmImport) return;
+    setCdmBusy(true);
+    setErr("");
+    setMsg("");
+    try {
+      const qs = new URLSearchParams({ confirmation: pendingCdmImport.confirmationToken });
+      if (cdmOverwrite) qs.set("overwrite", "1");
+      const res = await fetch(`/api/admin/cases/import-cdm?${qs.toString()}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(pendingCdmImport.payload),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Import başarısız");
+      setMsg(
+        `CDM import: +${(data.imported || []).length} yeni, ${(data.updated || []).length} güncelleme, ${(data.skipped || []).length} atlandı.`
+      );
+      setPendingCdmImport(null);
+      load();
+    } catch (e) {
+      setPendingCdmImport(null);
       setErr(e instanceof Error ? e.message : "Import hatası");
     } finally {
       setCdmBusy(false);
@@ -361,7 +415,7 @@ export default function AdminVakalarPage() {
               />
             </label>
             <label className="btn-accent text-xs cursor-pointer">
-              {cdmBusy ? "…" : "CDM import"}
+              {cdmBusy ? "…" : "CDM import planı"}
               <input
                 type="file"
                 accept="application/json,.json"
@@ -377,11 +431,32 @@ export default function AdminVakalarPage() {
               <input
                 type="checkbox"
                 checked={cdmOverwrite}
-                onChange={(e) => setCdmOverwrite(e.target.checked)}
+                onChange={(e) => {
+                  setCdmOverwrite(e.target.checked);
+                  setPendingCdmImport(null);
+                }}
               />
               Var olan id’leri üzerine yaz
             </label>
           </div>
+          {pendingCdmImport && (
+            <div className="flex flex-wrap items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-950">
+              <span>
+                Plan onayı bekliyor · {pendingCdmImport.summary.create || 0} yeni · {pendingCdmImport.summary.update || 0} güncelleme.
+              </span>
+              <button
+                type="button"
+                className="btn-accent text-xs"
+                disabled={cdmBusy}
+                onClick={() => void applyCdmImport()}
+              >
+                Planı uygula
+              </button>
+              <button type="button" className="btn-secondary text-xs" onClick={() => setPendingCdmImport(null)}>
+                Vazgeç
+              </button>
+            </div>
+          )}
           {cdmReport && (
             <pre className="max-h-40 overflow-auto rounded-md border border-hairline-soft bg-surface-soft p-2 text-[11px] text-steel whitespace-pre-wrap">
               {cdmReport}

@@ -3,7 +3,12 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
+import { caseContentChecksum } from "@/lib/admin/case-integrity";
 import { clone, loadCasesStore, recordMutation } from "@/lib/admin/store";
+import {
+  createCdmImportConfirmation,
+  verifyCdmImportConfirmation,
+} from "@/lib/cdm/import-confirmation";
 import {
   cdmToAdminVaka,
   parseCdmInput,
@@ -15,7 +20,7 @@ import { getRequestId, logger } from "@/lib/logger";
 /**
  * POST /api/admin/cases/import-cdm
  * Body: TipAiCdmDocument | TipAiCdmBundle | { cases: [...] }
- * Query: dryRun=1 → sadece validate; overwrite=1 → mevcut id güncelle
+ * Query: dryRun=1 → plan ve kısa ömürlü onay token'ı; overwrite=1 → mevcut id güncelle
  */
 export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
@@ -75,8 +80,15 @@ export async function POST(req: NextRequest) {
           : "conflict",
       currentVersion: store.cases.find((caseItem) => caseItem.id === av.id)?.surum ?? null,
     }));
+    const planBinding = {
+      actor: session!.username,
+      overwrite,
+      storeUpdatedAt: store.updatedAt,
+      documents: adminCases.map((item) => ({ id: item.id, checksum: caseContentChecksum(item) })),
+    };
 
     if (dryRun) {
+      const confirmation = createCdmImportConfirmation(planBinding);
       return NextResponse.json({
         ok: true,
         dryRun: true,
@@ -84,12 +96,26 @@ export async function POST(req: NextRequest) {
         validations,
         previewIds: docs.map((d) => d.id),
         plan,
+        confirmation,
         summary: {
           create: plan.filter((item) => item.action === "create").length,
           update: plan.filter((item) => item.action === "update").length,
           conflict: plan.filter((item) => item.action === "conflict").length,
         },
       });
+    }
+
+    if (!req.nextUrl.searchParams.get("confirmation")) {
+      return NextResponse.json(
+        { error: "İçe aktarma önce dry-run planı oluşturulup açıkça onaylanmalıdır." },
+        { status: 428 }
+      );
+    }
+    if (!verifyCdmImportConfirmation(req.nextUrl.searchParams.get("confirmation"), planBinding)) {
+      return NextResponse.json(
+        { error: "İçe aktarma planı geçersiz veya güncelliğini yitirmiş. Dry-run işlemini yeniden çalıştırın." },
+        { status: 409 }
+      );
     }
 
     for (const av of adminCases) {
