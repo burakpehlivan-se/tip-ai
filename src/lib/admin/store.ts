@@ -129,6 +129,7 @@ export function appendLog(input: {
   actor: string;
   message: string;
   patches: AuditPatch[];
+  metadata?: Record<string, unknown>;
   undoOf?: string;
 }): AuditLog {
   const store = loadLogsStore();
@@ -139,6 +140,7 @@ export function appendLog(input: {
     action: input.action,
     message: input.message,
     patches: input.patches,
+    metadata: input.metadata,
     undone: false,
     undoOf: input.undoOf,
   };

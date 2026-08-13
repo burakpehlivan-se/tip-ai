@@ -216,7 +216,8 @@ export type AuditAction =
   | "update_user"
   | "delete_user"
   | "register_student"
-  | "student_login";
+  | "student_login"
+  | "user_login";
 
 export interface AuditPatch {
   path: string;
@@ -234,6 +235,8 @@ export interface AuditLog {
   action: AuditAction;
   message: string;
   patches: AuditPatch[];
+  /** Olayın gösterim için gerekli, hassas olmayan bağlamı. */
+  metadata?: Record<string, unknown>;
   undone: boolean;
   undoOf?: string;
   undoneBy?: string;

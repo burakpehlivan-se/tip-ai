@@ -15,6 +15,13 @@ interface UserRow {
   istatistik?: { vakaSayisi: number; ortalamaPuanYuzde: number; taniDogruSayi: number };
 }
 
+interface RecentLogin {
+  id: string;
+  username: string;
+  role: UserRow["role"] | null;
+  createdAt: number;
+}
+
 const ROLE_LABEL: Record<UserRow["role"], string> = {
   admin: "Admin",
   doktor: "Doktor",
@@ -24,6 +31,7 @@ const ROLE_LABEL: Record<UserRow["role"], string> = {
 export default function KullanicilarPage() {
   const router = useRouter();
   const [users, setUsers] = useState<UserRow[]>([]);
+  const [recentLogins, setRecentLogins] = useState<RecentLogin[]>([]);
   const [meUsername, setMeUsername] = useState("");
   const [error, setError] = useState("");
   const [msg, setMsg] = useState("");
@@ -35,20 +43,27 @@ export default function KullanicilarPage() {
     displayName: "",
   });
 
-  const load = useCallback(() => {
+  const load = useCallback(async () => {
     setLoading(true);
-    fetch("/api/admin/users")
-      .then(async (r) => {
-        if (r.status === 403) {
-          router.replace("/admin/panel");
-          return;
-        }
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || "Yüklenemedi");
-        setUsers(d.users || []);
-      })
-      .catch((e) => setError(e.message))
-      .finally(() => setLoading(false));
+    try {
+      const [usersResponse, loginsResponse] = await Promise.all([
+        fetch("/api/admin/users"),
+        fetch("/api/admin/users/recent-logins?limit=20"),
+      ]);
+      if (usersResponse.status === 403 || loginsResponse.status === 403) {
+        router.replace("/admin/panel");
+        return;
+      }
+      const [usersData, loginsData] = await Promise.all([usersResponse.json(), loginsResponse.json()]);
+      if (!usersResponse.ok) throw new Error(usersData.error || "Kullanıcılar yüklenemedi");
+      if (!loginsResponse.ok) throw new Error(loginsData.error || "Son girişler yüklenemedi");
+      setUsers(usersData.users || []);
+      setRecentLogins(loginsData.logins || []);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Yüklenemedi");
+    } finally {
+      setLoading(false);
+    }
   }, [router]);
 
   useEffect(() => {
@@ -218,6 +233,34 @@ export default function KullanicilarPage() {
           Kullanıcı ekle
         </button>
       </form>
+
+      <section className="overflow-hidden rounded-xl border border-hairline bg-canvas" aria-labelledby="recent-logins-title">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-hairline px-4 py-3">
+          <div>
+            <h2 id="recent-logins-title" className="text-sm font-semibold text-ink">Son başarılı girişler</h2>
+            <p className="mt-0.5 text-xs text-steel">Kullanıcı adı, rol ve oturum açma zamanı gösterilir.</p>
+          </div>
+          <button type="button" className="btn-secondary text-xs" onClick={load}>
+            Yenile
+          </button>
+        </div>
+        <div className="divide-y divide-hairline-soft">
+          {recentLogins.map((login) => (
+            <div key={login.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-medium text-ink">{login.username} giriş yaptı</p>
+                <p className="mt-0.5 text-xs text-muted">
+                  {new Date(login.createdAt).toLocaleString("tr-TR")}
+                </p>
+              </div>
+              {login.role && <span className="badge badge-steel shrink-0">{ROLE_LABEL[login.role]}</span>}
+            </div>
+          ))}
+          {recentLogins.length === 0 && (
+            <p className="px-4 py-5 text-sm text-steel">Henüz başarılı giriş kaydı yok.</p>
+          )}
+        </div>
+      </section>
 
       <div className="rounded-xl border border-hairline bg-canvas overflow-hidden">
         <div className="border-b border-hairline px-4 py-3 text-sm font-semibold text-ink">

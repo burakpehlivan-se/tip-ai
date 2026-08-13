@@ -9,6 +9,8 @@
 
 import type { AdminRole, AdminUser } from "@/lib/admin/types";
 import * as jsonUsers from "@/lib/admin/users";
+import { appendLog } from "@/lib/admin/store";
+import { logger } from "@/lib/logger";
 import * as postgresUsers from "./user-store";
 
 export type AuthUserStoreMode = "json" | "postgres";
@@ -73,6 +75,33 @@ export async function authenticateUser(
   if (authUserStoreMode() === "json") return jsonUsers.authenticateUser(username, password);
   const result = await postgresUsers.authenticateUser(username, password);
   return result ? { user: fromPostgres(result.user) } : null;
+}
+
+/**
+ * Başarılı girişlerin tek kayıt noktası. JSON modunda panel audit günlüğüne,
+ * PostgreSQL modunda ise kimlik denetim tablosuna yazılır. Denetim kaydı
+ * arızası kullanıcının girişini engellemez.
+ */
+export async function recordSuccessfulLogin(
+  user: Pick<AdminUser, "id" | "username" | "role">
+): Promise<void> {
+  try {
+    if (authUserStoreMode() === "json") {
+      appendLog({
+        action: "user_login",
+        actor: user.username,
+        message: "Başarılı kullanıcı girişi",
+        metadata: { role: user.role },
+        patches: [],
+      });
+      return;
+    }
+    await postgresUsers.recordLoginSuccess(user);
+  } catch {
+    logger.warn("Başarılı giriş denetim kaydı yazılamadı", {
+      store: authUserStoreMode(),
+    });
+  }
 }
 
 export async function createUser(input: {

@@ -2,8 +2,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { appendLog } from "@/lib/admin/store";
 import { observeAuthShadowRead } from "@/lib/auth/shadow-read";
+import { recordSuccessfulLogin } from "@/lib/auth/runtime-user-store";
 import { getRequestId } from "@/lib/logger";
 import { authenticateStudent, createStudentSessionToken, studentSessionCookieOptions } from "@/lib/student/auth";
 import { clientRateLimitKey, rateLimitHeaders, refundRateLimit, takeRateLimit, usernameRateLimitKey } from "@/lib/security/rate-limit";
@@ -42,12 +42,7 @@ export async function POST(req: NextRequest) {
       { route: "/api/student/login", requestId: getRequestId(req) }
     );
 
-    appendLog({
-      action: "student_login",
-      actor: auth.username,
-      message: `Öğrenci girişi · ${auth.username}`,
-      patches: [],
-    });
+    await recordSuccessfulLogin({ id: auth.userId, username: auth.username, role: "ogrenci" });
 
     const token = await createStudentSessionToken(auth.username, auth.userId);
     const res = NextResponse.json({ ok: true, user: { username: auth.username } });

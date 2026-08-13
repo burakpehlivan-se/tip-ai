@@ -6,6 +6,7 @@
  * asla bu tabloya yazılmaz; şifre hash'leri loglara ve audit'e düşmez.
  */
 
+import { desc, eq } from "drizzle-orm";
 import { getDb } from "./db";
 import { authAuditLogs } from "./schema";
 
@@ -75,13 +76,31 @@ export async function listRecentAuthEvents(
       createdAt: authAuditLogs.createdAt,
     })
     .from(authAuditLogs)
-    .orderBy(authAuditLogs.createdAt)
+    .orderBy(desc(authAuditLogs.createdAt))
     .limit(limit);
 
   return rows.map((row) => ({
     ...row,
     meta: row.meta === null ? null : safeParseMeta(row.meta),
   }));
+}
+
+/** Yönetici görünümünde gösterilecek son başarılı girişler. */
+export async function listRecentLoginEvents(
+  limit = 20
+): Promise<Array<{ id: string; username: string; role: string | null; createdAt: Date }>> {
+  const db = getDb();
+  return db
+    .select({
+      id: authAuditLogs.id,
+      username: authAuditLogs.username,
+      role: authAuditLogs.role,
+      createdAt: authAuditLogs.createdAt,
+    })
+    .from(authAuditLogs)
+    .where(eq(authAuditLogs.event, "login_success"))
+    .orderBy(desc(authAuditLogs.createdAt))
+    .limit(limit);
 }
 
 function safeParseMeta(raw: unknown): unknown {

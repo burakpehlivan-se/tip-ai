@@ -7,6 +7,7 @@ import { GET as listCases } from "@/app/api/admin/cases/route";
 import { POST as adminLogin } from "@/app/api/admin/login/route";
 import { POST as fillPipeline } from "@/app/api/admin/pipeline/fill/route";
 import { createSessionToken } from "./auth";
+import { loadLogsStore } from "./store";
 import { createUser, registerStudent, updateUser } from "./users";
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tip-ai-rbac-test-"));
@@ -61,6 +62,23 @@ describe("admin RBAC", () => {
 
     expect(response.status).toBe(403);
     expect(response.headers.get("set-cookie")).toBeNull();
+  });
+
+  it("başarılı yönetici girişi denetim günlüğüne yazılır", async () => {
+    const response = await adminLogin(
+      adminRequest("/api/admin/login", undefined, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ username: "admin", password: "test-admin-password" }),
+      })
+    );
+
+    expect(response.status).toBe(200);
+    expect(loadLogsStore().logs[0]).toMatchObject({
+      action: "user_login",
+      actor: "admin",
+      metadata: { role: "admin" },
+    });
   });
 
   it("öğrenci imzalı token ile admin vaka verisine erişemez", async () => {

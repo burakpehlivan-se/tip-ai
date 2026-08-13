@@ -10,6 +10,7 @@ import {
   sessionCookieOptions,
   SESSION_COOKIE,
 } from "@/lib/admin/auth";
+import { recordSuccessfulLogin } from "@/lib/auth/runtime-user-store";
 import { observeAuthShadowRead } from "@/lib/auth/shadow-read";
 import { getRequestId, logger } from "@/lib/logger";
 import { clientRateLimitKey, rateLimitHeaders, refundRateLimit, takeRateLimit, usernameRateLimitKey } from "@/lib/security/rate-limit";
@@ -59,6 +60,7 @@ export async function POST(req: NextRequest) {
     }
     refundRateLimit({ namespace: "admin-login:ip", key: ipKey });
     refundRateLimit({ namespace: "admin-login:account", key: accountKey });
+    await recordSuccessfulLogin({ id: user.userId, username: user.username, role: user.role });
     void observeAuthShadowRead(
       { username: user.username, role: user.role, active: true },
       { route: "/api/admin/login", requestId: getRequestId(req) }
