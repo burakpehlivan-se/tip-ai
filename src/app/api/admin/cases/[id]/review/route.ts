@@ -122,6 +122,7 @@ export async function POST(
         uzmanOnayTarihi: Date.now(),
         incelemeDurumu: "onayli",
         incelemeNotu: body.note,
+        sonKlinikGozdenGecirmeTarihi: Date.now(),
       };
       action = "approve_case_review";
       message = `"${existing.hastalikAdi}" vakası bağımsız reviewer tarafından onaylandı.`;

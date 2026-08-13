@@ -65,6 +65,10 @@ interface AdminVaka {
   incelemeNotu?: string;
   uzmanOnaylayan?: string;
   contentChecksum?: string;
+  klinikKaynak?: string;
+  klinikKaynakTarihi?: string;
+  egitimHedefleri?: string[];
+  sonKlinikGozdenGecirmeTarihi?: number;
   cdmVersion?: string;
   patientProfil?: { bmi?: number; sigara?: string; komorbiditeler?: string[] };
   vitals?: {
@@ -365,6 +369,9 @@ export default function AdminVakaDetailPage() {
     etiketler: "",
     surum: 1,
     uzmanOnayi: false,
+    klinikKaynak: "",
+    klinikKaynakTarihi: "",
+    egitimHedefleri: "",
   });
   const [patient, setPatient] = useState({
     yasMin: 30,
@@ -418,6 +425,9 @@ export default function AdminVakaDetailPage() {
       etiketler: (c.etiketler || []).join(", "),
       surum: c.surum ?? 1,
       uzmanOnayi: !!c.uzmanOnayi,
+      klinikKaynak: c.klinikKaynak || "",
+      klinikKaynakTarihi: c.klinikKaynakTarihi || "",
+      egitimHedefleri: (c.egitimHedefleri || []).join("\n"),
     });
     setPatient({
       yasMin: c.yasAraligi?.[0] ?? 30,
@@ -557,6 +567,9 @@ export default function AdminVakaDetailPage() {
       hastalikAdi: meta.hastalikAdi,
       seviye: meta.seviye,
       etiketler: csvToList(meta.etiketler),
+      klinikKaynak: meta.klinikKaynak,
+      klinikKaynakTarihi: meta.klinikKaynakTarihi,
+      egitimHedefleri: linesToList(meta.egitimHedefleri),
       yasAraligi: [Number(patient.yasMin), Number(patient.yasMax)] as [number, number],
       cinsiyetTercih: patient.cinsiyetTercih,
       patientProfil: {
@@ -906,6 +919,14 @@ export default function AdminVakaDetailPage() {
             <div className="flex items-end pb-2 text-sm text-steel">
               {vaka.uzmanOnayi ? `✓ Reviewer: ${vaka.uzmanOnaylayan || "kayıtlı"}` : "Reviewer onayı bekleniyor"}
             </div>
+            <div>
+              <label className="text-xs text-muted">Klinik kaynak</label>
+              <input className="input w-full" value={meta.klinikKaynak} onChange={(e) => setMeta({ ...meta, klinikKaynak: e.target.value })} placeholder="Kılavuz, yayın veya kurum protokolü" />
+            </div>
+            <div>
+              <label className="text-xs text-muted">Kaynak tarihi</label>
+              <input type="date" className="input w-full" value={meta.klinikKaynakTarihi} onChange={(e) => setMeta({ ...meta, klinikKaynakTarihi: e.target.value })} />
+            </div>
           </div>
           {vaka.incelemeNotu && <p className="mt-2 text-sm text-steel">Reviewer notu: {vaka.incelemeNotu}</p>}
           <div>
@@ -917,6 +938,11 @@ export default function AdminVakaDetailPage() {
               placeholder="OSCE, Poliklinik, Orta seviye"
             />
           </div>
+          <div>
+            <label className="text-xs text-muted">Eğitim hedefleri (satır başına bir hedef)</label>
+            <textarea className="input h-24 w-full resize-y" value={meta.egitimHedefleri} onChange={(e) => setMeta({ ...meta, egitimHedefleri: e.target.value })} placeholder="Örn. Göğüs ağrısında red flag taraması yapar." />
+          </div>
+          {vaka.sonKlinikGozdenGecirmeTarihi && <p className="text-xs text-steel">Son klinik gözden geçirme: {new Date(vaka.sonKlinikGozdenGecirmeTarihi).toLocaleDateString("tr-TR")}</p>}
         </Section>
       )}
 

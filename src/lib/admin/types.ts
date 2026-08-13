@@ -92,6 +92,11 @@ export interface AdminVaka {
   incelemeyeGonderen?: string;
   incelemeyeGonderilmeTarihi?: number;
   incelemeNotu?: string;
+  /** Yayın için kaynak ve eğitim hedefi izlenebilirliği. */
+  klinikKaynak?: string;
+  klinikKaynakTarihi?: string;
+  egitimHedefleri?: string[];
+  sonKlinikGozdenGecirmeTarihi?: number;
   olusturan?: string;
   sonDuzenleyen?: string;
   updatedAt: number;
@@ -352,6 +357,10 @@ export function normalizeAdminVaka(c: Partial<AdminVaka> & { id: string }): Admi
     incelemeyeGonderen: c.incelemeyeGonderen,
     incelemeyeGonderilmeTarihi: c.incelemeyeGonderilmeTarihi,
     incelemeNotu: c.incelemeNotu,
+    klinikKaynak: c.klinikKaynak,
+    klinikKaynakTarihi: c.klinikKaynakTarihi,
+    egitimHedefleri: c.egitimHedefleri || [],
+    sonKlinikGozdenGecirmeTarihi: c.sonKlinikGozdenGecirmeTarihi,
     olusturan: c.olusturan,
     sonDuzenleyen: c.sonDuzenleyen,
     updatedAt: c.updatedAt || now,

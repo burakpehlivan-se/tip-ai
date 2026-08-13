@@ -344,7 +344,7 @@ export function parseCasePatchInput(raw: unknown): ParseResult<Partial<AdminVaka
   if (!isRecord(raw)) return { ok: false, issues: [{ field: "body", message: "JSON nesnesi gerekli." }] };
   const issues: InputIssue[] = [];
   const value: Partial<AdminVaka> = {};
-  const assignText = (field: "hastalikAdi" | "anaSikayet" | "semptomSablon" | "poliklinikAd" | "poliklinikIcon" | "poliklinikAciklama" | "egitimNotu" | "cdmVersion", max: number) => {
+  const assignText = (field: "hastalikAdi" | "anaSikayet" | "semptomSablon" | "poliklinikAd" | "poliklinikIcon" | "poliklinikAciklama" | "egitimNotu" | "cdmVersion" | "klinikKaynak", max: number) => {
     const parsed = text(raw[field], field, issues, { max });
     if (parsed !== undefined) value[field] = parsed;
   };
@@ -357,6 +357,7 @@ export function parseCasePatchInput(raw: unknown): ParseResult<Partial<AdminVaka
   assignText("poliklinikAciklama", 1_000);
   assignText("egitimNotu", 20_000);
   assignText("cdmVersion", 64);
+  assignText("klinikKaynak", 1_000);
 
   const seviye = enumValue(raw.seviye, "seviye", SEVIYELER, issues);
   const cinsiyetTercih = enumValue(raw.cinsiyetTercih, "cinsiyetTercih", CINSIYETLER, issues);
@@ -365,6 +366,7 @@ export function parseCasePatchInput(raw: unknown): ParseResult<Partial<AdminVaka
   const ozetBilgiler = stringList(raw.ozetBilgiler, "ozetBilgiler", issues, 10);
   const idealYol = stringList(raw.idealYol, "idealYol", issues, 30);
   const etiketler = stringList(raw.etiketler, "etiketler", issues, 30);
+  const egitimHedefleri = stringList(raw.egitimHedefleri, "egitimHedefleri", issues, 10);
   const rubric = parseRubric(raw.rubric, issues);
   const statikTestler = parseTests(raw.statikTestler, issues);
   const hastaYanitlari = parseAnswers(raw.hastaYanitlari, issues);
@@ -380,6 +382,7 @@ export function parseCasePatchInput(raw: unknown): ParseResult<Partial<AdminVaka
   if (ozetBilgiler !== undefined) value.ozetBilgiler = ozetBilgiler;
   if (idealYol !== undefined) value.idealYol = idealYol;
   if (etiketler !== undefined) value.etiketler = etiketler;
+  if (egitimHedefleri !== undefined) value.egitimHedefleri = egitimHedefleri;
   if (rubric !== undefined) value.rubric = rubric;
   if (statikTestler !== undefined) value.statikTestler = statikTestler;
   if (hastaYanitlari !== undefined) value.hastaYanitlari = hastaYanitlari;
@@ -410,6 +413,11 @@ export function parseCasePatchInput(raw: unknown): ParseResult<Partial<AdminVaka
     const key = text(raw.poliklinikKey, "poliklinikKey", issues, { required: true, max: 80 })?.toLowerCase();
     if (key && CASE_KEY.test(key)) value.poliklinikKey = key;
     else if (key) issue(issues, "poliklinikKey", "Küçük harf, sayı ve tireden oluşmalı.");
+  }
+  if (raw.klinikKaynakTarihi !== undefined) {
+    if (typeof raw.klinikKaynakTarihi !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw.klinikKaynakTarihi)) {
+      issue(issues, "klinikKaynakTarihi", "YYYY-AA-GG formatında tarih olmalı.");
+    } else value.klinikKaynakTarihi = raw.klinikKaynakTarihi;
   }
 
   return issues.length > 0 ? { ok: false, issues } : { ok: true, value };

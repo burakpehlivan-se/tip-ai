@@ -735,6 +735,15 @@ export function validateCdmReadiness(doc: TipAiCdmDocument): VakaValidationResul
  */
 export function validateAdminVakaForPublication(av: AdminVaka): PublicationValidationResult {
   const validation = validateCdmReadiness(adminVakaToCdm(av));
+  if (!av.klinikKaynak?.trim()) {
+    addError(validation.errors, "klinikKaynak", "Yayın için klinik kaynak belirtilmelidir.", "MISSING_CLINICAL_SOURCE");
+  }
+  if (!av.klinikKaynakTarihi || !/^\d{4}-\d{2}-\d{2}$/.test(av.klinikKaynakTarihi)) {
+    addError(validation.errors, "klinikKaynakTarihi", "Yayın için kaynak tarihi YYYY-AA-GG formatında belirtilmelidir.", "MISSING_SOURCE_DATE");
+  }
+  if (!av.egitimHedefleri?.some((objective) => objective.trim())) {
+    addError(validation.errors, "egitimHedefleri", "Yayın için en az bir eğitim hedefi belirtilmelidir.", "MISSING_LEARNING_OBJECTIVE");
+  }
   return { allowed: validation.errors.length === 0, validation };
 }
 

@@ -117,4 +117,23 @@ describe("validateAdminVaka + CDM round-trip", () => {
     expect(result.allowed).toBe(false);
     expect(result.validation.errors.some((issue) => issue.code === "MISSING_ANSWER_FOR_QUESTION")).toBe(true);
   });
+
+  it("yayın kapısında kaynak, tarih ve eğitim hedefi zorunludur", () => {
+    const av = cdmToAdminVaka(EXAMPLE_CDM_KBH);
+    const missingGovernance = validateAdminVakaForPublication(av);
+    expect(missingGovernance.allowed).toBe(false);
+    expect(missingGovernance.validation.errors.map((issue) => issue.code)).toEqual(expect.arrayContaining([
+      "MISSING_CLINICAL_SOURCE",
+      "MISSING_SOURCE_DATE",
+      "MISSING_LEARNING_OBJECTIVE",
+    ]));
+
+    const approved = validateAdminVakaForPublication({
+      ...av,
+      klinikKaynak: "Örnek klinik kaynak",
+      klinikKaynakTarihi: "2026-08-13",
+      egitimHedefleri: ["Kritik bulguları yapılandırılmış biçimde değerlendirir."],
+    });
+    expect(approved.allowed).toBe(true);
+  });
 });
