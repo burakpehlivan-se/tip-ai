@@ -380,9 +380,10 @@ export default function VakaWorkspace({
 
   const tamamlama = () => {
     if (!taniInput.trim()) {
-      alert("Lütfen bir ön tanı girin.");
+      setIslemHatasi("Değerlendirmeye geçmeden önce bir ön tanı girin.");
       return;
     }
+    setIslemHatasi("");
     setFaz("tedavi");
     setMesajlar((prev) => [
       ...prev,
@@ -563,7 +564,7 @@ export default function VakaWorkspace({
           </Link>
           <span className="text-sm lg:text-base font-semibold text-ink truncate">{vaka.alan} · {vaka.hasta.yas} yaş</span>
         </div>
-        <div className="hidden sm:flex items-center gap-1 rounded-lg bg-surface p-0.5">
+        <div className="hidden sm:flex items-center gap-1 rounded-lg bg-surface p-0.5" role="group" aria-label="Vaka aşaması">
           {(["anamnez","test","tani","tedavi"] as const).map((f) => (
             <button key={f} aria-pressed={faz === f} onClick={() => setFaz(f)} className={`px-2.5 lg:px-3 py-1 rounded-md text-[11px] lg:text-xs font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
               {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
@@ -578,7 +579,7 @@ export default function VakaWorkspace({
         <span className="text-xs text-steel truncate">
           {vaka.hasta.tamAd || vaka.hasta.ad} · {vaka.hasta.yas} yaş · {vaka.alan}
         </span>
-        <div className="hidden sm:flex items-center gap-1 rounded-lg bg-surface p-0.5">
+        <div className="hidden sm:flex items-center gap-1 rounded-lg bg-surface p-0.5" role="group" aria-label="Vaka aşaması">
           {(["anamnez","test","tani","tedavi"] as const).map((f) => (
             <button key={f} aria-pressed={faz === f} onClick={() => setFaz(f)} className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
               {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
@@ -588,7 +589,7 @@ export default function VakaWorkspace({
       </div>
       )}
       {/* Mobil faz sekmeleri (sm altı) */}
-      <div className="flex sm:hidden shrink-0 border-b border-hairline bg-canvas px-1 overflow-x-auto scrollbar-none">
+      <div className="flex sm:hidden shrink-0 border-b border-hairline bg-canvas px-1 overflow-x-auto scrollbar-none" role="group" aria-label="Vaka aşaması">
         {(["anamnez","test","tani","tedavi"] as const).map((f) => (
           <button key={f} aria-pressed={faz === f} onClick={() => setFaz(f)} className={`min-h-11 shrink-0 px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${faz === f ? "border-ink text-ink" : "border-transparent text-steel"}`}>
             {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
@@ -638,6 +639,11 @@ export default function VakaWorkspace({
         </div>
       )}
 
+      <aside id="simule-vaka-uyarisi" className="shrink-0 border-b border-clinical-orange/20 bg-clinical-orange/5 px-4 py-2 text-xs leading-5 text-steel lg:px-6" aria-label="Veri kullanımı uyarısı">
+        <span className="mr-1 font-medium text-ink">Simülasyon uyarısı:</span>
+        Bu alana gerçek hasta bilgisi veya kişisel sağlık verisi girmeyin; yalnızca bu sentetik vaka üzerinden çalışın.
+      </aside>
+
       {/* 3-Panel Layout */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <VakaHastaPanel
@@ -651,7 +657,7 @@ export default function VakaWorkspace({
         <div className={`${mobilPanel !== "sohbet" ? "hidden" : "flex"} lg:flex flex-col flex-1 overflow-hidden`}>
           {/* Mesajlar */}
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6 lg:px-8">
-            <div className="mx-auto max-w-2xl space-y-4">
+            <div className="mx-auto max-w-2xl space-y-4" role="log" aria-label="Vaka sohbeti" aria-live="polite" aria-relevant="additions text">
               {mesajlar.map((msg) => (
                 <MesajBalonu key={msg.id} msg={msg} vaka={vaka} hastaneAdi={hastaneAdi} />
               ))}
@@ -784,7 +790,7 @@ export default function VakaWorkspace({
               {faz === "anamnez" ? (
                 <div className="flex gap-2">
                   <label htmlFor="anamnez-sorusu" className="sr-only">Hastaya soru sor</label>
-                  <input id="anamnez-sorusu" type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && soruSor()}
+                  <input id="anamnez-sorusu" type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && soruSor()} aria-describedby="simule-vaka-uyarisi"
                     placeholder="Hastaya soru sor…"
                     className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
                   <button onClick={soruSor} disabled={islemYukleniyor} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Gönderiliyor…" : "Sor"}</button>
@@ -792,7 +798,7 @@ export default function VakaWorkspace({
               ) : faz === "tani" ? (
                 <div className="flex gap-2">
                   <label htmlFor="on-tani-ana" className="sr-only">Ön tanı</label>
-                  <input id="on-tani-ana" type="text" value={taniInput} onChange={(e) => setTaniInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && tamamlama()}
+                  <input id="on-tani-ana" type="text" value={taniInput} onChange={(e) => { setTaniInput(e.target.value); setIslemHatasi(""); }} onKeyDown={(e) => e.key === "Enter" && tamamlama()} aria-describedby="simule-vaka-uyarisi"
                     placeholder="Ön tanınızı girin (örn: Akut Koroner Sendrom)…"
                     className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
                   <button onClick={tamamlama} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">Tanı →</button>
@@ -800,7 +806,7 @@ export default function VakaWorkspace({
               ) : faz === "tedavi" ? (
                 <div className="flex gap-2">
                   <label htmlFor="tedavi-plani-ana" className="sr-only">Tedavi planı</label>
-                  <textarea id="tedavi-plani-ana" value={tedaviInput} onChange={(e) => setTedaviInput(e.target.value)}
+                  <textarea id="tedavi-plani-ana" value={tedaviInput} onChange={(e) => setTedaviInput(e.target.value)} aria-describedby="simule-vaka-uyarisi"
                     placeholder="Tedavi planınızı yazın (ilaçlar, dozlar, prosedürler)…"
                     className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none resize-none" rows={1} />
                   <button onClick={vakaTamamla} disabled={islemYukleniyor} className="btn-accent h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Puanlanıyor…" : "Puanla ✓"}</button>
@@ -1065,7 +1071,8 @@ export default function VakaWorkspace({
                       id="on-tani-sag"
                       type="text"
                       value={taniInput}
-                      onChange={(e) => setTaniInput(e.target.value)}
+                      onChange={(e) => { setTaniInput(e.target.value); setIslemHatasi(""); }}
+                      aria-describedby="simule-vaka-uyarisi"
                       placeholder="Ön tanınızı girin (örn: Akut Koroner Sendrom)"
                       className="input mb-3 text-sm"
                     />
@@ -1083,6 +1090,7 @@ export default function VakaWorkspace({
                       id="tedavi-plani-sag"
                       value={tedaviInput}
                       onChange={(e) => setTedaviInput(e.target.value)}
+                      aria-describedby="simule-vaka-uyarisi"
                       placeholder="Tedavi planınızı yazın (ilaçlar, dozlar, prosedürler)..."
                       className="input mb-3 h-28 text-sm resize-none"
                       rows={5}
@@ -1099,16 +1107,16 @@ export default function VakaWorkspace({
       </div>
 
       {/* Mobile Bottom Tabs */}
-      <div className="flex border-t border-hairline bg-canvas xl:hidden">
-        <button aria-pressed={mobilPanel === "hasta"} onClick={() => setMobilPanel("hasta")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "hasta" ? "text-brand" : "text-steel"}`}>
+      <div className="flex border-t border-hairline bg-canvas xl:hidden" role="group" aria-label="Mobil çalışma alanı">
+        <button aria-pressed={mobilPanel === "hasta"} onClick={() => setMobilPanel("hasta")} className={`flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 py-2 ${mobilPanel === "hasta" ? "text-brand" : "text-steel"}`}>
           <span className="text-base">👤</span>
           <span className="text-[10px] font-medium">Hasta</span>
         </button>
-        <button aria-pressed={mobilPanel === "sohbet"} onClick={() => setMobilPanel("sohbet")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "sohbet" ? "text-brand" : "text-steel"}`}>
+        <button aria-pressed={mobilPanel === "sohbet"} onClick={() => setMobilPanel("sohbet")} className={`flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 py-2 ${mobilPanel === "sohbet" ? "text-brand" : "text-steel"}`}>
           <span className="text-base">💬</span>
           <span className="text-[10px] font-medium">Sohbet</span>
         </button>
-        <button aria-pressed={mobilPanel === "testler"} onClick={() => setMobilPanel("testler")} className={`flex flex-1 flex-col items-center gap-0.5 py-2 ${mobilPanel === "testler" ? "text-brand" : "text-steel"}`}>
+        <button aria-pressed={mobilPanel === "testler"} onClick={() => setMobilPanel("testler")} className={`flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 py-2 ${mobilPanel === "testler" ? "text-brand" : "text-steel"}`}>
           <span className="text-base">🧪</span>
           <span className="text-[10px] font-medium">Testler</span>
         </button>
@@ -1153,24 +1161,24 @@ function ClinicalReasoningFields({
   return (
     <fieldset className="mb-6 rounded-lg border border-hairline bg-canvas p-3">
       <legend className="px-1 text-xs font-semibold uppercase tracking-wide text-muted">Klinik muhakeme</legend>
-      <p className="mb-3 text-xs leading-5 text-steel">Düşünme sürecini kaydet. Her listeye satır başına bir madde yaz; en fazla 5 madde eklenir.</p>
+      <p className="mb-3 text-xs leading-5 text-steel">Düşünme sürecini kaydet. Her listeye satır başına bir madde yaz; en fazla 5 madde eklenir. Gerçek hasta bilgisi girmeyin.</p>
       <div className="space-y-3">
         <div>
           <label htmlFor="problem-temsili" className="mb-1 block text-xs font-medium text-ink">Problem temsili</label>
-          <textarea id="problem-temsili" value={problemRepresentation} maxLength={600} onChange={(event) => onProblemRepresentationChange(event.target.value)} className="input h-20 resize-none text-sm" placeholder="Yaş, bağlam, temel sorun ve ayırt edici bulguları özetle." rows={3} />
+          <textarea id="problem-temsili" value={problemRepresentation} maxLength={600} onChange={(event) => onProblemRepresentationChange(event.target.value)} aria-describedby="simule-vaka-uyarisi" className="input h-20 resize-none text-sm" placeholder="Yaş, bağlam, temel sorun ve ayırt edici bulguları özetle." rows={3} />
         </div>
         <div>
           <label htmlFor="ayirici-tanilar" className="mb-1 block text-xs font-medium text-ink">Ayırıcı tanılar</label>
-          <textarea id="ayirici-tanilar" value={differentialsText} maxLength={604} onChange={(event) => onDifferentialsChange(event.target.value)} className="input h-20 resize-none text-sm" placeholder={"Akut koroner sendrom\nPulmoner emboli"} rows={3} />
+          <textarea id="ayirici-tanilar" value={differentialsText} maxLength={604} onChange={(event) => onDifferentialsChange(event.target.value)} aria-describedby="simule-vaka-uyarisi" className="input h-20 resize-none text-sm" placeholder={"Akut koroner sendrom\nPulmoner emboli"} rows={3} />
         </div>
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label htmlFor="destekleyen-bulgular" className="mb-1 block text-xs font-medium text-ink">Destekleyen bulgular</label>
-            <textarea id="destekleyen-bulgular" value={supportingFindingsText} maxLength={904} onChange={(event) => onSupportingFindingsChange(event.target.value)} className="input h-20 resize-none text-sm" placeholder="Her satıra bir bulgu" rows={3} />
+            <textarea id="destekleyen-bulgular" value={supportingFindingsText} maxLength={904} onChange={(event) => onSupportingFindingsChange(event.target.value)} aria-describedby="simule-vaka-uyarisi" className="input h-20 resize-none text-sm" placeholder="Her satıra bir bulgu" rows={3} />
           </div>
           <div>
             <label htmlFor="karsi-bulgular" className="mb-1 block text-xs font-medium text-ink">Karşı çıkan bulgular</label>
-            <textarea id="karsi-bulgular" value={opposingFindingsText} maxLength={904} onChange={(event) => onOpposingFindingsChange(event.target.value)} className="input h-20 resize-none text-sm" placeholder="Her satıra bir bulgu" rows={3} />
+            <textarea id="karsi-bulgular" value={opposingFindingsText} maxLength={904} onChange={(event) => onOpposingFindingsChange(event.target.value)} aria-describedby="simule-vaka-uyarisi" className="input h-20 resize-none text-sm" placeholder="Her satıra bir bulgu" rows={3} />
           </div>
         </div>
         <div>
