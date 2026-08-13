@@ -24,12 +24,12 @@ export async function GET() {
     }
 
     const readiness = await checkAuthMigrationReadiness();
-    const attemptsReady = attempts === "json";
+    const attemptsReady = attempts === "json" || attempts === "postgres";
     return NextResponse.json(
       {
         status: readiness.ok && attemptsReady ? "ok" : "not_ready",
         auth: { store, migration: readiness.checks },
-        attempts: { store: attempts, runtime: attemptsReady ? "ready" : "pending_adapter" },
+        attempts: { store: attempts, runtime: attemptsReady ? "ready" : "not_ready" },
       },
       {
         status: readiness.ok && attemptsReady ? 200 : 503,

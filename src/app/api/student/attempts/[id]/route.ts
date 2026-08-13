@@ -27,15 +27,15 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   if (!body || typeof body.type !== "string") return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   try {
     if (body.type === "ask" && typeof body.action === "string" && KEY.test(body.action)) {
-      const yanit = await answerStudentAttempt(id, actor, body.action);
+      const yanit = await answerStudentAttempt(id, actor, body.action, session?.userId);
       return yanit == null ? NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ yanit });
     }
     if (body.type === "test" && typeof body.testKey === "string" && KEY.test(body.testKey)) {
-      const sonuc = await requestStudentAttemptTest(id, actor, body.testKey);
+      const sonuc = await requestStudentAttemptTest(id, actor, body.testKey, session?.userId);
       return sonuc == null ? NextResponse.json({ error: "Test veya vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ sonuc });
     }
     if (body.type === "complete" && typeof body.taniGirildi === "string" && body.taniGirildi.trim().length <= 500) {
-      const sonuc = await completeStudentAttempt(id, actor, body.taniGirildi.trim());
+      const sonuc = await completeStudentAttempt(id, actor, body.taniGirildi.trim(), session?.userId);
       return sonuc == null ? NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ sonuc });
     }
   } catch (error) {

@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
 
   const actor = session?.username || `guest:${guestId}`;
   try {
-    return NextResponse.json({ vaka: await getActiveStudentAttempt(actor, poliklinikKey) });
+    return NextResponse.json({ vaka: await getActiveStudentAttempt(actor, poliklinikKey, session?.userId) });
   } catch (error) {
     if (error instanceof JsonStoreReadError) return attemptStoreUnavailable(req, error);
     throw error;
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
   const guestId = req.cookies.get(GUEST_COOKIE)?.value || crypto.randomUUID();
   let vaka;
   try {
-    vaka = await startStudentAttempt(session?.username || `guest:${guestId}`, poliklinikKey);
+    vaka = await startStudentAttempt(session?.username || `guest:${guestId}`, poliklinikKey, session?.userId);
   } catch (error) {
     if (error instanceof JsonStoreReadError) return attemptStoreUnavailable(req, error);
     throw error;

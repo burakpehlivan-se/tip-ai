@@ -9,6 +9,16 @@ import { degerlendir } from "@/lib/scoring/degerlendir";
 import { getLabResult } from "@/lib/lab-motor";
 import { recordPlaySession } from "@/lib/admin/store";
 import { assertSupportedAttemptStore } from "./attempt-store-mode";
+import { shouldUsePostgresAttemptStore } from "./attempt-store-mode";
+import {
+  answerPostgresAttempt,
+  completePostgresAttempt,
+  getPostgresActiveAttempt,
+  getPostgresAssignedAttempt,
+  requestPostgresAttemptTest,
+  startPostgresAssignedAttempt,
+  startPostgresStudentAttempt,
+} from "./postgres-attempt-store";
 
 const ATTEMPT_TTL_MS = 1000 * 60 * 60 * 12;
 
@@ -107,10 +117,14 @@ function ownAttempt(id: string, actor: string): { store: AttemptStore; attempt: 
   return attempt ? { store, attempt } : null;
 }
 
-export function startStudentAttempt(actor: string, poliklinikKey: string): Promise<PublicAttemptCase | null> {
+export function startStudentAttempt(actor: string, poliklinikKey: string, studentId?: string): Promise<PublicAttemptCase | null> {
   // PostgreSQL adapter'ı cutover sırasında bu çağrı sınırına bağlanacaktır.
   // Şimdiden açıkça doğrulamak, yanlış env ile sessiz JSON yazımını engeller.
   assertSupportedAttemptStore(actor);
+  if (shouldUsePostgresAttemptStore(actor)) {
+    if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
+    return startPostgresStudentAttempt(studentId, poliklinikKey);
+  }
   return withJsonStoreLock(() => {
     const candidates = loadCasesStore().cases.filter(
       (item) => item.durum === "aktif" && (poliklinikKey === "*" || item.poliklinikKey === poliklinikKey)
@@ -149,9 +163,14 @@ function createAttemptFromTemplate(
 export function startAssignedStudentAttempt(
   actor: string,
   assignmentId: string,
-  caseId: string
+  caseId: string,
+  studentId?: string
 ): Promise<PublicAttemptCase | null> {
   assertSupportedAttemptStore(actor);
+  if (shouldUsePostgresAttemptStore(actor)) {
+    if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
+    return startPostgresAssignedAttempt(studentId, assignmentId, caseId);
+  }
   return withJsonStoreLock(() => {
     const template = loadCasesStore().cases.find((item) => item.id === caseId && item.durum === "aktif");
     if (!template) return null;
@@ -160,8 +179,12 @@ export function startAssignedStudentAttempt(
 }
 
 /** Aynı kullanıcı ve poliklinik için son 12 saatte güncellenmiş vakayı döndürür. */
-export function getActiveStudentAttempt(actor: string, poliklinikKey: string): Promise<ResumableAttemptCase | null> {
+export function getActiveStudentAttempt(actor: string, poliklinikKey: string, studentId?: string): Promise<ResumableAttemptCase | null> {
   assertSupportedAttemptStore(actor);
+  if (shouldUsePostgresAttemptStore(actor)) {
+    if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
+    return getPostgresActiveAttempt(studentId, poliklinikKey);
+  }
   return withJsonStoreLock(() => {
     const candidates = load().attempts.filter(
       (attempt) =>
@@ -179,9 +202,14 @@ export function getActiveStudentAttempt(actor: string, poliklinikKey: string): P
 /** Öğrencinin yalnızca kendi atamasına bağlı aktif oturumunu geri döndürür. */
 export function getActiveStudentAttemptForAssignment(
   actor: string,
-  assignmentId: string
+  assignmentId: string,
+  studentId?: string
 ): Promise<ResumableAttemptCase | null> {
   assertSupportedAttemptStore(actor);
+  if (shouldUsePostgresAttemptStore(actor)) {
+    if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
+    return getPostgresAssignedAttempt(studentId, assignmentId);
+  }
   return withJsonStoreLock(() => {
     const attempt = load().attempts
       .filter((item) => item.actor === actor && item.assignmentId === assignmentId)
@@ -190,8 +218,12 @@ export function getActiveStudentAttemptForAssignment(
   });
 }
 
-export function answerStudentAttempt(id: string, actor: string, action: string): Promise<string | null> {
+export function answerStudentAttempt(id: string, actor: string, action: string, studentId?: string): Promise<string | null> {
   assertSupportedAttemptStore(actor);
+  if (shouldUsePostgresAttemptStore(actor)) {
+    if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
+    return answerPostgresAttempt(id, studentId, action);
+  }
   return withJsonStoreLock(() => {
     const found = ownAttempt(id, actor);
     if (!found) return null;
@@ -202,8 +234,12 @@ export function answerStudentAttempt(id: string, actor: string, action: string):
   });
 }
 
-export function requestStudentAttemptTest(id: string, actor: string, testKey: string): Promise<TestSonucu | null> {
+export function requestStudentAttemptTest(id: string, actor: string, testKey: string, studentId?: string): Promise<TestSonucu | null> {
   assertSupportedAttemptStore(actor);
+  if (shouldUsePostgresAttemptStore(actor)) {
+    if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
+    return requestPostgresAttemptTest(id, studentId, testKey);
+  }
   return withJsonStoreLock(() => {
     const found = ownAttempt(id, actor);
     if (!found) return null;
@@ -216,8 +252,12 @@ export function requestStudentAttemptTest(id: string, actor: string, testKey: st
   });
 }
 
-export function completeStudentAttempt(id: string, actor: string, taniGirildi: string): Promise<DegerlendirmeSonuc | null> {
+export function completeStudentAttempt(id: string, actor: string, taniGirildi: string, studentId?: string): Promise<DegerlendirmeSonuc | null> {
   assertSupportedAttemptStore(actor);
+  if (shouldUsePostgresAttemptStore(actor)) {
+    if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
+    return completePostgresAttempt(id, studentId, actor, taniGirildi);
+  }
   return withJsonStoreLock(() => {
     const found = ownAttempt(id, actor);
     if (!found) return null;

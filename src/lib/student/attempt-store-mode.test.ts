@@ -15,12 +15,12 @@ describe("attempt store mode", () => {
     expect(shouldUsePostgresAttemptStore("guest:opaque-id")).toBe(false);
   });
 
-  it("rejects an enabled PostgreSQL store until its runtime adapter is present", () => {
+  it("accepts PostgreSQL only with PostgreSQL auth", () => {
     const oldAuth = process.env.AUTH_USER_STORE;
     const oldAttempts = process.env.ATTEMPT_STORE;
     process.env.AUTH_USER_STORE = "postgres";
     process.env.ATTEMPT_STORE = "postgres";
-    expect(() => assertSupportedAttemptStore("ogrenci")).toThrow("adapter");
+    expect(() => assertSupportedAttemptStore("ogrenci")).not.toThrow();
     if (oldAuth === undefined) delete process.env.AUTH_USER_STORE;
     else process.env.AUTH_USER_STORE = oldAuth;
     if (oldAttempts === undefined) delete process.env.ATTEMPT_STORE;

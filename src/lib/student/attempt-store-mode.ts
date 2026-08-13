@@ -22,9 +22,7 @@ export function shouldUsePostgresAttemptStore(actor: string): boolean {
   return !actor.startsWith("guest:") && attemptStoreMode() === "postgres";
 }
 
-/** Adapter bağlanana kadar PostgreSQL seçiminin JSON'a sessizce düşmesini engeller. */
+/** Runtime adapter'ın çağrı öncesi store/env önkoşullarını doğrular. */
 export function assertSupportedAttemptStore(actor: string): void {
-  if (shouldUsePostgresAttemptStore(actor)) {
-    throw new Error("PostgreSQL deneme deposu adapter'ı bu sürümde henüz etkin değil.");
-  }
+  shouldUsePostgresAttemptStore(actor);
 }

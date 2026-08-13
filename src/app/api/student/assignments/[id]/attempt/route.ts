@@ -27,7 +27,7 @@ export async function GET(req: NextRequest, context: { params: Promise<{ id: str
   const resolved = await assignmentForRequest(req, id);
   if ("response" in resolved) return resolved.response;
   try {
-    return NextResponse.json({ vaka: await getActiveStudentAttemptForAssignment(resolved.session.username, id) }, { headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ vaka: await getActiveStudentAttemptForAssignment(resolved.session.username, id, resolved.session.userId) }, { headers: { "Cache-Control": "no-store" } });
   } catch (error) {
     if (error instanceof JsonStoreReadError) return NextResponse.json({ error: "Oturum geçici olarak kullanılamıyor." }, { status: 503 });
     throw error;
@@ -44,7 +44,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
     return NextResponse.json({ error: "Bu atama güncel vaka sürümüyle artık kullanılamıyor. Eğitmeninizle görüşün." }, { status: 409 });
   }
   try {
-    const vaka = await startAssignedStudentAttempt(resolved.session.username, id, caseItem.id);
+    const vaka = await startAssignedStudentAttempt(resolved.session.username, id, caseItem.id, resolved.session.userId);
     if (!vaka) return NextResponse.json({ error: "Atanan vaka şu anda kullanılamıyor." }, { status: 409 });
     return NextResponse.json({ vaka }, { status: 201 });
   } catch (error) {
