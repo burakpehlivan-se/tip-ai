@@ -19,6 +19,7 @@
     "pipeline:run": "npx tsx scripts/fill-tests.ts && npx tsx scripts/validate-vakalar.ts",
     "etl:mimic-iii:episode": "npx tsx scripts/import-mimic-iii-episode.ts",
     "test": "vitest run",
+    "test:e2e": "npm run build && playwright test",
     "doctor": "npx react-doctor@latest"
   },
   "dependencies": {
@@ -33,6 +34,7 @@
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
+    "@playwright/test": "^1.62.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/node": "^20",
     "@types/pdfkit": "^0.17.6",

@@ -36,3 +36,7 @@ next-env.d.ts
 /data/
 /prisma/data/
 !/src/lib/data/
+
+# browser E2E artifacts
+/playwright-report/
+/test-results/
