@@ -5,9 +5,25 @@ import { NextRequest, NextResponse } from "next/server";
 import { registerStudent } from "@/lib/auth/runtime-user-store";
 import { appendLog } from "@/lib/admin/store";
 import { createStudentSessionToken, studentSessionCookieOptions } from "@/lib/student/auth";
+import { clientRateLimitKey, rateLimitHeaders, takeRateLimit } from "@/lib/security/rate-limit";
+
+const REGISTER_WINDOW_MS = 60 * 60 * 1000;
+const REGISTER_IP_LIMIT = 5;
 
 export async function POST(req: NextRequest) {
   try {
+    const quota = takeRateLimit({
+      namespace: "student-register:ip",
+      key: clientRateLimitKey(req),
+      limit: REGISTER_IP_LIMIT,
+      windowMs: REGISTER_WINDOW_MS,
+    });
+    if (!quota.allowed) {
+      return NextResponse.json(
+        { error: "Çok fazla kayıt denemesi. Lütfen daha sonra tekrar deneyin." },
+        { status: 429, headers: rateLimitHeaders(quota) }
+      );
+    }
     const body = await req.json();
     const username = String(body.username || "").trim();
     const password = String(body.password || "");
@@ -24,6 +40,7 @@ export async function POST(req: NextRequest) {
 
     const token = await createStudentSessionToken(user.username, user.id);
     const res = NextResponse.json({ ok: true, user: { username: user.username, displayName: user.displayName } }, { status: 201 });
+    for (const [key, value] of Object.entries(rateLimitHeaders(quota))) res.headers.set(key, value);
     res.cookies.set("tip_ai_student_session", token, studentSessionCookieOptions());
     return res;
   } catch (e) {

@@ -12,6 +12,15 @@ import {
 } from "@/lib/admin/auth";
 import { observeAuthShadowRead } from "@/lib/auth/shadow-read";
 import { getRequestId, logger } from "@/lib/logger";
+import { clientRateLimitKey, rateLimitHeaders, refundRateLimit, takeRateLimit, usernameRateLimitKey } from "@/lib/security/rate-limit";
+
+const LOGIN_WINDOW_MS = 15 * 60 * 1000;
+const IP_LIMIT = 20;
+const ACCOUNT_LIMIT = 8;
+
+function rateLimited() {
+  return NextResponse.json({ error: "Çok fazla giriş denemesi. Lütfen kısa süre sonra tekrar deneyin." }, { status: 429 });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -24,6 +33,17 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+    const ipKey = clientRateLimitKey(req);
+    const accountKey = usernameRateLimitKey(username);
+    const ipQuota = takeRateLimit({ namespace: "admin-login:ip", key: ipKey, limit: IP_LIMIT, windowMs: LOGIN_WINDOW_MS });
+    const accountQuota = takeRateLimit({ namespace: "admin-login:account", key: accountKey, limit: ACCOUNT_LIMIT, windowMs: LOGIN_WINDOW_MS });
+    if (!ipQuota.allowed || !accountQuota.allowed) {
+      const decision = !ipQuota.allowed ? ipQuota : accountQuota;
+      const response = rateLimited();
+      for (const [key, value] of Object.entries(rateLimitHeaders(decision))) response.headers.set(key, value);
+      return response;
+    }
+
     const user = await loginUser(username, password);
     if (!user) {
       return NextResponse.json(
@@ -37,6 +57,8 @@ export async function POST(req: NextRequest) {
         { status: 403 }
       );
     }
+    refundRateLimit({ namespace: "admin-login:ip", key: ipKey });
+    refundRateLimit({ namespace: "admin-login:account", key: accountKey });
     void observeAuthShadowRead(
       { username: user.username, role: user.role, active: true },
       { route: "/api/admin/login", requestId: getRequestId(req) }
@@ -48,6 +70,7 @@ export async function POST(req: NextRequest) {
       username: user.username,
       role: user.role,
     });
+    for (const [key, value] of Object.entries(rateLimitHeaders(accountQuota))) res.headers.set(key, value);
     res.cookies.set(SESSION_COOKIE, token, sessionCookieOptions());
     return res;
   } catch (error) {
