@@ -8,6 +8,7 @@ import type { DegerlendirmeSonuc, TestSonucu, Vaka } from "@/lib/types";
 import { degerlendir } from "@/lib/scoring/degerlendir";
 import { getLabResult } from "@/lib/lab-motor";
 import { recordPlaySession } from "@/lib/admin/store";
+import { assertSupportedAttemptStore } from "./attempt-store-mode";
 
 const ATTEMPT_TTL_MS = 1000 * 60 * 60 * 12;
 
@@ -107,6 +108,9 @@ function ownAttempt(id: string, actor: string): { store: AttemptStore; attempt: 
 }
 
 export function startStudentAttempt(actor: string, poliklinikKey: string): Promise<PublicAttemptCase | null> {
+  // PostgreSQL adapter'ı cutover sırasında bu çağrı sınırına bağlanacaktır.
+  // Şimdiden açıkça doğrulamak, yanlış env ile sessiz JSON yazımını engeller.
+  assertSupportedAttemptStore(actor);
   return withJsonStoreLock(() => {
     const candidates = loadCasesStore().cases.filter(
       (item) => item.durum === "aktif" && (poliklinikKey === "*" || item.poliklinikKey === poliklinikKey)
@@ -147,6 +151,7 @@ export function startAssignedStudentAttempt(
   assignmentId: string,
   caseId: string
 ): Promise<PublicAttemptCase | null> {
+  assertSupportedAttemptStore(actor);
   return withJsonStoreLock(() => {
     const template = loadCasesStore().cases.find((item) => item.id === caseId && item.durum === "aktif");
     if (!template) return null;
@@ -156,6 +161,7 @@ export function startAssignedStudentAttempt(
 
 /** Aynı kullanıcı ve poliklinik için son 12 saatte güncellenmiş vakayı döndürür. */
 export function getActiveStudentAttempt(actor: string, poliklinikKey: string): Promise<ResumableAttemptCase | null> {
+  assertSupportedAttemptStore(actor);
   return withJsonStoreLock(() => {
     const candidates = load().attempts.filter(
       (attempt) =>
@@ -175,6 +181,7 @@ export function getActiveStudentAttemptForAssignment(
   actor: string,
   assignmentId: string
 ): Promise<ResumableAttemptCase | null> {
+  assertSupportedAttemptStore(actor);
   return withJsonStoreLock(() => {
     const attempt = load().attempts
       .filter((item) => item.actor === actor && item.assignmentId === assignmentId)
@@ -184,6 +191,7 @@ export function getActiveStudentAttemptForAssignment(
 }
 
 export function answerStudentAttempt(id: string, actor: string, action: string): Promise<string | null> {
+  assertSupportedAttemptStore(actor);
   return withJsonStoreLock(() => {
     const found = ownAttempt(id, actor);
     if (!found) return null;
@@ -195,6 +203,7 @@ export function answerStudentAttempt(id: string, actor: string, action: string):
 }
 
 export function requestStudentAttemptTest(id: string, actor: string, testKey: string): Promise<TestSonucu | null> {
+  assertSupportedAttemptStore(actor);
   return withJsonStoreLock(() => {
     const found = ownAttempt(id, actor);
     if (!found) return null;
@@ -208,6 +217,7 @@ export function requestStudentAttemptTest(id: string, actor: string, testKey: st
 }
 
 export function completeStudentAttempt(id: string, actor: string, taniGirildi: string): Promise<DegerlendirmeSonuc | null> {
+  assertSupportedAttemptStore(actor);
   return withJsonStoreLock(() => {
     const found = ownAttempt(id, actor);
     if (!found) return null;
