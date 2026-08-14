@@ -78,7 +78,7 @@ export function SessionNavigation({ className = "", compact = false }: { classNa
   return (
     <div className={`flex items-center gap-2 sm:gap-3 ${className}`}>
       {session.student && (
-        <Link href={session.student.href} className="hidden text-sm font-medium text-steel transition-colors hover:text-ink sm:inline">
+        <Link href="/ayarlar" aria-label="Ayarlar" className="hidden text-sm font-medium text-steel transition-colors hover:text-ink sm:inline">
           Merhaba, {shortName(session.student.displayName)}
         </Link>
       )}

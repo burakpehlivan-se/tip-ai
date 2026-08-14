@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
-import VakaWorkspace from "@/components/vaka/VakaWorkspace";
+import VakaWorkspace, { type DebugJson } from "@/components/vaka/VakaWorkspace";
 import { AdminVaka } from "@/lib/admin/types";
 import { DegerlendirmeSonuc, Vaka } from "@/lib/types";
 
@@ -34,7 +34,10 @@ export default function AdminOynaPage() {
       setSidebarAcik(false);
     }
   }, []);
-  const [feedbackTab, setFeedbackTab] = useState<"not" | "kayitli" | "rubric">("not");
+  const [feedbackTab, setFeedbackTab] = useState<"not" | "kayitli" | "rubric" | "json">("not");
+  const [debugJson, setDebugJson] = useState<DebugJson | null>(null);
+  const [tumSorulariDahilEt, setTumSorulariDahilEt] = useState(true);
+  const [kopyalandi, setKopyalandi] = useState(false);
 
   const load = useCallback(() => {
     fetch(`/api/admin/cases/${encodeURIComponent(id)}`)
@@ -140,6 +143,31 @@ export default function AdminOynaPage() {
   }
 
   const meta = useMemo(() => adminCase, [adminCase]);
+
+  const debugJsonString = useMemo(() => {
+    if (!debugJson) return "";
+    const data = tumSorulariDahilEt ? debugJson : { ...debugJson, tumSorular: undefined };
+    return JSON.stringify(data, null, 2);
+  }, [debugJson, tumSorulariDahilEt]);
+
+  async function copyDebugJson() {
+    if (!debugJsonString) return;
+    try {
+      await navigator.clipboard.writeText(debugJsonString);
+      setKopyalandi(true);
+    } catch {
+      const ta = document.createElement("textarea");
+      ta.value = debugJsonString;
+      ta.style.position = "fixed";
+      ta.style.opacity = "0";
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand("copy");
+      ta.remove();
+      setKopyalandi(true);
+    }
+    setTimeout(() => setKopyalandi(false), 1600);
+  }
 
   if (error && !adminCase) {
     return (
@@ -248,6 +276,7 @@ export default function AdminOynaPage() {
             debugMode={debugMode}
             raporHazir
             onComplete={onComplete}
+            onDebugSnapshot={setDebugJson}
           />
         </div>
 
@@ -260,6 +289,7 @@ export default function AdminOynaPage() {
                   { id: "not" as const, label: "Not" },
                   { id: "kayitli" as const, label: `Kayıt (${feedbacks.length})` },
                   { id: "rubric" as const, label: "Rubrik" },
+                  { id: "json" as const, label: "Debug JSON" },
                 ] as const
               ).map((t) => (
                 <button
@@ -365,6 +395,33 @@ export default function AdminOynaPage() {
                       testler: {Object.keys(meta.statikTestler || {}).length}
                     </div>
                   </div>
+                </div>
+              )}
+
+              {feedbackTab === "json" && (
+                <div className="flex h-full min-h-0 flex-col gap-2">
+                  <div className="flex shrink-0 items-center justify-between gap-2">
+                    <label className="flex cursor-pointer items-center gap-1.5 text-[11px] font-medium text-ink">
+                      <input
+                        type="checkbox"
+                        className="h-3 w-3 accent-brand"
+                        checked={tumSorulariDahilEt}
+                        onChange={(e) => setTumSorulariDahilEt(e.target.checked)}
+                      />
+                      Bütün soruları dahil et
+                    </label>
+                    <button
+                      type="button"
+                      onClick={() => void copyDebugJson()}
+                      disabled={!debugJsonString}
+                      className="btn-secondary shrink-0 px-2.5 py-1 text-[11px] disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {kopyalandi ? "✓ Kopyalandı" : "Kopyala"}
+                    </button>
+                  </div>
+                  <pre className="min-h-0 flex-1 overflow-auto scrollbar-thin rounded-md border border-hairline-soft bg-surface-soft p-2 font-mono text-[11px] leading-relaxed text-ink">
+                    {debugJsonString || "Henüz soru sorulmadı."}
+                  </pre>
                 </div>
               )}
             </div>

@@ -9,6 +9,8 @@ import {
   SoruChipi,
   ChipKategorisi,
   TestSonucu,
+  RubrikAksiyon,
+  Hasta,
   humanizeKey,
 } from "@/lib/types";
 import { normalizeSoru } from "@/lib/nlp/normalize";
@@ -52,6 +54,14 @@ export interface CompletedAttempt {
   tedaviGirildi: string;
 }
 
+/** Admin debug modunda yan panele yazılan vaka konuşma/kapsam görüntüsü. */
+export interface DebugJson {
+  hasta: Hasta;
+  sorulanSorular: Array<{ soru: string; aksiyon: string; cevap: string }>;
+  sorulmasiGerekenSorular: RubrikAksiyon[];
+  tumSorular: SoruChipi[];
+}
+
 interface Props {
   vaka: Vaka;
   mod?: "normal" | "cemicegek";
@@ -77,6 +87,8 @@ interface Props {
   onboarding?: boolean;
   /** Tanı veya tedavi taslağı varken vaka değiştirmeden önce kullanıcıyı uyarır. */
   onDirtyChange?: (isDirty: boolean) => void;
+  /** Admin debug: konuşma/hasta/beklenen/tüm sorular JSON'ını parent'a bildirir. */
+  onDebugSnapshot?: (snapshot: DebugJson) => void;
 }
 
 function defaultMesajlar(vaka: Vaka): ChatMesaj[] {
@@ -129,6 +141,7 @@ export default function VakaWorkspace({
   onReasoningSave,
   onboarding = false,
   onDirtyChange,
+  onDebugSnapshot,
 }: Props) {
   // Debug modda sonuçlar her zaman açık
   const effectiveRaporHazir = debugMode ? true : raporHazir;
@@ -199,6 +212,29 @@ export default function VakaWorkspace({
     opposingFindings: toReasoningList(opposingFindingsText),
     confidence,
   }), [problemRepresentation, differentialsText, supportingFindingsText, opposingFindingsText, confidence]);
+
+  const debugJson = useMemo<DebugJson>(() => {
+    const chipList = vaka.soruChipleri as SoruChipi[];
+    const sorulanSorular: DebugJson["sorulanSorular"] = [];
+    for (let i = 0; i < mesajlar.length; i++) {
+      const m = mesajlar[i];
+      if (m.rol !== "ogrenci") continue;
+      const cevap = mesajlar[i + 1]?.rol === "hasta" ? mesajlar[i + 1].metin : "";
+      const chip = chipList.find((c) => c.etiket === m.metin);
+      const aksiyon = chip?.aksiyon ?? normalizeSoru(m.metin);
+      sorulanSorular.push({ soru: m.metin, aksiyon, cevap });
+    }
+    return {
+      hasta: vaka.hasta,
+      sorulanSorular,
+      sorulmasiGerekenSorular: vaka.rubric.beklenenSorular,
+      tumSorular: chipList,
+    };
+  }, [vaka, mesajlar]);
+
+  useEffect(() => {
+    onDebugSnapshot?.(debugJson);
+  }, [debugJson, onDebugSnapshot]);
 
   const maxAcikFazIndex = taniKaydedildi ? 3 : testIstekleri.length > 0 ? 2 : 1;
   const fazDegistir = (sonrakiFaz: WorkspaceFaz) => {
@@ -816,7 +852,7 @@ export default function VakaWorkspace({
                   {CHIP_KATEGORI_ETIKETLERI[Array.from(acikKategoriler)[0] || "anamnez-agri"]} ▾
                 </button>
                 {showKatDropdown && (
-                  <div id="soru-kategori-listesi" className="absolute top-full left-0 mt-1 z-30 w-48 rounded-lg border border-hairline bg-canvas shadow-lg overflow-hidden">
+                  <div id="soru-kategori-listesi" className="absolute bottom-full left-0 mb-1 z-30 w-48 rounded-lg border border-hairline bg-canvas shadow-lg overflow-hidden">
                     {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => (
                       <button key={kat} onClick={() => { setAcikKategoriler(new Set([kat])); setShowKatDropdown(false); }}
                         className={`flex w-full items-center px-3 py-2 text-left text-xs hover:bg-surface transition-colors ${acikKategoriler.has(kat) ? "bg-surface font-semibold text-ink" : "text-steel"}`}>
