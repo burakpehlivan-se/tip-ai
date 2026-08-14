@@ -29,6 +29,13 @@ describe("admin vaka request parser", () => {
     });
   });
 
+  it("boş klinikKaynakTarihi'ni eksik kabul edip patch'i reddetmez", () => {
+    expect(parseCasePatchInput({ klinikKaynakTarihi: "" })).toEqual({
+      ok: true,
+      value: {},
+    });
+  });
+
   it("oluşturma isteğinde kimlik alanlarını ve normalleştirilmiş key'i döndürür", () => {
     expect(
       parseCreateCaseInput({

@@ -414,8 +414,8 @@ export function parseCasePatchInput(raw: unknown): ParseResult<Partial<AdminVaka
     if (key && CASE_KEY.test(key)) value.poliklinikKey = key;
     else if (key) issue(issues, "poliklinikKey", "Küçük harf, sayı ve tireden oluşmalı.");
   }
-  if (raw.klinikKaynakTarihi !== undefined) {
-    if (typeof raw.klinikKaynakTarihi !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw.klinikKaynakTarihi)) {
+  if (typeof raw.klinikKaynakTarihi === "string" && raw.klinikKaynakTarihi !== "") {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw.klinikKaynakTarihi)) {
       issue(issues, "klinikKaynakTarihi", "YYYY-AA-GG formatında tarih olmalı.");
     } else value.klinikKaynakTarihi = raw.klinikKaynakTarihi;
   }
