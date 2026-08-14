@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { loadCasesStore } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import {
   buildCasesJsonExport,
   buildCasesPdfBuffer,
@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   }
 
   const poliklinikKey = req.nextUrl.searchParams.get("poliklinik")?.trim() || null;
-  const store = loadCasesStore();
+  const store = await loadRuntimeCasesStore();
   const cases = filterCasesForExport(store.cases, poliklinikKey);
 
   if (poliklinikKey && cases.length === 0) {

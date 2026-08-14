@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { loadCasesStore } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import {
   checkPedagogicConsistency,
   checkAllPedagogicConsistency,
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
 
   try {
-  const store = loadCasesStore();
+  const store = await loadRuntimeCasesStore();
   const vakaId = req.nextUrl.searchParams.get("vakaId");
   const format = req.nextUrl.searchParams.get("format");
   const onlyProblems = req.nextUrl.searchParams.get("onlyProblems") !== "false";

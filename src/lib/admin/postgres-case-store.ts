@@ -258,9 +258,10 @@ export async function recordPostgresCaseMutation(input: {
         continue;
       }
       if (!sameJson(previous.content, vaka)) {
-        if (vaka.updatedAt < previous.updatedAt.getTime()) {
-          throw new PostgresCaseMutationError("Vaka güncelleme zamanı geriye alınamaz.");
-        }
+        // Bazı legacy toplu araçlar gövdeyi değiştirirken updatedAt'i
+        // güncellemez. PostgreSQL kaynağında optimistic lock için her gerçek
+        // gövde değişikliğine monoton zaman damgası verilir.
+        vaka.updatedAt = Math.max(Date.now(), previous.updatedAt.getTime() + 1, vaka.updatedAt);
         await tx.update(clinicalCases).set(caseUpdateValues(vaka)).where(eq(clinicalCases.caseId, caseId));
       }
     }

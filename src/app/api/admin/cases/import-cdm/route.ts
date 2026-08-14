@@ -4,7 +4,8 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { caseContentChecksum } from "@/lib/admin/case-integrity";
-import { clone, loadCasesStore, recordMutation } from "@/lib/admin/store";
+import { clone } from "@/lib/admin/store";
+import { loadRuntimeCasesStore, recordRuntimeCaseMutation } from "@/lib/admin/runtime-case-store";
 import {
   createCdmImportConfirmation,
   verifyCdmImportConfirmation,
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const store = loadCasesStore();
+    const store = await loadRuntimeCasesStore();
     const existingIds = new Set(store.cases.map((c) => c.id));
     const imported: string[] = [];
     const updated: string[] = [];
@@ -142,11 +143,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const result = recordMutation(
-      session!.username,
-      "import_cdm",
-      `CDM import: +${imported.length} yeni, ${updated.length} güncelleme, ${skipped.length} atlandı.`,
-      adminCases
+    const result = await recordRuntimeCaseMutation({
+      actor: session!.username,
+      action: "import_cdm",
+      message: `CDM import: +${imported.length} yeni, ${updated.length} güncelleme, ${skipped.length} atlandı.`,
+      patches: adminCases
         .filter((av) => imported.includes(av.id) || updated.includes(av.id))
         .map((av) => {
           const before = store.cases.find((c) => c.id === av.id) || null;
@@ -157,7 +158,7 @@ export async function POST(req: NextRequest) {
             after: clone(av),
           };
         }),
-      (s) => {
+      mutate: (s) => {
         for (const av of adminCases) {
           if (skipped.includes(av.id)) continue;
           const idx = s.cases.findIndex((c) => c.id === av.id);
@@ -167,8 +168,8 @@ export async function POST(req: NextRequest) {
             s.cases.push(av);
           }
         }
-      }
-    );
+      },
+    });
 
     return NextResponse.json({
       ok: true,

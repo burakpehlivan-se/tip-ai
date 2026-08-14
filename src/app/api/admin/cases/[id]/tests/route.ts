@@ -6,9 +6,8 @@ import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
 import {
   clone,
-  getCaseById,
-  recordMutation,
 } from "@/lib/admin/store";
+import { getRuntimeCaseById, recordRuntimeCaseMutation } from "@/lib/admin/runtime-case-store";
 import { TestSonucu } from "@/lib/types";
 import { getRequestId, logger } from "@/lib/logger";
 
@@ -33,7 +32,7 @@ export async function POST(
 
   const { id: rawId } = await params;
   const caseId = decodeId(rawId);
-  const vaka = getCaseById(caseId);
+  const vaka = await getRuntimeCaseById(caseId);
   if (!vaka) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
   try {
@@ -60,11 +59,11 @@ export async function POST(
       ? `"${vaka.hastalikAdi}" vakasına "${test.testAdi}" (${testKey}) testi eklendi.`
       : `"${vaka.hastalikAdi}" vakasının "${test.testAdi}" (${testKey}) testi güncellendi.`;
 
-    const result = recordMutation(
-      session!.username,
+    const result = await recordRuntimeCaseMutation({
+      actor: session!.username,
       action,
       message,
-      [
+      patches: [
         {
           path: `cases.${caseId}.statikTestler.${testKey}`,
           caseId,
@@ -73,14 +72,14 @@ export async function POST(
           after: clone(test),
         },
       ],
-      (s) => {
+      mutate: (s) => {
         const idx = s.cases.findIndex((c) => c.id === caseId);
         if (idx >= 0) {
           s.cases[idx].statikTestler[testKey] = test;
           s.cases[idx].updatedAt = Date.now();
         }
-      }
-    );
+      },
+    });
 
     return NextResponse.json({
       ok: true,
@@ -108,7 +107,7 @@ export async function PATCH(
 
   const { id: rawId } = await params;
   const caseId = decodeId(rawId);
-  const vaka = getCaseById(caseId);
+  const vaka = await getRuntimeCaseById(caseId);
   if (!vaka) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
   try {
@@ -133,11 +132,11 @@ export async function PATCH(
 
     const message = `"${vaka.hastalikAdi}" vakasının "${testKey}" testinin ${field} değeri ${formatVal(before)} → ${formatVal(after)} olarak değiştirildi.`;
 
-    const result = recordMutation(
-      session!.username,
-      "update_test_field",
+    const result = await recordRuntimeCaseMutation({
+      actor: session!.username,
+      action: "update_test_field",
       message,
-      [
+      patches: [
         {
           path: pathStr,
           caseId,
@@ -147,7 +146,7 @@ export async function PATCH(
           after: clone(after),
         },
       ],
-      (s) => {
+      mutate: (s) => {
         const idx = s.cases.findIndex((c) => c.id === caseId);
         if (idx < 0) return;
         let cur: any = s.cases[idx].statikTestler[testKey];
@@ -159,8 +158,8 @@ export async function PATCH(
         }
         cur[parts[parts.length - 1]] = after;
         s.cases[idx].updatedAt = Date.now();
-      }
-    );
+      },
+    });
 
     const updated = result.store.cases.find((c) => c.id === caseId)?.statikTestler[testKey];
     return NextResponse.json({
@@ -189,7 +188,7 @@ export async function DELETE(
 
   const { id: rawId } = await params;
   const caseId = decodeId(rawId);
-  const vaka = getCaseById(caseId);
+  const vaka = await getRuntimeCaseById(caseId);
   if (!vaka) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
   const testKey = String(req.nextUrl.searchParams.get("testKey") || "")
@@ -200,11 +199,11 @@ export async function DELETE(
   }
 
   const before = clone(vaka.statikTestler[testKey]);
-  const result = recordMutation(
-    session!.username,
-    "delete_test",
-    `"${vaka.hastalikAdi}" vakasından "${before.testAdi}" (${testKey}) testi silindi.`,
-    [
+  const result = await recordRuntimeCaseMutation({
+    actor: session!.username,
+    action: "delete_test",
+    message: `"${vaka.hastalikAdi}" vakasından "${before.testAdi}" (${testKey}) testi silindi.`,
+    patches: [
       {
         path: `cases.${caseId}.statikTestler.${testKey}`,
         caseId,
@@ -213,14 +212,14 @@ export async function DELETE(
         after: null,
       },
     ],
-    (s) => {
+    mutate: (s) => {
       const idx = s.cases.findIndex((c) => c.id === caseId);
       if (idx >= 0) {
         delete s.cases[idx].statikTestler[testKey];
         s.cases[idx].updatedAt = Date.now();
       }
-    }
-  );
+    },
+  });
 
   return NextResponse.json({ ok: true, log: result.log, backup: result.backup });
 }

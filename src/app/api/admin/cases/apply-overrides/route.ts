@@ -3,7 +3,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
-import { loadCasesStore, saveCasesStore, appendLog, clone } from "@/lib/admin/store";
+import { clone } from "@/lib/admin/store";
+import { loadRuntimeCasesStore, recordRuntimeCaseMutation } from "@/lib/admin/runtime-case-store";
 import {
   analyzeVakaOverrides,
   applyOverrideMigration,
@@ -23,7 +24,7 @@ export async function POST(req: NextRequest) {
     const vakaId = body.vakaId as string | undefined;
     const dryRun = body.dryRun !== false; // default true
 
-    const store = loadCasesStore();
+    const store = await loadRuntimeCasesStore();
 
     if (vakaId) {
       const vaka = store.cases.find((c) => c.id === vakaId);
@@ -43,15 +44,9 @@ export async function POST(req: NextRequest) {
       }
 
       const updated = applyOverrideMigration(vaka, report);
-      const index = store.cases.findIndex((c) => c.id === vakaId);
-      store.cases[index] = updated;
-      store.updatedAt = Date.now();
-      store.changeCount = (store.changeCount || 0) + 1;
-      saveCasesStore(store);
-
-      appendLog({
-        action: "update_case",
+      await recordRuntimeCaseMutation({
         actor: session!.username,
+        action: "update_case",
         message: `Override migration uygulandı: ${vakaId} — ${report.summary.removableCount} test temizlendi.`,
         patches: [
           {
@@ -62,6 +57,10 @@ export async function POST(req: NextRequest) {
             after: clone(updated.statikTestler),
           },
         ],
+        mutate: (target) => {
+          const index = target.cases.findIndex((item) => item.id === vakaId);
+          if (index >= 0) target.cases[index] = updated;
+        },
       });
 
       return NextResponse.json({
@@ -97,17 +96,22 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    if (!dryRun) {
-      store.updatedAt = Date.now();
-      store.changeCount = (store.changeCount || 0) + 1;
-      saveCasesStore(store);
-
+    if (!dryRun && results.length > 0) {
       const totalRemoved = results.reduce((s, r) => s + r.removed, 0);
-      appendLog({
-        action: "update_case",
+      await recordRuntimeCaseMutation({
         actor: session!.username,
+        action: "update_case",
         message: `Toplu override migration: ${results.length} vaka işlendi, ${totalRemoved} test temizlendi.`,
         patches: [],
+        mutate: (target) => {
+          for (const result of results) {
+            const original = target.cases.find((item) => item.id === result.vakaId);
+            if (!original) continue;
+            const report = analyzeVakaOverrides(original);
+            const index = target.cases.findIndex((item) => item.id === result.vakaId);
+            if (index >= 0) target.cases[index] = applyOverrideMigration(original, report);
+          }
+        },
       });
     }
 

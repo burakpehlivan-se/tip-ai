@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { loadCasesStore } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import { buildTestInventory } from "@/lib/pipeline/master-catalogue";
 import { scanAllCases, problemCases } from "@/lib/pipeline/case-scanner";
 
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   const denied = requirePermission(session, "cases.validate");
   if (denied) return denied;
 
-  const cases = loadCasesStore().cases;
+  const cases = (await loadRuntimeCasesStore()).cases;
   const inventory = buildTestInventory(cases);
   const scan = scanAllCases(cases);
 
