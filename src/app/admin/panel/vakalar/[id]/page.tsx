@@ -386,9 +386,9 @@ export default function AdminVakaDetailPage() {
   });
   const [presentation, setPresentation] = useState({
     anaSikayet: "",
-    ozetBilgiler: "",
     semptomSablon: "",
   });
+  const [ozetBilgilerList, setOzetBilgilerList] = useState<string[]>([]);
   const [conditions, setConditions] = useState<Condition[]>([]);
   const [kabulEdilenTani, setKabulEdilenTani] = useState("");
   const [beklenenSorular, setBeklenenSorular] = useState<RubrikAksiyon[]>([]);
@@ -456,9 +456,9 @@ export default function AdminVakaDetailPage() {
     });
     setPresentation({
       anaSikayet: c.anaSikayet || "",
-      ozetBilgiler: (c.ozetBilgiler || []).join("\n"),
       semptomSablon: c.semptomSablon || "",
     });
+    setOzetBilgilerList(c.ozetBilgiler || []);
     setConditions(c.conditions?.length ? c.conditions : []);
     setKabulEdilenTani((c.rubric?.kabulEdilenTani || []).join(", "));
     setBeklenenSorular(c.rubric?.beklenenSorular || []);
@@ -694,7 +694,7 @@ export default function AdminVakaDetailPage() {
         komorbiditeler: csvToList(patient.komorbiditeler),
       },
       anaSikayet: presentation.anaSikayet,
-      ozetBilgiler: linesToList(presentation.ozetBilgiler),
+      ozetBilgiler: ozetBilgilerList.map((s) => s.trim()).filter(Boolean),
       semptomSablon: presentation.semptomSablon,
       conditions: conditions
         .map((c) => ({
@@ -1148,14 +1148,37 @@ export default function AdminVakaDetailPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-muted">Özet bilgiler (satır satır)</label>
-            <textarea
-              className="input w-full min-h-[100px]"
-              value={presentation.ozetBilgiler}
-              onChange={(e) =>
-                setPresentation({ ...presentation, ozetBilgiler: e.target.value })
-              }
-            />
+            <label className="text-xs text-muted">Özet bilgiler (öykü — birden fazla ekleyin)</label>
+            <div className="space-y-2">
+              {ozetBilgilerList.map((b, i) => (
+                <div key={i} className="flex items-center gap-2">
+                  <input
+                    className="input flex-1"
+                    value={b}
+                    onChange={(e) => {
+                      const next = [...ozetBilgilerList];
+                      next[i] = e.target.value;
+                      setOzetBilgilerList(next);
+                    }}
+                    placeholder="Örn. 2 haftadır baş ağrısı"
+                  />
+                  <button
+                    type="button"
+                    className="text-xs text-clinical-red hover:underline"
+                    onClick={() => setOzetBilgilerList(ozetBilgilerList.filter((_, j) => j !== i))}
+                  >
+                    Sil
+                  </button>
+                </div>
+              ))}
+              <button
+                type="button"
+                className="text-xs font-medium text-brand-deep hover:underline"
+                onClick={() => setOzetBilgilerList((l) => [...l, ""])}
+              >
+                + Özet bilgi ekle
+              </button>
+            </div>
           </div>
           <div>
             <label className="text-xs text-muted">Semptom şablonu</label>
