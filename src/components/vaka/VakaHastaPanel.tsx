@@ -43,20 +43,6 @@ export default function VakaHastaPanel({
           </div>
         </div>
 
-        <div className="mb-6">
-          <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
-            Bilinen Bilgiler
-          </h4>
-          <ul className="space-y-2">
-            {vaka.hasta.ozetBilgiler.map((bilgi) => (
-              <li key={bilgi} className="flex items-start gap-2 text-sm text-steel">
-                <span className="text-brand mt-0.5">•</span>
-                <span>{bilgi}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-
         <div className="border-t border-hairline pt-4">
           <h4 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
             İlerleme
