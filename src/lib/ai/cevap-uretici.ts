@@ -248,10 +248,18 @@ async function grupUret(
     };
   }
 }
+/** İlerleme olayı — SSE akışı ve CLI için ortak. */
+export interface UretimIlerleme {
+  tip: "grup" | "tamamla";
+  tamamlanan: number;
+  toplam: number;
+}
+
 /** Vaka profilinden tüm chip yanıtlarını üretir. */
 export async function vakaCevaplariniUret(
   vaka: AdminVaka,
-  secenekler: UretimSecenekleri = {}
+  secenekler: UretimSecenekleri = {},
+  onProgress?: (ilerleme: UretimIlerleme) => void
 ): Promise<CevapUretimSonucu> {
   const profil = profilOlustur(vaka);
 
@@ -283,6 +291,7 @@ export async function vakaCevaplariniUret(
     for (const [k, v] of Object.entries(uretilen)) {
       if (anahtarlar.has(k)) cevaplar[k] = v;
     }
+    onProgress?.({ tip: "grup", tamamlanan: i + 1, toplam: gruplar.length });
   }
 
   // Eksikleri tamamlama turu
@@ -298,6 +307,7 @@ export async function vakaCevaplariniUret(
         kazanim += 1;
       }
     }
+    onProgress?.({ tip: "tamamla", tamamlanan: tur + 1, toplam: MAX_TAMAMLAMA_TURU });
     if (kazanim === 0) break;
   }
 

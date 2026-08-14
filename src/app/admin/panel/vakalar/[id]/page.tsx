@@ -530,7 +530,7 @@ export default function AdminVakaDetailPage() {
     if (!vaka) return;
     setAiUretiliyor(true);
     setError("");
-    setAiRapor("");
+    setAiRapor("Başlatılıyor…");
     setAiUyarilar([]);
     setAiProfil("");
     setAiGruplar([]);
@@ -544,25 +544,60 @@ export default function AdminVakaDetailPage() {
           kisilikTipi: aiKisilik ? aiKisilikTipi : undefined,
         }),
       });
-      const d = await res.json();
       if (!res.ok) {
-        setError(d.error || "AI üretimi başarısız.");
+        const d = await res.json().catch(() => null);
+        setError(d?.error || "AI üretimi başarısız.");
         return;
       }
-      const satirlar = Object.entries(d.cevaplar || {})
-        .map(([k, v]) => `${k}=${v}`)
-        .join("\n");
-      setYanitlarText(satirlar);
-      const r = d.rapor;
-      setAiRapor(
-        r
-          ? `Üretildi: ${r.cevaplananSoru}/${r.toplamSoru} soru. Eksik: ${r.eksikSoru.length}. Uyarı: ${r.uyarilar.length}.`
-          : ""
-      );
-      setAiUyarilar(Array.isArray(r?.uyarilar) ? r.uyarilar : []);
-      setAiProfil(typeof d.debug?.profil === "string" ? d.debug.profil : "");
-      setAiGruplar(Array.isArray(d.debug?.gruplar) ? d.debug.gruplar : []);
-      notify("AI cevapları üretildi. '8. Yanıtlar' sekmesinden gözden geçirip CDM kaydedin.");
+      if (!res.body) {
+        setError("Sunucudan akış alınamadı.");
+        return;
+      }
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let tampon = "";
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        tampon += decoder.decode(value, { stream: true });
+        let ayrac: number;
+        while ((ayrac = tampon.indexOf("\n\n")) !== -1) {
+          const blok = tampon.slice(0, ayrac);
+          tampon = tampon.slice(ayrac + 2);
+          const dataSatiri = blok.split("\n").find((l) => l.startsWith("data:"));
+          if (!dataSatiri) continue;
+          let olay: Record<string, unknown>;
+          try {
+            olay = JSON.parse(dataSatiri.slice(5).trim());
+          } catch {
+            continue;
+          }
+          if (olay.tip === "ilerleme") {
+            const tur = olay.tur === "grup" ? `Grup ${olay.tamamlanan}/${olay.toplam}` : `Tamamlama ${olay.tamamlanan}/${olay.toplam}`;
+            setAiRapor(`${tur} üretiliyor…`);
+          } else if (olay.tip === "tamam") {
+            const cevaplar = (olay.cevaplar ?? {}) as Record<string, string>;
+            const rapor = olay.rapor as { cevaplananSoru?: number; toplamSoru?: number; eksikSoru?: string[]; uyarilar?: string[] } | undefined;
+            const debug = olay.debug as { profil?: string; gruplar?: Array<{ index: number; chipSayisi: number; prompt: string; hamYanit: string; hata?: string }> } | undefined;
+            const satirlar = Object.entries(cevaplar)
+              .map(([k, v]) => `${k}=${v}`)
+              .join("\n");
+            setYanitlarText(satirlar);
+            setAiRapor(
+              rapor
+                ? `Üretildi: ${rapor.cevaplananSoru}/${rapor.toplamSoru} soru. Eksik: ${rapor.eksikSoru?.length ?? 0}. Uyarı: ${rapor.uyarilar?.length ?? 0}.`
+                : ""
+            );
+            setAiUyarilar(Array.isArray(rapor?.uyarilar) ? rapor.uyarilar : []);
+            setAiProfil(typeof debug?.profil === "string" ? debug.profil : "");
+            setAiGruplar(Array.isArray(debug?.gruplar) ? debug.gruplar : []);
+            notify("AI cevapları üretildi. '8. Yanıtlar' sekmesinden gözden geçirip CDM kaydedin.");
+          } else if (olay.tip === "hata") {
+            setError(typeof olay.mesaj === "string" ? olay.mesaj : "AI üretimi başarısız.");
+          }
+        }
+      }
     } catch {
       setError("AI üretimi başarısız.");
     } finally {
