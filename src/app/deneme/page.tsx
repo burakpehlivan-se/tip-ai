@@ -136,7 +136,7 @@ export default function DenemePage() {
             await actionIstek("reasoning", { reasoning });
           }}
           onEvaluate={async (attempt: CompletedAttempt) => {
-            const sonuc = (await actionIstek("complete", { taniGirildi: attempt.taniGirildi, reasoning: attempt.clinicalReasoning }))?.sonuc;
+            const sonuc = (await actionIstek("complete", { taniGirildi: attempt.taniGirildi, tedaviGirildi: attempt.tedaviGirildi, reasoning: attempt.clinicalReasoning }))?.sonuc;
             if (!sonuc) throw new Error("Değerlendirme alınamadı.");
             return sonuc;
           }}

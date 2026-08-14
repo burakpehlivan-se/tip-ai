@@ -286,9 +286,11 @@ export function completeStudentAttempt(
   id: string,
   actor: string,
   taniGirildi: string,
+  tedaviGirildi: string,
   reasoning: ClinicalReasoningInput | null,
   studentId?: string
 ): Promise<DegerlendirmeSonuc | null> {
+  if (!taniGirildi.trim() || !tedaviGirildi.trim()) return Promise.resolve(null);
   assertSupportedAttemptStore(actor);
   if (shouldUsePostgresAttemptStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");

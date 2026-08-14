@@ -36,9 +36,9 @@ describe("student attempt store", () => {
     expect(yanit).toBeTruthy();
     const test = await requestStudentAttemptTest(vaka!.id, "ogrenci.test", vaka!.testler[0].testKey);
     expect(test?.testAdi).toBe(vaka!.testler[0].testAdi);
-    const sonuc = await completeStudentAttempt(vaka!.id, "ogrenci.test", "rastgele tanı", null);
+    const sonuc = await completeStudentAttempt(vaka!.id, "ogrenci.test", "rastgele tanı", "izlem planı", null);
     expect(sonuc).not.toBeNull();
-    await expect(completeStudentAttempt(vaka!.id, "ogrenci.test", "rastgele tanı", null)).resolves.toBeNull();
+    await expect(completeStudentAttempt(vaka!.id, "ogrenci.test", "rastgele tanı", "izlem planı", null)).resolves.toBeNull();
   });
 
   it("aynı kullanıcının güncel oturumunu ilerleme verisiyle sürdürür, diğer kullanıcıya göstermez", async () => {
@@ -69,7 +69,7 @@ describe("student attempt store", () => {
     const resumed = await getActiveStudentAttempt("ogrenci.muhakeme", "kardiyoloji");
     expect(resumed?.ilerleme.clinicalReasoning?.differentials).toEqual(["Akut koroner sendrom", "Pulmoner emboli"]);
 
-    const sonuc = await completeStudentAttempt(vaka!.id, "ogrenci.muhakeme", "rastgele tanı", null);
+    const sonuc = await completeStudentAttempt(vaka!.id, "ogrenci.muhakeme", "rastgele tanı", "izlem planı", null);
     expect(sonuc?.clinicalReasoning?.feedback).toEqual(expect.objectContaining({ recorded: true, confidence: 80 }));
   });
 
@@ -90,6 +90,13 @@ describe("student attempt store", () => {
     expect(resumed?.id).toBe(vaka!.id);
     await expect(getActiveStudentAttemptForAssignment("ogrenci.atama", "assignment-2")).resolves.toBeNull();
     await expect(getActiveStudentAttemptForAssignment("baska.ogrenci", "assignment-1")).resolves.toBeNull();
+  });
+
+  it("boş tedavi planıyla vaka değerlendirmesini tamamlamaz", async () => {
+    const vaka = await startStudentAttempt("ogrenci.tedavi", "kardiyoloji");
+    expect(vaka).not.toBeNull();
+    await expect(completeStudentAttempt(vaka!.id, "ogrenci.tedavi", "ön tanı", "", null)).resolves.toBeNull();
+    expect(await getActiveStudentAttempt("ogrenci.tedavi", "kardiyoloji")).not.toBeNull();
   });
 
   it("bozuk oturum dosyasını sessizce boş saymak yerine karantinaya alır", async () => {

@@ -6,7 +6,7 @@
 ## Visual Theme & Atmosphere
 
 Türkçe klinik karar simülasyon sistemi. Temiz, hijyenik, profesyonel — mint yeşili
-aksent (#00d4a4) tıp/sağlık psikolojisi için seçildi. Beyaz canvas, Inter font,
+aksent (#14b8a6) tıp/sağlık psikolojisi için seçildi. Beyaz canvas, sistem UI fontu,
 pill butonlar. Klinik yazılım hissi veren sade tasarım dili — bilişsel yükü azaltır,
 uzun vaka çalışma seansları için gözü yormaz.
 
@@ -27,9 +27,9 @@ uzun vaka çalışma seansları için gözü yormaz.
 | `muted` | #a8a8aa | Disabled, placeholder |
 | `hairline` | #e5e5e5 | 1px border'lar |
 | `hairline-soft` | #ededed | Hafif divider'lar |
-| `brand` | #00d4a4 | Ana aksent — buton, başarı, aktif |
-| `brand-deep` | #00b48a | Hover/active aksent |
-| `brand-soft` | #7cebcb | Hafif aksent arka plan |
+| `brand` | #14b8a6 | Ana aksent — buton, başarı, aktif |
+| `brand-deep` | #0f766e | Hover/active aksent |
+| `brand-soft` | #99f6e4 | Hafif aksent arka plan |
 | `clinical-red` | #d45656 | Hata, red flag, negatif puan |
 | `clinical-orange` | #f59e0b | Uyarı, orta seviye |
 | `clinical-blue` | #3772cf | Bilgi, kategori etiketi |
@@ -50,8 +50,9 @@ uzun vaka çalışma seansları için gözü yormaz.
 | caption | 13px | 400 | 1.40 | 0 | Badge, meta, caption |
 | button-md | 14px | 500 | 1.30 | 0 | Buton etiketleri |
 
-Font ailesi: **Inter** (UI) + **Geist Mono** (kod — ileride). Inter Türkçe karakter
-desteği mükemmel. Display weight 600, body weight 400.
+Font ailesi: sistem UI yığını (`-apple-system`, `BlinkMacSystemFont`, `Segoe UI`,
+`Roboto`) + **Geist Mono** (kod — ileride). Sistem yığını Türkçe karakter desteğini
+harici font isteği olmadan korur. Display weight 600, body weight 400.
 
 ## Component Stylings
 
@@ -89,15 +90,38 @@ desteği mükemmel. Display weight 600, body weight 400.
 - Section padding: 64-96px ana bölümler arası
 - Mobilde 3-panel → tabbed/scroll
 
+### Vaka çalışma alanı
+
+- **Tek görev kuralı:** Aktif klinik faz; başlığı, ana çalışma yüzeyini, sağ
+  bağlam aracını ve birincil eylemi tek başına belirler. Aynı anda başka bir
+  faza ait form veya katalog gösterilmez.
+- **Faz adımlayıcısı:** Anamnez, Tetkikler, Tanı ve Tedavi sıralı,
+  numaralı adımlardır. Aktif durum metin, dolu sayı rozeti ve alt çizgiyle;
+  tamamlanan durum onay işaretiyle gösterilir. Renk tek başına durum taşımaz.
+- **Scroll sahipliği:** Uygulama kabuğu `100dvh` ile sınırlıdır; başlık ve
+  faz eylemi sabit, ana çalışma alanı ile bağlam paneli kendi içeriklerini
+  bağımsız kaydırır. Grid/flex kaydırma çocukları `min-h-0` kullanır.
+- **Masaüstü:** 288px vaka özeti + akışkan, en fazla 896px görev alanı +
+  320px bağlam aracı. 1280px altında bağlam aracı ikincil görünüm olarak
+  açılır; 1024px altında özet ve araç alanları çekmece/alt gezintiyle açılır.
+- **Mobil:** Ana görev tek sütundur. Aktif faz ve birincil eylem görünür
+  kalır; özet ve bağlam araçları ikincil görünüme taşınır.
+
 ## Do's and Don'ts
 
 ### Do
 - Mint yeşili aksent'i sadece başarı, aktif durum ve accent CTA için kullan
 - Siyah primer CTA butonları kullan
-- Inter font kullan, her zaman
+- Tanımlı sistem UI font yığınını kullan, her zaman
 - Beyaz canvas'ı koru — temiz, klinik his
 - Pill butonlar (rounded-full) her zaman
 - Kartlar için rounded-lg (12px)
+- Vaka akışında eylemi açık bir fiille adlandır: “Sor”, “Tetkikleri iste”,
+  “Tanıyı kaydet”, “Tedaviyi değerlendir”.
+- En az 40px hedef alanı, görünür odak halkası, alan etiketi ve hata/yardım
+  metnini birlikte kullan.
+- Testlerde “seçildi”, “istendi” ve “sonuç hazır” durumlarını ayrı göster;
+  ekleme işlemi tek başına istem göndermez.
 
 ### Don't
 - Aksent rengini büyük yüzeylerde kullanma
@@ -105,6 +129,19 @@ desteği mükemmel. Display weight 600, body weight 400.
 - Ağır gölgeler kullanma — soft shadow yeterli
 - İkinci bir aksent renk ekleme (clinical renkler sadece semantic durumlar için)
 - Gerçek siyah (#000000) canvas olarak kullanma — #0a0a0a veya #ffffff
+- Fazlar arasında çelişen içerik, sağ panel ve çağrı-eylem göstermeme.
+- Eğitim vakalarında gerçek kimlik numarasını gösterme; sentetik vaka için
+  “Vaka Kimliği” kullan.
+
+## Vaka Primitives & States
+
+| Primitive | States | Purpose |
+|---|---|---|
+| `FazStepper` | upcoming, active, complete, focus | Current task and safe return to an earlier phase |
+| `GörevYüzeyi` | guidance, empty, populated | Phase-specific central clinical work area |
+| `TetkikSeçici` | default, selected, ordered, loading, empty search | Search, add, review and submit investigations |
+| `TaslakDurumu` | saving, saved locally, error | Makes local draft persistence explicit |
+| `FazBestecisi` | empty, invalid, ready, submitting | Stage-specific input, validation and primary action |
 
 ## Responsive Behavior
 

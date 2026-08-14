@@ -26,6 +26,13 @@ import {
 
 export type WorkspaceFaz = "anamnez" | "test" | "tani" | "tedavi";
 
+const FAZLAR: Array<{ id: WorkspaceFaz; sira: number; etiket: string; aciklama: string }> = [
+  { id: "anamnez", sira: 1, etiket: "Anamnez", aciklama: "Hastanın öyküsünü netleştir" },
+  { id: "test", sira: 2, etiket: "Tetkikler", aciklama: "Gerekli tetkikleri seç" },
+  { id: "tani", sira: 3, etiket: "Tanı", aciklama: "Klinik değerlendirmeni kaydet" },
+  { id: "tedavi", sira: 4, etiket: "Tedavi", aciklama: "Planını oluştur ve değerlendir" },
+];
+
 /** Çemiçgezek kuyruğu için sohbet/test durumu anlık görüntüsü */
 export interface WorkspaceSnapshot {
   mesajlar: ChatMesaj[];
@@ -42,6 +49,7 @@ export interface CompletedAttempt {
   istenenTestler: string[];
   taniGirildi: string;
   clinicalReasoning: ClinicalReasoningInput;
+  tedaviGirildi: string;
 }
 
 interface Props {
@@ -67,6 +75,8 @@ interface Props {
   onReasoningSave?: (reasoning: ClinicalReasoningInput) => Promise<void>;
   /** İlk öğrenci vakasında kısa ve kapatılabilir çalışma rehberi gösterir. */
   onboarding?: boolean;
+  /** Tanı veya tedavi taslağı varken vaka değiştirmeden önce kullanıcıyı uyarır. */
+  onDirtyChange?: (isDirty: boolean) => void;
 }
 
 function defaultMesajlar(vaka: Vaka): ChatMesaj[] {
@@ -118,6 +128,7 @@ export default function VakaWorkspace({
   onEvaluate,
   onReasoningSave,
   onboarding = false,
+  onDirtyChange,
 }: Props) {
   // Debug modda sonuçlar her zaman açık
   const effectiveRaporHazir = debugMode ? true : raporHazir;
@@ -147,6 +158,7 @@ export default function VakaWorkspace({
   const [reasoningSaveState, setReasoningSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [sonuc, setSonuc] = useState<DegerlendirmeSonuc | null>(null);
   const [testArama, setTestArama] = useState("");
+  const [seciliTestKeyleri, setSeciliTestKeyleri] = useState<string[]>([]);
   const [chipArama, setChipArama] = useState("");
   const [acikKategoriler, setAcikKategoriler] = useState<Set<ChipKategorisi>>(new Set<ChipKategorisi>(["anamnez-agri"]));
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
@@ -165,6 +177,12 @@ export default function VakaWorkspace({
   const [onboardingKapatildi, setOnboardingKapatildi] = useState(false);
   const [islemYukleniyor, setIslemYukleniyor] = useState(false);
   const [islemHatasi, setIslemHatasi] = useState("");
+  const [taslakHazir, setTaslakHazir] = useState(false);
+  const [taslakDurumu, setTaslakDurumu] = useState<"kaydediliyor" | "yerel">("yerel");
+  const [taniHatasi, setTaniHatasi] = useState("");
+  const [tedaviHatasi, setTedaviHatasi] = useState("");
+  const [fazUyarisi, setFazUyarisi] = useState("");
+  const [taniKaydedildi, setTaniKaydedildi] = useState(initialSnapshot?.faz === "tedavi");
 
   const sorulanAksiyonSeti = useMemo(
     () => new Set(sorulanAksiyonlar),
@@ -181,6 +199,18 @@ export default function VakaWorkspace({
     opposingFindings: toReasoningList(opposingFindingsText),
     confidence,
   }), [problemRepresentation, differentialsText, supportingFindingsText, opposingFindingsText, confidence]);
+
+  const maxAcikFazIndex = taniKaydedildi ? 3 : testIstekleri.length > 0 ? 2 : 1;
+  const fazDegistir = (sonrakiFaz: WorkspaceFaz) => {
+    const sonrakiIndex = FAZLAR.findIndex((item) => item.id === sonrakiFaz);
+    if (sonrakiIndex > maxAcikFazIndex) {
+      const gereken = sonrakiFaz === "tani" ? "Tanı aşamasını açmak için önce en az bir tetkik isteyin." : "Tedavi aşamasını açmak için önce ön tanınızı kaydedin.";
+      setFazUyarisi(gereken);
+      return;
+    }
+    setFazUyarisi("");
+    setFaz(sonrakiFaz);
+  };
 
   const chatEndRef = useRef<HTMLDivElement>(null);
   const skipFirstSnapshot = useRef(true);
@@ -239,12 +269,45 @@ export default function VakaWorkspace({
 
   // Faz değişince mobil panel otomatik ayarlansın
   useEffect(() => {
-    if (faz === "test" || faz === "tani" || faz === "tedavi") {
-      setMobilPanel("testler");
-    } else {
-      setMobilPanel("sohbet");
-    }
+    setMobilPanel("sohbet");
   }, [faz]);
+
+  // Tanı ve tedavi taslağı ağ bağlantısından bağımsız olarak bu cihazda korunur.
+  useEffect(() => {
+    try {
+      const kayit = window.localStorage.getItem(`tip-ai-vaka-taslagi:${vaka.id}`);
+      if (kayit) {
+        const taslak = JSON.parse(kayit) as { taniInput?: string; tedaviInput?: string };
+        setTaniInput((mevcut) => mevcut || taslak.taniInput || "");
+        setTedaviInput((mevcut) => mevcut || taslak.tedaviInput || "");
+      }
+    } catch {
+      // Yerel depolama kullanılamazsa vaka akışı kesilmez.
+    } finally {
+      setTaslakHazir(true);
+    }
+  }, [vaka.id]);
+
+  useEffect(() => {
+    if (!taslakHazir) return;
+    setTaslakDurumu("kaydediliyor");
+    const timer = window.setTimeout(() => {
+      try {
+        window.localStorage.setItem(
+          `tip-ai-vaka-taslagi:${vaka.id}`,
+          JSON.stringify({ taniInput, tedaviInput })
+        );
+        setTaslakDurumu("yerel");
+      } catch {
+        setIslemHatasi("Taslak bu cihazda kaydedilemedi. Yanıtınızı kopyalayarak güvene alın.");
+      }
+    }, 350);
+    return () => window.clearTimeout(timer);
+  }, [taniInput, tedaviInput, taslakHazir, vaka.id]);
+
+  useEffect(() => {
+    onDirtyChange?.(Boolean(taniInput.trim() || tedaviInput.trim()));
+  }, [onDirtyChange, taniInput, tedaviInput]);
 
   // Native dialog klavye odağını sınırlar ve ESC ile iptal olayını sağlar.
   useEffect(() => {
@@ -361,6 +424,7 @@ export default function VakaWorkspace({
     };
 
     setTestIstekleri((prev) => [...prev, yeniIstek]);
+    setSeciliTestKeyleri((prev) => prev.filter((key) => key !== testKey));
     setMobilPanel("sohbet");
 
     const durumMesaji = mod === "cemicegek" && !effectiveRaporHazir
@@ -391,12 +455,27 @@ export default function VakaWorkspace({
     }
   };
 
+  const testSeciminiDegistir = (testKey: string) => {
+    if (testIstekleri.some((t) => t.testKey === testKey)) return;
+    setSeciliTestKeyleri((prev) =>
+      prev.includes(testKey) ? prev.filter((key) => key !== testKey) : [...prev, testKey]
+    );
+  };
+
+  const seciliTestleriIste = async () => {
+    if (seciliTestKeyleri.length === 0 || islemYukleniyor) return;
+    for (const testKey of seciliTestKeyleri) {
+      await testIstey(testKey);
+    }
+  };
+
   const tamamlama = () => {
     if (!taniInput.trim()) {
-      setIslemHatasi("Değerlendirmeye geçmeden önce bir ön tanı girin.");
+      setTaniHatasi("Tedavi aşamasına geçmeden önce ön tanınızı girin.");
       return;
     }
-    setIslemHatasi("");
+    setTaniHatasi("");
+    setTaniKaydedildi(true);
     setFaz("tedavi");
     setMesajlar((prev) => [
       ...prev,
@@ -416,12 +495,17 @@ export default function VakaWorkspace({
 
   const vakaTamamlamayiIste = (event: MouseEvent<HTMLButtonElement>) => {
     if (!taniInput.trim()) {
-      setIslemHatasi("Değerlendirmeye geçmeden önce bir ön tanı girin.");
+      setTaniHatasi("Tedavi aşamasına geçmeden önce ön tanınızı girin.");
       setFaz("tani");
       return;
     }
+    if (!tedaviInput.trim()) {
+      setTedaviHatasi("Tedaviyi değerlendirmek için en az bir tedavi, girişim veya izlem kararı ekleyin.");
+      return;
+    }
     completionTetikleyiciRef.current = event.currentTarget;
-    setIslemHatasi("");
+    setTaniHatasi("");
+    setTedaviHatasi("");
     setShowCompletionConfirm(true);
   };
 
@@ -432,11 +516,12 @@ export default function VakaWorkspace({
 
   const vakaTamamla = async (): Promise<boolean> => {
     if (islemYukleniyor) return false;
+    if (!taniInput.trim() || !tedaviInput.trim()) return false;
     setIslemYukleniyor(true);
     setIslemHatasi("");
     try {
     const istenenTestKeyleri = testIstekleri.map((t) => t.testKey);
-    const attempt = { sorulanAksiyonlar, istenenTestler: istenenTestKeyleri, taniGirildi: taniInput, clinicalReasoning };
+    const attempt = { sorulanAksiyonlar, istenenTestler: istenenTestKeyleri, taniGirildi: taniInput, clinicalReasoning, tedaviGirildi: tedaviInput };
     const deg = onEvaluate ? await onEvaluate(attempt) : degerlendir(vaka, sorulanAksiyonlar, istenenTestKeyleri, taniInput);
     if (!deg) return false;
     setSonuc(deg);
@@ -606,45 +691,27 @@ export default function VakaWorkspace({
       )}
       {/* Top Bar — embed/cemicegek’te parent bar kullanır */}
       {!embed && (
-      <div className="flex h-12 lg:h-14 items-center justify-between border-b border-hairline bg-canvas px-3 lg:px-4">
-        <div className="flex items-center gap-1.5 lg:gap-2 min-w-0">
-          <Link href="/vakalar" aria-label="Vakalara dön" className="text-steel hover:text-ink transition-colors shrink-0">
+      <header className="flex min-h-14 items-center gap-3 border-b border-hairline bg-canvas px-3 lg:px-5">
+        <div className="flex min-w-0 items-center gap-1.5 lg:gap-2">
+          <Link href="/vakalar" aria-label="Vakalara dön" className="min-h-11 min-w-11 text-steel hover:text-ink transition-colors shrink-0 inline-flex items-center justify-center">
             <svg className="w-5 h-5 lg:w-4 lg:h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7"/></svg>
           </Link>
-          <span className="text-sm lg:text-base font-semibold text-ink truncate">{vaka.alan} · {vaka.hasta.yas} yaş</span>
+          <span className="text-sm font-semibold text-ink truncate">Vaka · {vaka.alan}</span>
         </div>
-        <div className="hidden sm:flex items-center gap-1 rounded-lg bg-surface p-0.5" role="group" aria-label="Vaka aşaması">
-          {(["anamnez","test","tani","tedavi"] as const).map((f) => (
-            <button key={f} aria-pressed={faz === f} onClick={() => setFaz(f)} className={`px-2.5 lg:px-3 py-1 rounded-md text-[11px] lg:text-xs font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
-              {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
-            </button>
-          ))}
-        </div>
-      </div>
+        <FazStepper faz={faz} onChange={fazDegistir} maxAcikFazIndex={maxAcikFazIndex} className="ml-auto hidden md:flex" />
+      </header>
       )}
       {/* Cemicegek / admin embed: faz sekmeleri yine görünsün */}
       {embed && (
-      <div className="flex h-9 shrink-0 items-center justify-between border-b border-hairline bg-canvas px-3">
+      <header className="flex min-h-12 shrink-0 items-center justify-between gap-3 border-b border-hairline bg-canvas px-3">
         <span className="text-xs text-steel truncate">
           {vaka.hasta.tamAd || vaka.hasta.ad} · {vaka.hasta.yas} yaş · {vaka.alan}
         </span>
-        <div className="hidden sm:flex items-center gap-1 rounded-lg bg-surface p-0.5" role="group" aria-label="Vaka aşaması">
-          {(["anamnez","test","tani","tedavi"] as const).map((f) => (
-            <button key={f} aria-pressed={faz === f} onClick={() => setFaz(f)} className={`px-2 py-0.5 rounded-md text-[11px] font-medium transition-colors ${faz === f ? "bg-ink text-white shadow-sm" : "text-steel hover:bg-surface-soft"}`}>
-              {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
-            </button>
-          ))}
-        </div>
-      </div>
+        <FazStepper faz={faz} onChange={fazDegistir} maxAcikFazIndex={maxAcikFazIndex} className="hidden md:flex" />
+      </header>
       )}
       {/* Mobil faz sekmeleri (sm altı) */}
-      <div className="flex sm:hidden shrink-0 border-b border-hairline bg-canvas px-1 overflow-x-auto scrollbar-none" role="group" aria-label="Vaka aşaması">
-        {(["anamnez","test","tani","tedavi"] as const).map((f) => (
-          <button key={f} aria-pressed={faz === f} onClick={() => setFaz(f)} className={`min-h-11 shrink-0 px-3 py-1.5 text-xs font-medium border-b-2 transition-colors ${faz === f ? "border-ink text-ink" : "border-transparent text-steel"}`}>
-            {f === "anamnez" ? "Anamnez" : f === "test" ? "Test" : f === "tani" ? "Tanı" : "Tedavi"}
-          </button>
-        ))}
-      </div>
+      <FazStepper faz={faz} onChange={fazDegistir} maxAcikFazIndex={maxAcikFazIndex} className="md:hidden" compact />
 
       {onboarding && !onboardingKapatildi && (
         <aside
@@ -693,6 +760,15 @@ export default function VakaWorkspace({
         Bu alana gerçek hasta bilgisi veya kişisel sağlık verisi girmeyin; yalnızca bu sentetik vaka üzerinden çalışın.
       </aside>
 
+      {fazUyarisi && (
+        <div className="shrink-0 border-b border-clinical-orange/30 bg-clinical-orange/5 px-4 py-2 lg:px-6" role="status" aria-live="polite">
+          <div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+            <p className="text-sm text-ink">{fazUyarisi}</p>
+            <button type="button" onClick={() => setFazUyarisi("")} className="btn-ghost shrink-0 px-2 py-1 text-xs">Kapat</button>
+          </div>
+        </div>
+      )}
+
       {/* 3-Panel Layout */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <VakaHastaPanel
@@ -702,8 +778,19 @@ export default function VakaWorkspace({
           istenenTestSayisi={testIstekleri.length}
         />
 
-        {/* Orta Panel — Sohbet */}
-        <div className={`${mobilPanel !== "sohbet" ? "hidden" : "flex"} lg:flex flex-col flex-1 overflow-hidden`}>
+        {/* Orta Panel — aktif klinik görev */}
+        <main id="vaka-gorevi" className={`${mobilPanel !== "sohbet" ? "hidden" : "flex"} lg:flex min-w-0 flex-col flex-1 overflow-hidden`}>
+          <section className="shrink-0 border-b border-hairline-soft bg-canvas px-4 py-4 lg:px-8">
+            <div className="mx-auto flex max-w-4xl items-start justify-between gap-4">
+              <div>
+                <p className="text-sm font-medium text-brand-deep">Adım {FAZLAR.find((item) => item.id === faz)?.sira} / {FAZLAR.length}</p>
+                <h1 className="mt-1 text-heading-5 text-ink">{FAZLAR.find((item) => item.id === faz)?.etiket}</h1>
+                <p className="mt-1 text-sm text-steel">{FAZLAR.find((item) => item.id === faz)?.aciklama}</p>
+              </div>
+              <TaslakDurumu durum={taslakDurumu} />
+            </div>
+          </section>
+          {faz === "anamnez" ? <>
           {/* Mesajlar */}
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6 lg:px-8">
             <div className="mx-auto max-w-2xl space-y-4" role="log" aria-label="Vaka sohbeti" aria-live="polite" aria-relevant="additions text">
@@ -755,13 +842,13 @@ export default function VakaWorkspace({
               const chips = [...relevant, ...rest];
               if (chips.length === 0) return null;
               return (
-                <div className="mx-auto max-w-2xl flex flex-wrap gap-1 pt-1.5 max-h-24 overflow-y-auto scrollbar-thin">
+                <div className="mx-auto flex max-w-2xl gap-1 overflow-x-auto pt-1.5 scrollbar-thin" aria-label="Önerilen anamnez soruları">
                   {chips.map((chip) => {
                     const soruldu = sorulanAksiyonSeti.has(chip.aksiyon);
                     const rel = relevantAksiyonSeti.has(chip.aksiyon);
                     return (
-                      <button key={chip.aksiyon} onClick={() => chipSor(chip)} disabled={soruldu || islemYukleniyor}
-                        className={`min-h-8 rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-[background-color,border-color,color] ${
+                          <button key={chip.aksiyon} onClick={() => chipSor(chip)} disabled={soruldu || islemYukleniyor}
+                        className={`min-h-8 shrink-0 rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-[background-color,border-color,color] ${
                           soruldu
                             ? "cursor-default border-hairline bg-surface text-muted/60 line-through"
                             : rel
@@ -838,6 +925,18 @@ export default function VakaWorkspace({
             </dialog>
           )}
 
+          </> : (
+            <FazGorevYuzeyi
+              faz={faz}
+              taniInput={taniInput}
+              tedaviInput={tedaviInput}
+              seciliTestKeyleri={seciliTestKeyleri}
+              testIstekleri={testIstekleri}
+              testKatalogu={displayTests}
+              onFazChange={fazDegistir}
+            />
+          )}
+
           {/* Input — faz bazlı */}
           <div className="border-t border-hairline bg-canvas px-3 py-3 lg:px-8 lg:py-4">
             <div className="mx-auto max-w-2xl">
@@ -850,52 +949,61 @@ export default function VakaWorkspace({
                   <button onClick={soruSor} disabled={islemYukleniyor} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Gönderiliyor…" : "Sor"}</button>
                 </div>
               ) : faz === "tani" ? (
-                <div className="flex gap-2">
+                <div>
+                  <div className="flex gap-2">
                   <label htmlFor="on-tani-ana" className="sr-only">Ön tanı</label>
-                  <input id="on-tani-ana" type="text" value={taniInput} onChange={(e) => { setTaniInput(e.target.value); setIslemHatasi(""); }} onKeyDown={(e) => e.key === "Enter" && tamamlama()} aria-describedby="simule-vaka-uyarisi"
+                  <input id="on-tani-ana" type="text" value={taniInput} onChange={(e) => { setTaniInput(e.target.value); setTaniKaydedildi(false); }} onKeyDown={(e) => e.key === "Enter" && tamamlama()}
                     placeholder="Ön tanınızı girin (örn: Akut Koroner Sendrom)…"
+                    aria-invalid={Boolean(taniHatasi)} aria-describedby={taniHatasi ? "tani-hatasi" : undefined}
                     className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
-                  <button onClick={tamamlama} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">Tanı →</button>
+                  <button onClick={tamamlama} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">Tanıyı kaydet</button>
+                  </div>
+                  {taniHatasi && <p id="tani-hatasi" className="mt-2 text-sm text-clinical-red" role="alert">{taniHatasi}</p>}
                 </div>
               ) : faz === "tedavi" ? (
-                <div className="flex gap-2">
+                <div>
+                  <div className="flex gap-2">
                   <label htmlFor="tedavi-plani-ana" className="sr-only">Tedavi planı</label>
-                  <textarea id="tedavi-plani-ana" value={tedaviInput} onChange={(e) => setTedaviInput(e.target.value)} aria-describedby="simule-vaka-uyarisi"
-                    placeholder="Tedavi planınızı yazın (ilaçlar, dozlar, prosedürler)…"
-                    className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none resize-none" rows={1} />
-                  <button onClick={vakaTamamlamayiIste} disabled={islemYukleniyor} className="btn-accent h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Puanlanıyor…" : "Puanla ✓"}</button>
+                  <textarea id="tedavi-plani-ana" value={tedaviInput} onChange={(e) => setTedaviInput(e.target.value)}
+                    placeholder="İlaç/girişim, doz veya yöntem, izlem ve takip kararınızı yazın…"
+                    aria-invalid={Boolean(tedaviHatasi)} aria-describedby={tedaviHatasi ? "tedavi-hatasi" : undefined}
+                    className="flex-1 min-h-12 rounded-xl border border-hairline bg-surface px-4 py-3 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none resize-none" rows={2} />
+                  <button onClick={vakaTamamlamayiIste} disabled={islemYukleniyor || !tedaviInput.trim()} className="btn-accent min-h-12 px-5 shrink-0 text-sm">{islemYukleniyor ? "Değerlendiriliyor…" : "Tedaviyi değerlendir"}</button>
+                  </div>
+                  {tedaviHatasi && <p id="tedavi-hatasi" className="mt-2 text-sm text-clinical-red" role="alert">{tedaviHatasi}</p>}
                 </div>
               ) : (
                 <div className="flex items-center justify-between gap-2">
-                  <span className="text-xs text-steel">Test istemek için sağ paneli kullanın</span>
+                  <span className="text-sm text-steel">Önce bağlam araçlarından tetkikleri seçin, ardından istemi gönderin.</span>
                   <button onClick={() => setFaz("tani")} className="btn-secondary h-11 lg:h-10 shrink-0 text-xs lg:text-sm px-3 lg:px-4" disabled={testIstekleri.length === 0}>
-                    Tanı ▸
+                    Tanıya geç
                   </button>
                 </div>
               )}
-              {/* Faz geçiş butonu */}
-              <div className="flex justify-center mt-1.5">
-                <button onClick={() => {
-                  const sira = (["anamnez","test","tani","tedavi"] as const);
-                  const idx = sira.indexOf(faz);
-                  setFaz(sira[(idx + 1) % sira.length]);
-                }}
-                  className="text-[10px] text-muted hover:text-ink transition-colors">
-                  {faz === "anamnez" ? "Testler ▸" : faz === "test" ? "Tanı ▸" : faz === "tani" ? "Tedavi ▸" : "Anamnez ▸"}
-                </button>
-              </div>
             </div>
           </div>
-        </div>
+        </main>
 
         {/* Sağ Panel — Testler ve Sonuçlar */}
         <div className={`${mobilPanel !== "testler" ? "hidden" : "flex"} w-full xl:flex xl:w-80 flex-shrink-0 border-l border-hairline bg-surface-soft overflow-y-auto scrollbar-thin flex-col`}>
           <div className="p-4 xl:p-6">
             {/* Test İsteme */}
-            <div className="mb-6">
+            <div className={`${faz === "test" ? "block" : "hidden"} mb-6`}>
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-                Test İste
+                Tetkik kataloğu
               </h3>
+
+              <div className="mb-3 rounded-lg border border-brand/25 bg-brand/5 p-3 xl:hidden">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-ink">Seçili tetkikler ({seciliTestKeyleri.length})</h4>
+                    <p className="mt-0.5 text-xs text-steel">İstem gönderilene kadar sonuç oluşmaz.</p>
+                  </div>
+                  <button type="button" onClick={seciliTestleriIste} disabled={seciliTestKeyleri.length === 0 || islemYukleniyor} className="btn-primary min-h-11 px-3 text-xs">
+                    {islemYukleniyor ? "İsteniyor…" : "Tetkikleri iste"}
+                  </button>
+                </div>
+              </div>
 
               {/* Test arama + inline filtreli liste */}
               <div className="mb-3 flex gap-2">
@@ -941,33 +1049,36 @@ export default function VakaWorkspace({
                       </div>
                       {testler.map((test) => {
                         const istendi = testIstekleri.some((t) => t.testKey === test.key);
+                        const secili = seciliTestKeyleri.includes(test.key);
                         const hasSonuc = !!vaka.statikTestler?.[test.key];
                         const tier = TEST_VISIBILITY_MAP[test.key]?.tier;
                         const beklenti = test.kategori === "Beklenti";
                         return (
                           <button
                             key={test.key}
-                            onClick={() => testIstey(test.key)}
+                            onClick={() => testSeciminiDegistir(test.key)}
                             disabled={istendi || islemYukleniyor}
                             className={`flex min-h-11 w-full items-center justify-between border-b border-hairline-soft px-4 py-2 text-left text-sm last:border-0 transition-colors ${
                               istendi
                                 ? "opacity-40 cursor-not-allowed bg-surface-soft"
-                                : "hover:bg-surface text-ink"
+                                : secili ? "bg-brand/10 text-ink ring-1 ring-inset ring-brand/40" : "hover:bg-surface text-ink"
                             }`}
                           >
                             <div className="min-w-0">
-                              <div className="font-medium flex items-center gap-1.5">
-                                {test.ad}
+                              <div className="font-medium leading-5">
+                                <span className="block">{test.ad}</span>
+                                <span className="mt-1 flex flex-wrap gap-1">
                                 {tier === "core" && (
                                   <span className="rounded-full bg-brand/15 px-1.5 py-0.5 text-[10px] font-medium text-brand-deep">
-                                    çekirdek
+                                    Temel test
                                   </span>
                                 )}
                                 {tier === "branch" && (
                                   <span className="rounded-full bg-clinical-blue/15 px-1.5 py-0.5 text-[10px] font-medium text-clinical-blue">
-                                    branş
+                                    Branşa özel
                                   </span>
                                 )}
+                                </span>
                               </div>
                               {beklenti && (
                                 <div className="mt-0.5 flex flex-wrap items-center gap-1">
@@ -989,11 +1100,7 @@ export default function VakaWorkspace({
                               {istendi && (
                                 <span className="text-[10px] text-brand-deep font-medium">✓</span>
                               )}
-                              {!istendi && (
-                                <span className="flex h-5 w-5 items-center justify-center rounded-full bg-brand/10 text-xs font-semibold text-brand-deep hover:bg-brand/20 transition-colors">
-                                  +
-                                </span>
-                              )}
+                              {!istendi && <span className="text-xs font-medium text-brand-deep">{secili ? "Seçildi" : "Seç"}</span>}
                             </div>
                           </button>
                         );
@@ -1005,7 +1112,44 @@ export default function VakaWorkspace({
               <p className="mt-1 text-[10px] text-muted text-right">
                 {visibleAllWithData.length} test
               </p>
+              <div className="mt-4 hidden rounded-lg border border-brand/25 bg-brand/5 p-3 xl:block">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-ink">Seçili tetkikler ({seciliTestKeyleri.length})</h4>
+                    <p className="mt-1 text-xs text-steel">Seçim, istem gönderilene kadar sonuç oluşturmaz.</p>
+                  </div>
+                  <button type="button" onClick={seciliTestleriIste} disabled={seciliTestKeyleri.length === 0 || islemYukleniyor} className="btn-primary min-h-11 px-3 text-xs">
+                    {islemYukleniyor ? "İsteniyor…" : "Tetkikleri iste"}
+                  </button>
+                </div>
+                {seciliTestKeyleri.length > 0 && (
+                  <ul className="mt-3 space-y-1.5" aria-label="Seçili tetkikler">
+                    {seciliTestKeyleri.map((key) => {
+                      const test = displayTests.find((item) => item.key === key);
+                      return test ? <li key={key} className="flex min-h-10 items-center justify-between gap-2 rounded-md bg-canvas px-2.5 text-xs text-ink"><span>{test.ad}</span><button type="button" onClick={() => testSeciminiDegistir(key)} className="btn-ghost min-h-9 px-2 text-xs text-steel">Kaldır</button></li> : null;
+                    })}
+                  </ul>
+                )}
+              </div>
             </div>
+
+            {faz !== "test" && (
+              <aside className="mb-6 rounded-lg border border-hairline bg-canvas p-4" aria-labelledby="baglam-araci-baslik">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted">Bağlam aracı</p>
+                <h3 id="baglam-araci-baslik" className="mt-1 text-heading-5 text-ink">
+                  {faz === "anamnez" ? "Vaka özeti" : faz === "tani" ? "Bulgular ve tetkikler" : "Tedavi güvenlik özeti"}
+                </h3>
+                {faz === "anamnez" ? (
+                  <p className="mt-2 text-sm leading-6 text-steel">Önce hastanın öyküsünü netleştirin. Sorularınız ve yanıtlarınız ana çalışma alanında birikir.</p>
+                ) : (
+                  <div className="mt-3 space-y-2 text-sm text-steel">
+                    <p><span className="font-medium text-ink">{testIstekleri.length}</span> tetkik istendi</p>
+                    {taniInput && <p><span className="font-medium text-ink">Ön tanı:</span> {taniInput}</p>}
+                    {faz === "tedavi" && <p className="rounded-md bg-clinical-orange/10 px-3 py-2 text-xs text-clinical-orange">Alerji ve kontrendikasyonlar için vaka bulgularını planınızla birlikte yeniden kontrol edin.</p>}
+                  </div>
+                )}
+              </aside>
+            )}
 
             {/* Debug: tanı için tüm test envanteri (sonuçlu + sonuçsuz) */}
             {debugMode && (
@@ -1080,13 +1224,13 @@ export default function VakaWorkspace({
             {/* İstenen Testler / Sonuçlar */}
             <div className="mb-4 border-t border-hairline pt-4">
               <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-                İstenen Test Sonuçları ({testIstekleri.length})
+                İstenen tetkikler ve sonuçlar ({testIstekleri.length})
               </h3>
               {testIstekleri.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-hairline p-6 text-center text-sm text-muted">
-                  Henüz test istenmedi.
+                  Henüz tetkik istenmedi.
                   <br />
-                  <span className="text-xs">Yukarıdan test iste.</span>
+                  <span className="text-xs">Tetkik aşamasında katalogdan seçim yapıp istemi gönderin.</span>
                 </div>
               ) : (
                 <div className="space-y-3">
@@ -1097,63 +1241,21 @@ export default function VakaWorkspace({
               )}
             </div>
 
-            {/* Tanı ve Tedavi Girişi — her zaman görünür */}
-            {testIstekleri.length > 0 && (
+            {(faz === "tani" || faz === "tedavi") && (
               <div className="mt-6 border-t border-hairline pt-4">
-                {(faz === "tani" || faz === "tedavi") && (
-                  <ClinicalReasoningFields
-                    problemRepresentation={problemRepresentation}
-                    differentialsText={differentialsText}
-                    supportingFindingsText={supportingFindingsText}
-                    opposingFindingsText={opposingFindingsText}
-                    confidence={confidence}
-                    savedState={reasoningSaveState}
-                    onProblemRepresentationChange={(value) => { setProblemRepresentation(value); setReasoningDirty(true); }}
-                    onDifferentialsChange={(value) => { setDifferentialsText(value); setReasoningDirty(true); }}
-                    onSupportingFindingsChange={(value) => { setSupportingFindingsText(value); setReasoningDirty(true); }}
-                    onOpposingFindingsChange={(value) => { setOpposingFindingsText(value); setReasoningDirty(true); }}
-                    onConfidenceChange={(value) => { setConfidence(value); setReasoningDirty(true); }}
-                  />
-                )}
-                {faz === "tani" ? (
-                  <>
-                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-                      Ön Tanı
-                    </h3>
-                    <label htmlFor="on-tani-sag" className="sr-only">Ön tanı</label>
-                    <input
-                      id="on-tani-sag"
-                      type="text"
-                      value={taniInput}
-                      onChange={(e) => { setTaniInput(e.target.value); setIslemHatasi(""); }}
-                      aria-describedby="simule-vaka-uyarisi"
-                      placeholder="Ön tanınızı girin (örn: Akut Koroner Sendrom)"
-                      className="input mb-3 text-sm"
-                    />
-                    <button onClick={tamamlama} className="btn-primary w-full justify-center">
-                      Tanıyı Kaydet ve Tedaviye Geç →
-                    </button>
-                  </>
-                ) : faz === "tedavi" ? (
-                  <>
-                    <h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">
-                      Tedavi Planı
-                    </h3>
-                    <label htmlFor="tedavi-plani-sag" className="sr-only">Tedavi planı</label>
-                    <textarea
-                      id="tedavi-plani-sag"
-                      value={tedaviInput}
-                      onChange={(e) => setTedaviInput(e.target.value)}
-                      aria-describedby="simule-vaka-uyarisi"
-                      placeholder="Tedavi planınızı yazın (ilaçlar, dozlar, prosedürler)..."
-                      className="input mb-3 h-28 text-sm resize-none"
-                      rows={5}
-                    />
-                    <button onClick={vakaTamamlamayiIste} disabled={islemYukleniyor} className="btn-accent w-full justify-center">
-                      {islemYukleniyor ? "Puanlanıyor…" : "Vakayı Tamamla ve Puanla"}
-                    </button>
-                  </>
-                ) : null}
+                <ClinicalReasoningFields
+                  problemRepresentation={problemRepresentation}
+                  differentialsText={differentialsText}
+                  supportingFindingsText={supportingFindingsText}
+                  opposingFindingsText={opposingFindingsText}
+                  confidence={confidence}
+                  savedState={reasoningSaveState}
+                  onProblemRepresentationChange={(value) => { setProblemRepresentation(value); setReasoningDirty(true); }}
+                  onDifferentialsChange={(value) => { setDifferentialsText(value); setReasoningDirty(true); }}
+                  onSupportingFindingsChange={(value) => { setSupportingFindingsText(value); setReasoningDirty(true); }}
+                  onOpposingFindingsChange={(value) => { setOpposingFindingsText(value); setReasoningDirty(true); }}
+                  onConfidenceChange={(value) => { setConfidence(value); setReasoningDirty(true); }}
+                />
               </div>
             )}
           </div>
@@ -1218,16 +1320,13 @@ export default function VakaWorkspace({
       {/* Mobile Bottom Tabs */}
       <div className="flex border-t border-hairline bg-canvas xl:hidden" role="group" aria-label="Mobil çalışma alanı">
         <button aria-pressed={mobilPanel === "hasta"} onClick={() => setMobilPanel("hasta")} className={`flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 py-2 ${mobilPanel === "hasta" ? "text-brand" : "text-steel"}`}>
-          <span className="text-base">👤</span>
           <span className="text-[10px] font-medium">Hasta</span>
         </button>
         <button aria-pressed={mobilPanel === "sohbet"} onClick={() => setMobilPanel("sohbet")} className={`flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 py-2 ${mobilPanel === "sohbet" ? "text-brand" : "text-steel"}`}>
-          <span className="text-base">💬</span>
-          <span className="text-[10px] font-medium">Sohbet</span>
+          <span className="text-[10px] font-medium">Görev</span>
         </button>
         <button aria-pressed={mobilPanel === "testler"} onClick={() => setMobilPanel("testler")} className={`flex min-h-11 flex-1 flex-col items-center justify-center gap-0.5 py-2 ${mobilPanel === "testler" ? "text-brand" : "text-steel"}`}>
-          <span className="text-base">🧪</span>
-          <span className="text-[10px] font-medium">Testler</span>
+          <span className="text-[10px] font-medium">Araçlar</span>
         </button>
       </div>
     </div>
@@ -1300,6 +1399,95 @@ function ClinicalReasoningFields({
       </div>
       <p aria-live="polite" className={`mt-3 text-xs ${savedState === "error" ? "text-clinical-red" : "text-steel"}`}>{savedLabel}</p>
     </fieldset>
+  );
+}
+
+function FazStepper({ faz, onChange, maxAcikFazIndex, className = "", compact = false }: {
+  faz: WorkspaceFaz;
+  onChange: (faz: WorkspaceFaz) => void;
+  maxAcikFazIndex: number;
+  className?: string;
+  compact?: boolean;
+}) {
+  const aktifIndex = FAZLAR.findIndex((item) => item.id === faz);
+  return (
+    <nav aria-label="Vaka aşamaları" className={`${compact ? "overflow-x-auto border-b border-hairline px-1" : ""} ${className}`}>
+      <div className={`flex ${compact ? "min-w-max" : "items-center gap-1"}`}>
+        {FAZLAR.map((item, index) => {
+          const aktif = item.id === faz;
+          const tamamlandi = index < aktifIndex;
+          const kilitli = index > maxAcikFazIndex;
+          return (
+            <button key={item.id} type="button" aria-current={aktif ? "step" : undefined} aria-disabled={kilitli} onClick={() => onChange(item.id)} className={`min-h-11 shrink-0 border-b-2 px-3 text-xs font-medium transition-colors ${aktif ? "border-brand text-ink" : kilitli ? "cursor-not-allowed border-transparent text-muted" : "border-transparent text-steel hover:text-ink"}`}>
+              <span className={`mr-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] ${aktif ? "bg-ink text-white" : tamamlandi ? "bg-brand/20 text-brand-deep" : "bg-surface text-steel"}`}>{tamamlandi ? "✓" : item.sira}</span>
+              {item.etiket}
+            </button>
+          );
+        })}
+      </div>
+    </nav>
+  );
+}
+
+function TaslakDurumu({ durum }: { durum: "kaydediliyor" | "yerel" }) {
+  return (
+    <p className="shrink-0 text-xs text-steel" role="status" aria-live="polite">
+      {durum === "kaydediliyor" ? "Taslak kaydediliyor…" : "Taslak bu cihazda kaydedildi"}
+    </p>
+  );
+}
+
+function FazGorevYuzeyi({
+  faz,
+  taniInput,
+  tedaviInput,
+  seciliTestKeyleri,
+  testIstekleri,
+  testKatalogu,
+  onFazChange,
+}: {
+  faz: WorkspaceFaz;
+  taniInput: string;
+  tedaviInput: string;
+  seciliTestKeyleri: string[];
+  testIstekleri: TestIstegi[];
+  testKatalogu: typeof birlesikTestKatalogu;
+  onFazChange: (faz: WorkspaceFaz) => void;
+}) {
+  const seciliAdlar = seciliTestKeyleri.map((key) => testKatalogu.find((test) => test.key === key)?.ad).filter(Boolean);
+  return (
+    <section className="flex-1 overflow-y-auto px-4 py-6 lg:px-8 scrollbar-thin">
+      <div className="mx-auto max-w-4xl space-y-4">
+        {faz === "test" && (
+          <div className="card">
+            <h2 className="text-heading-5 text-ink">Tetkik istemi hazırlayın</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-steel">Katalogdan gerekli tetkikleri seçin. Seçimler sonuç üretmez; sağdaki “Tetkikleri iste” eylemi tüm seçimi açıkça gönderir.</p>
+            {seciliAdlar.length === 0 ? <p className="mt-5 rounded-lg bg-surface px-4 py-5 text-sm text-steel">Henüz tetkik seçilmedi. Gereksiz istemlerden kaçınarak klinik sorunu yanıtlayacak testleri seçin.</p> : <ul className="mt-5 grid gap-2 sm:grid-cols-2">{seciliAdlar.map((ad) => <li key={ad} className="rounded-lg border border-brand/25 bg-brand/5 px-3 py-3 text-sm font-medium text-ink">{ad}</li>)}</ul>}
+            {testIstekleri.length > 0 && <button type="button" onClick={() => onFazChange("tani")} className="btn-secondary mt-5">Tanı aşamasına geç</button>}
+          </div>
+        )}
+        {faz === "tani" && (
+          <div className="card">
+            <h2 className="text-heading-5 text-ink">Klinik değerlendirme</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-steel">Tanınızı bulgularla ilişkilendirin. Kaydettiğiniz tanı sonraki aşamada tedavi kararınızın bağlamı olur.</p>
+            <div className="mt-5 grid gap-3 sm:grid-cols-2">
+              <div className="rounded-lg bg-surface p-4"><p className="text-xs font-medium text-muted">İSTENEN TETKİK</p><p className="mt-1 text-heading-5 text-ink">{testIstekleri.length}</p></div>
+              <div className="rounded-lg bg-surface p-4"><p className="text-xs font-medium text-muted">ÖN TANI</p><p className="mt-1 text-sm text-ink">{taniInput || "Henüz kaydedilmedi"}</p></div>
+            </div>
+          </div>
+        )}
+        {faz === "tedavi" && (
+          <div className="card">
+            <h2 className="text-heading-5 text-ink">Tedavi ve izlem planı</h2>
+            <p className="mt-2 max-w-2xl text-sm leading-6 text-steel">Planınızda tedavi veya girişim, doz/yöntem, izlem ve takip kararlarını açıkça belirtin. Değerlendirme, yalnızca plan eklenince etkinleşir.</p>
+            <ol className="mt-5 grid gap-2 sm:grid-cols-2" aria-label="Tedavi planı kontrol listesi">
+              {['Tedavi veya girişim', 'Doz, yol ya da yöntem', 'İzlem parametreleri', 'Takip veya konsültasyon'].map((madde, index) => <li key={madde} className="flex gap-3 rounded-lg bg-surface p-3 text-sm text-steel"><span className="font-medium text-ink">{index + 1}</span>{madde}</li>)}
+            </ol>
+            {tedaviInput && <div className="mt-5 rounded-lg border border-hairline bg-surface-soft p-4"><p className="text-xs font-medium text-muted">PLAN TASLAĞI</p><p className="mt-2 whitespace-pre-wrap text-sm leading-6 text-ink">{tedaviInput}</p></div>}
+          </div>
+        )}
+      </div>
+    </section>
   );
 }
 

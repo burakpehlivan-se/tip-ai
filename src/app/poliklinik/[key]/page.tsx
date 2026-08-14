@@ -16,7 +16,8 @@ export default function PoliklinikPage() {
   const [yukleniyor, setYukleniyor] = useState(true);
   const [girisKontrol, setGirisKontrol] = useState(true);
   const [hata, setHata] = useState("");
-  const poliklinik = { ad: poliklinikKey, icon: "🏥" };
+  const [taslakDegisti, setTaslakDegisti] = useState(false);
+  const poliklinik = { ad: poliklinikKey };
 
   const uret = useCallback(
     async (devamEdeniYukle: boolean) => {
@@ -82,12 +83,14 @@ export default function PoliklinikPage() {
 
   const yeniVakaAl = async () => {
     if (yukleniyor) return;
+    if (taslakDegisti && !window.confirm("Tanı veya tedavi taslağınız bu cihazda kaydedildi. Yine de vakayı değiştirmek istiyor musunuz?")) return;
     setYukleniyor(true);
     setHata("");
     try {
       const yeni = await uret(false);
       setVaka(yeni.vaka);
       setResumeSnapshot(null);
+      setTaslakDegisti(false);
     } catch (error) {
       setHata(error instanceof Error ? error.message : "Yeni vaka hazırlanamadı.");
     } finally {
@@ -113,7 +116,6 @@ export default function PoliklinikPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas">
         <div className="text-center">
-          <div className="mb-4 text-5xl">{poliklinik.icon}</div>
           <p className="text-lg font-medium text-ink mb-2">{poliklinik.ad} Polikliniği</p>
           <p className="text-sm text-steel">Oturum kontrol ediliyor...</p>
         </div>
@@ -137,7 +139,6 @@ export default function PoliklinikPage() {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas">
         <div className="text-center">
-          <div className="mb-4 text-5xl">{poliklinik.icon}</div>
           <p className="text-lg font-medium text-ink mb-2">{poliklinik.ad} Polikliniği</p>
           <p className="text-sm text-steel">Vaka hazırlanıyor...</p>
           <div className="mt-6 mx-auto h-1 w-32 overflow-hidden rounded-full bg-surface">
@@ -160,12 +161,12 @@ export default function PoliklinikPage() {
           </Link>
           <span className="text-muted" aria-hidden="true">/</span>
           <span className="truncate text-sm font-medium text-ink">
-            {poliklinik.icon} {poliklinik.ad}
+            {poliklinik.ad}
           </span>
         </div>
         <button type="button" onClick={() => void yeniVakaAl()} disabled={yukleniyor} className="btn-secondary shrink-0 px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60 sm:px-5">
-          <span className="sm:hidden">Yeni</span>
-          <span className="hidden sm:inline">🔄 Yeni Hasta</span>
+          <span className="sm:hidden">Değiştir</span>
+          <span className="hidden sm:inline">Vakayı değiştir</span>
         </button>
       </header>
 
@@ -176,6 +177,7 @@ export default function PoliklinikPage() {
           embed
           initialSnapshot={resumeSnapshot}
           onboarding={!resumeSnapshot}
+          onDirtyChange={setTaslakDegisti}
           onAsk={async (action) => {
             const yanit = (await attemptAction("ask", { action }))?.yanit;
             if (!yanit) throw new Error("Hasta yanıtı alınamadı.");
@@ -190,7 +192,7 @@ export default function PoliklinikPage() {
             await attemptAction("reasoning", { reasoning });
           }}
           onEvaluate={async (attempt: CompletedAttempt) => {
-            const sonuc = (await attemptAction("complete", { taniGirildi: attempt.taniGirildi, reasoning: attempt.clinicalReasoning }))?.sonuc;
+            const sonuc = (await attemptAction("complete", { taniGirildi: attempt.taniGirildi, tedaviGirildi: attempt.tedaviGirildi, reasoning: attempt.clinicalReasoning }))?.sonuc;
             if (!sonuc) throw new Error("Değerlendirme alınamadı.");
             return sonuc;
           }}

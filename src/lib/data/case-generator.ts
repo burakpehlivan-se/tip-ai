@@ -292,7 +292,7 @@ export const poliklinikler: PoliklinikSablonu[] = [
         hastalikKey: "stemi",
         hastalikAdi: "ST Elevasyonlu MI",
         semptomSablonu: (h) => `${h.yas} yaşında ${h.cinsiyet === "E" ? "erkek" : "kadın"}, göğüste baskı`,
-        anaSikayetSablonu: (h) => `Göğüste baskı hissi (${h.cinsiyet === "E" ? "erkek" : "kadın"}, ${h.yas} yaş)`,
+        anaSikayetSablonu: () => "Göğüste baskı hissi",
         ozetBilgilerSablonu: (h) => [
           "Acile başvuru: 2 saattir göğüste baskı hissi",
           "Ağrı sol kola yayılıyor",

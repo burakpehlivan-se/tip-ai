@@ -28,17 +28,13 @@ export default function VakaHastaPanel({
         </h3>
         <div className="mb-6 rounded-lg border border-hairline bg-canvas p-4">
           <div className="mb-3 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand/15 text-xl">
-              👤
-            </div>
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand/15 text-sm font-semibold text-brand-deep" aria-hidden="true">VK</div>
             <div>
               <div className="text-sm font-semibold text-ink">{vaka.hasta.tamAd || `Hasta ${vaka.hasta.yas}`}</div>
               <div className="text-xs text-steel">
                 {vaka.hasta.yas} yaş · {vaka.hasta.cinsiyet === "E" ? "E" : "K"}
               </div>
-              {vaka.hasta.tc && (
-                <div className="text-[10px] text-muted">TC: {vaka.hasta.tc}</div>
-              )}
+              <div className="text-[10px] text-muted">Vaka kimliği: {vaka.id}</div>
             </div>
           </div>
           <div className="border-t border-hairline-soft pt-3">
@@ -86,7 +82,7 @@ export default function VakaHastaPanel({
               className="flex min-h-11 w-full items-center justify-between text-left"
             >
               <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">
-                📚 Vaka Kaynakları
+                Vaka kaynakları
               </h4>
               <span className={`text-xs text-muted transition-transform ${kaynaklarAcik ? "rotate-180" : ""}`}>▾</span>
             </button>
@@ -101,7 +97,7 @@ export default function VakaHastaPanel({
                   </div>
                 ))}
                 <div className="rounded-md bg-ink/5 px-3 py-2 text-[10px] text-muted italic">
-                  ⚠️ Tüm vakalar eğitim amaçlıdır. Lab bazal paneli Synthea sentetik EHR satırlarından örneklenir; gerçek MIMIC erişimi planlanmaktadır. KVKK özel nitelikli kişisel veri işlenmez.
+                  Tüm vakalar eğitim amaçlıdır. Lab bazal paneli Synthea sentetik EHR satırlarından örneklenir; gerçek MIMIC erişimi planlanmaktadır. KVKK özel nitelikli kişisel veri işlenmez.
                 </div>
               </div>
             )}

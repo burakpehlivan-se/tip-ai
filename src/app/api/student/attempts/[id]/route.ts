@@ -46,9 +46,17 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       const saved = await saveStudentAttemptClinicalReasoning(id, actor, reasoning, session?.userId);
       return saved ? NextResponse.json({ saved: true }) : NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 });
     }
-    if (body.type === "complete" && typeof body.taniGirildi === "string" && body.taniGirildi.trim().length <= 500) {
+    if (
+      body.type === "complete" &&
+      typeof body.taniGirildi === "string" &&
+      typeof body.tedaviGirildi === "string" &&
+      body.taniGirildi.trim().length > 0 &&
+      body.taniGirildi.trim().length <= 500 &&
+      body.tedaviGirildi.trim().length > 0 &&
+      body.tedaviGirildi.trim().length <= 4000
+    ) {
       const reasoning = normalizeClinicalReasoning(body.reasoning);
-      const sonuc = await completeStudentAttempt(id, actor, body.taniGirildi.trim(), reasoning, session?.userId);
+      const sonuc = await completeStudentAttempt(id, actor, body.taniGirildi.trim(), body.tedaviGirildi.trim(), reasoning, session?.userId);
       return sonuc == null ? NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ sonuc });
     }
   } catch (error) {

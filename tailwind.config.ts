@@ -31,8 +31,8 @@ const config: Config = {
           soft: "#99f6e4",
         },
         clinical: {
-          red: "#d45656",
-          orange: "#f59e0b",
+          red: "#b33939",
+          orange: "#b45309",
           blue: "#3772cf",
         },
       },

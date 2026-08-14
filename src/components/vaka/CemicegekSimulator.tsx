@@ -530,7 +530,7 @@ export default function CemicegekSimulator() {
         hastaneAdi="ÇEMİÇGEZEK DEVLET HASTANESİ"
         onAsk={async (action) => (await actionIstek(aktif.id, "ask", { action }))?.yanit || "Yanıt alınamadı."}
         onTestRequest={async (testKey) => (await actionIstek(aktif.id, "test", { testKey }))?.sonuc || null}
-        onEvaluate={async (attempt: CompletedAttempt) => (await actionIstek(aktif.id, "complete", { taniGirildi: attempt.taniGirildi }))?.sonuc || null}
+        onEvaluate={async (attempt: CompletedAttempt) => (await actionIstek(aktif.id, "complete", { taniGirildi: attempt.taniGirildi, tedaviGirildi: attempt.tedaviGirildi }))?.sonuc || null}
       />
     </div>
   );
