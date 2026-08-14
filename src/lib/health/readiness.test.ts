@@ -29,7 +29,7 @@ describe("health readiness", () => {
         auth: { store: "json", migration: "not_required" },
         attempts: { store: "json", runtime: "ready" },
         rateLimit: { store: "memory", runtime: "ready" },
-        cases: { store: "json", runtime: "ready", migration: "not_required" },
+        cases: { store: "json", runtime: "ready", migration: "not_required", shadowRead: false },
       },
     });
   });

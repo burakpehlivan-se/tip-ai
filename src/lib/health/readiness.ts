@@ -2,7 +2,7 @@ import {
   checkAuthMigrationReadiness,
   checkCaseStoreMigrationReadiness,
 } from "@/lib/auth/migration-readiness";
-import { caseStoreMode } from "@/lib/admin/postgres-case-store-mode";
+import { caseShadowReadEnabled, caseStoreMode } from "@/lib/admin/postgres-case-store-mode";
 import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
 import { attemptStoreMode } from "@/lib/student/attempt-store-mode";
 import { rateLimitStoreMode, type RateLimitStoreMode } from "@/lib/security/rate-limit";
@@ -27,6 +27,7 @@ export type ReadinessPayload = {
     store: "json" | "postgres";
     runtime: "ready" | "not_ready";
     migration: "not_required" | Record<string, boolean>;
+    shadowRead: boolean;
   };
 };
 
@@ -41,6 +42,7 @@ export async function getReadiness(): Promise<{ ready: boolean; payload: Readine
     const attempts = attemptStoreMode();
     const rateLimit = rateLimitStoreMode();
     const cases = caseStoreMode();
+    const caseShadowRead = caseShadowReadEnabled();
     if (store === "json" && rateLimit === "memory" && cases === "json") {
       return {
         ready: true,
@@ -49,7 +51,7 @@ export async function getReadiness(): Promise<{ ready: boolean; payload: Readine
           auth: { store, migration: "not_required" },
           attempts: { store: attempts, runtime: "ready" },
           rateLimit: { store: rateLimit, runtime: "ready" },
-          cases: { store: cases, runtime: "ready", migration: "not_required" },
+          cases: { store: cases, runtime: "ready", migration: "not_required", shadowRead: caseShadowRead },
         },
       };
     }
@@ -76,6 +78,7 @@ export async function getReadiness(): Promise<{ ready: boolean; payload: Readine
           store: cases,
           runtime: casesReady ? "ready" : "not_ready",
           migration: caseReadiness?.checks ?? "not_required",
+          shadowRead: caseShadowRead,
         },
       },
     };

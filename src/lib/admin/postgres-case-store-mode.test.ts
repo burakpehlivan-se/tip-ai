@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { caseStoreMode } from "./postgres-case-store-mode";
+import { caseShadowReadEnabled, caseStoreMode } from "./postgres-case-store-mode";
 
 describe("caseStoreMode", () => {
   it("varsayılan olarak JSON deposunu seçer", () => {
@@ -14,5 +14,17 @@ describe("caseStoreMode", () => {
 
   it("desteklenmeyen değeri fail closed reddeder", () => {
     expect(() => caseStoreMode("sqlite")).toThrow("CASE_STORE");
+  });
+});
+
+describe("caseShadowReadEnabled", () => {
+  it("varsayılan olarak kapalıdır ve açık değerini doğrular", () => {
+    expect(caseShadowReadEnabled(undefined)).toBe(false);
+    expect(caseShadowReadEnabled("0")).toBe(false);
+    expect(caseShadowReadEnabled("1")).toBe(true);
+  });
+
+  it("geçersiz değerleri fail closed reddeder", () => {
+    expect(() => caseShadowReadEnabled("enabled")).toThrow("CASE_SHADOW_READ");
   });
 });
