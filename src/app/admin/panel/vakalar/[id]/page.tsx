@@ -396,7 +396,8 @@ export default function AdminVakaDetailPage() {
   const [gereksizTestler, setGereksizTestler] = useState<RubrikAksiyon[]>([]);
   const [redFlagler, setRedFlagler] = useState<RubrikAksiyon[]>([]);
   const [vitals, setVitals] = useState({
-    tansiyon: "",
+    tansiyonSistolik: "",
+    tansiyonDiyastolik: "",
     nabiz: "",
     ates: "",
     spo2: "",
@@ -464,8 +465,11 @@ export default function AdminVakaDetailPage() {
     setBeklenenTestler(c.rubric?.beklenenTestler || []);
     setGereksizTestler(c.rubric?.gereksizTestler || []);
     setRedFlagler(c.rubric?.redFlagler || []);
+    const tansiyonRaw = c.vitals?.tansiyon || c.hastaYanitlari?.VITAL_TANSIYON || "";
+    const [sistolik, diyastolik] = tansiyonRaw.split("/").map((s) => s.trim());
     setVitals({
-      tansiyon: c.vitals?.tansiyon || c.hastaYanitlari?.VITAL_TANSIYON || "",
+      tansiyonSistolik: sistolik || "",
+      tansiyonDiyastolik: diyastolik || "",
       nabiz:
         c.vitals?.nabiz != null
           ? String(c.vitals.nabiz)
@@ -656,7 +660,11 @@ export default function AdminVakaDetailPage() {
 
     const hastaYanitlari = parseYanitlar(yanitlarText);
     // vitals → yanıt senkron
-    if (vitals.tansiyon) hastaYanitlari.VITAL_TANSIYON = vitals.tansiyon;
+    const tansiyon = [vitals.tansiyonSistolik, vitals.tansiyonDiyastolik]
+      .map((s) => s.trim())
+      .filter(Boolean)
+      .join("/");
+    if (tansiyon) hastaYanitlari.VITAL_TANSIYON = tansiyon;
     if (vitals.nabiz) hastaYanitlari.VITAL_NABIZ = vitals.nabiz;
     if (vitals.ates) hastaYanitlari.VITAL_ATES = vitals.ates;
     if (vitals.spo2) hastaYanitlari.VITAL_SPO2 = vitals.spo2;
@@ -714,7 +722,7 @@ export default function AdminVakaDetailPage() {
         puanlama: vaka.rubric?.puanlama || {},
       },
       vitals: {
-        tansiyon: vitals.tansiyon || undefined,
+        tansiyon: tansiyon || undefined,
         nabiz: vitals.nabiz ? Number(vitals.nabiz) : undefined,
         ates: vitals.ates ? Number(vitals.ates) : undefined,
         spo2: vitals.spo2 ? Number(vitals.spo2) : undefined,
@@ -1454,24 +1462,78 @@ export default function AdminVakaDetailPage() {
           hint="Kaydedilince VITAL_* hasta yanıtlarına da yazılır."
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-            {(
-              [
-                ["tansiyon", "Tansiyon (örn. 150/95)"],
-                ["nabiz", "Nabız"],
-                ["ates", "Ateş °C"],
-                ["spo2", "SpO₂"],
-                ["solunum", "Solunum /dk"],
-              ] as const
-            ).map(([k, label]) => (
-              <div key={k}>
-                <label className="text-xs text-muted">{label}</label>
-                <input
-                  className="input w-full"
-                  value={vitals[k]}
-                  onChange={(e) => setVitals({ ...vitals, [k]: e.target.value })}
-                />
-              </div>
-            ))}
+            <div>
+              <label className="text-xs text-muted">Tansiyon — büyük (sistolik)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                step="1"
+                className="input w-full"
+                value={vitals.tansiyonSistolik}
+                onChange={(e) => setVitals({ ...vitals, tansiyonSistolik: e.target.value })}
+                placeholder="120"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted">Tansiyon — küçük (diyastolik)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                step="1"
+                className="input w-full"
+                value={vitals.tansiyonDiyastolik}
+                onChange={(e) => setVitals({ ...vitals, tansiyonDiyastolik: e.target.value })}
+                placeholder="80"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted">Nabız (/dk)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                step="1"
+                className="input w-full"
+                value={vitals.nabiz}
+                onChange={(e) => setVitals({ ...vitals, nabiz: e.target.value })}
+                placeholder="72"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted">Ateş (°C)</label>
+              <input
+                type="number"
+                inputMode="decimal"
+                step="0.1"
+                className="input w-full"
+                value={vitals.ates}
+                onChange={(e) => setVitals({ ...vitals, ates: e.target.value })}
+                placeholder="36.5"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted">SpO₂ (%)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                step="1"
+                className="input w-full"
+                value={vitals.spo2}
+                onChange={(e) => setVitals({ ...vitals, spo2: e.target.value })}
+                placeholder="97"
+              />
+            </div>
+            <div>
+              <label className="text-xs text-muted">Solunum (/dk)</label>
+              <input
+                type="number"
+                inputMode="numeric"
+                step="1"
+                className="input w-full"
+                value={vitals.solunum}
+                onChange={(e) => setVitals({ ...vitals, solunum: e.target.value })}
+                placeholder="16"
+              />
+            </div>
           </div>
         </Section>
       )}
