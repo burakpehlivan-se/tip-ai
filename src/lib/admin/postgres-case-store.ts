@@ -35,6 +35,14 @@ export class PostgresCaseMutationError extends Error {
   }
 }
 
+/** İstemcinin gördüğü vaka sürümü transaction başladığında artık güncel değil. */
+export class PostgresCaseMutationConflictError extends PostgresCaseMutationError {
+  constructor() {
+    super("Vaka başka bir kullanıcı tarafından güncellendi.");
+    this.name = "PostgresCaseMutationConflictError";
+  }
+}
+
 function clone<T>(value: T): T {
   return JSON.parse(JSON.stringify(value)) as T;
 }
@@ -224,6 +232,8 @@ export async function recordPostgresCaseMutation(input: {
   action: AuditLog["action"];
   message: string;
   patches: AuditPatch[];
+  /** PATCH/review gibi optimistic-lock destekleyen çağrılarda zorunlu sürüm damgası. */
+  expectedUpdatedAt?: Record<string, number>;
   mutate: (store: CasesStore) => void;
 }): Promise<{ store: CasesStore; log: AuditLog; backup: null }> {
   const db = getDb();
@@ -239,6 +249,12 @@ export async function recordPostgresCaseMutation(input: {
     const store = storeFromRows(caseRows, versionRows);
     const beforeCases = new Map(caseRows.map((row) => [row.caseId, row]));
     const beforeVersions = new Map(versionRows.map((row) => [`${row.caseId}\u0000${row.version}`, row]));
+    for (const [caseId, expectedUpdatedAt] of Object.entries(input.expectedUpdatedAt || {})) {
+      const current = beforeCases.get(caseId);
+      if (!current || caseFromRow(current).updatedAt !== expectedUpdatedAt) {
+        throw new PostgresCaseMutationConflictError();
+      }
+    }
     input.mutate(store);
 
     const afterCases = new Map(store.cases.map((vaka) => [vaka.id, vaka]));

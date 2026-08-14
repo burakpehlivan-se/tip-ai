@@ -60,6 +60,7 @@ export async function recordRuntimeCaseMutation(input: {
   action: AuditLog["action"];
   message: string;
   patches: AuditPatch[];
+  expectedUpdatedAt?: Record<string, number>;
   mutate: (store: CasesStore) => void;
 }): Promise<{ store: CasesStore; log: AuditLog; backup: ReturnType<typeof jsonCases.recordMutation>["backup"] | null }> {
   if (caseStoreMode() === "postgres") return recordPostgresCaseMutation(input);

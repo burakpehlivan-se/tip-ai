@@ -381,6 +381,17 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       await expect(
         recordRuntimeCaseMutation({
           actor: "reviewer",
+          action: "update_case",
+          message: "Eski editör kaydı",
+          patches: [],
+          expectedUpdatedAt: { [content.id]: now },
+          mutate: () => undefined,
+        })
+      ).rejects.toThrow("Vaka başka bir kullanıcı tarafından güncellendi");
+
+      await expect(
+        recordRuntimeCaseMutation({
+          actor: "reviewer",
           action: "delete_case",
           message: "Silme denemesi",
           patches: [{ path: `__case_delete__:${content.id}`, caseId: content.id, before: content, after: null }],

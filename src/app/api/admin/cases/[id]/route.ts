@@ -11,6 +11,10 @@ import {
   getRuntimeCaseById,
   recordRuntimeCaseMutation,
 } from "@/lib/admin/runtime-case-store";
+import {
+  PostgresCaseMutationConflictError,
+  PostgresCaseMutationError,
+} from "@/lib/admin/postgres-case-store";
 import { AdminVaka } from "@/lib/admin/types";
 import { parseCasePatchInput } from "@/lib/admin/case-input";
 import { getRequestId, logger } from "@/lib/logger";
@@ -140,6 +144,7 @@ export async function PATCH(
       action: "update_case",
       message: `"${existing.hastalikAdi}" vakası güncellendi (${patches.map((p) => p.field).join(", ")}).`,
       patches,
+      expectedUpdatedAt: { [id]: expectedUpdatedAt },
       mutate: (s) => {
         const idx = s.cases.findIndex((c) => c.id === id);
         if (idx >= 0) {
@@ -151,6 +156,10 @@ export async function PATCH(
     const updated = result.store.cases.find((c) => c.id === id);
     return NextResponse.json({ ok: true, case: updated, log: result.log, backup: result.backup });
   } catch (error) {
+    if (error instanceof PostgresCaseMutationConflictError) {
+      const current = await getRuntimeCaseById(id);
+      return staleCaseResponse(current?.updatedAt || existing.updatedAt);
+    }
     logger.exception("Vaka güncellenemedi", error, {
       requestId: getRequestId(req),
       route: "/api/admin/cases/[id]",
@@ -172,22 +181,29 @@ export async function DELETE(
   const existing = await getRuntimeCaseById(id);
   if (!existing) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
-  const result = await recordRuntimeCaseMutation({
-    actor: session!.username,
-    action: "delete_case",
-    message: `"${existing.hastalikAdi}" vakası silindi (${id}).`,
-    patches: [
-      {
-        path: `__case_delete__:${id}`,
-        caseId: id,
-        before: clone(existing),
-        after: null,
+  try {
+    const result = await recordRuntimeCaseMutation({
+      actor: session!.username,
+      action: "delete_case",
+      message: `"${existing.hastalikAdi}" vakası silindi (${id}).`,
+      patches: [
+        {
+          path: `__case_delete__:${id}`,
+          caseId: id,
+          before: clone(existing),
+          after: null,
+        },
+      ],
+      mutate: (s) => {
+        s.cases = s.cases.filter((c) => c.id !== id);
       },
-    ],
-    mutate: (s) => {
-      s.cases = s.cases.filter((c) => c.id !== id);
-    },
-  });
+    });
 
-  return NextResponse.json({ ok: true, log: result.log, backup: result.backup });
+    return NextResponse.json({ ok: true, log: result.log, backup: result.backup });
+  } catch (error) {
+    if (error instanceof PostgresCaseMutationError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    throw error;
+  }
 }

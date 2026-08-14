@@ -7,6 +7,7 @@ import { caseContentChecksum } from "@/lib/admin/case-integrity";
 import { requirePermission } from "@/lib/admin/permissions";
 import { clone } from "@/lib/admin/store";
 import { getRuntimeCaseById, recordRuntimeCaseMutation } from "@/lib/admin/runtime-case-store";
+import { PostgresCaseMutationConflictError } from "@/lib/admin/postgres-case-store";
 import type { AdminVaka, AuditPatch } from "@/lib/admin/types";
 import { validateAdminVakaForPublication } from "@/lib/cdm/validate-report";
 
@@ -162,17 +163,38 @@ export async function POST(
       },
     });
   }
-  const result = await recordRuntimeCaseMutation({ actor, action, message, patches, mutate: (store) => {
-    const index = store.cases.findIndex((item) => item.id === id);
-    if (index >= 0) store.cases[index] = { ...store.cases[index], ...updates, updatedAt: modifiedAt };
-    if (publishedVersion) {
-      const duplicate = store.publishedVersions.find((item) => item.id === publishedVersion.id);
-      if (duplicate) {
-        throw new Error("Bu vaka sürümü daha önce yayınlandı; aynı sürüm yeniden onaylanamaz.");
-      }
-      store.publishedVersions.push(publishedVersion);
+  try {
+    const result = await recordRuntimeCaseMutation({
+      actor,
+      action,
+      message,
+      patches,
+      expectedUpdatedAt: { [id]: body.expectedUpdatedAt },
+      mutate: (store) => {
+        const index = store.cases.findIndex((item) => item.id === id);
+        if (index >= 0) store.cases[index] = { ...store.cases[index], ...updates, updatedAt: modifiedAt };
+        if (publishedVersion) {
+          const duplicate = store.publishedVersions.find((item) => item.id === publishedVersion.id);
+          if (duplicate) {
+            throw new Error("Bu vaka sürümü daha önce yayınlandı; aynı sürüm yeniden onaylanamaz.");
+          }
+          store.publishedVersions.push(publishedVersion);
+        }
+      },
+    });
+    const vaka = result.store.cases.find((item) => item.id === id);
+    return NextResponse.json({ ok: true, case: vaka, log: result.log, backup: result.backup });
+  } catch (error) {
+    if (error instanceof PostgresCaseMutationConflictError) {
+      const current = await getRuntimeCaseById(id);
+      return NextResponse.json(
+        {
+          error: "Vaka başka bir kullanıcı tarafından güncellendi. Değişiklikleri yeniden yükleyip tekrar deneyin.",
+          currentUpdatedAt: current?.updatedAt || existing.updatedAt,
+        },
+        { status: 409 }
+      );
     }
-  }});
-  const vaka = result.store.cases.find((item) => item.id === id);
-  return NextResponse.json({ ok: true, case: vaka, log: result.log, backup: result.backup });
+    throw error;
+  }
 }
