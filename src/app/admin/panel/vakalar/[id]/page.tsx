@@ -228,6 +228,21 @@ function emptyAksiyon(): RubrikAksiyon {
   return { key: "", etiket: "", aciklama: "" };
 }
 
+function slugifyKey(s: string): string {
+  const tr: Record<string, string> = { ç: "c", ğ: "g", ı: "i", ö: "o", ş: "s", ü: "u" };
+  return s
+    .trim()
+    .toLocaleLowerCase("tr")
+    .split("")
+    .map((c) => tr[c] ?? c)
+    .join("")
+    .normalize("NFKD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "")
+    .toUpperCase();
+}
+
 function Section({
   title,
   hint,
@@ -254,12 +269,14 @@ function RubrikListEditor({
   onChange,
   keyPlaceholder = "KEY",
   showCategory = false,
+  keySuggestions,
 }: {
   label: string;
   items: RubrikAksiyon[];
   onChange: (next: RubrikAksiyon[]) => void;
   keyPlaceholder?: string;
   showCategory?: boolean;
+  keySuggestions?: string[];
 }) {
   return (
     <div className="space-y-2">
@@ -287,6 +304,7 @@ function RubrikListEditor({
             <input
               className="input text-xs font-mono"
               placeholder={keyPlaceholder}
+              list={keySuggestions ? `rubrik-key-suggestions-${label}` : undefined}
               value={row.key}
               onChange={(e) => {
                 const next = [...items];
@@ -294,19 +312,30 @@ function RubrikListEditor({
                 onChange(next);
               }}
             />
+            {keySuggestions && (
+              <datalist id={`rubrik-key-suggestions-${label}`}>
+                {keySuggestions.map((k) => (
+                  <option key={k} value={k} />
+                ))}
+              </datalist>
+            )}
             <input
               className="input text-xs"
-              placeholder="Etiket"
+              placeholder="Etiket (görünen ad)"
               value={row.etiket}
               onChange={(e) => {
                 const next = [...items];
-                next[i] = { ...row, etiket: e.target.value };
+                next[i] = {
+                  ...row,
+                  etiket: e.target.value,
+                  key: row.key || slugifyKey(e.target.value),
+                };
                 onChange(next);
               }}
             />
             <input
               className="input text-xs"
-              placeholder="Açıklama"
+              placeholder="Açıklama (ipucu)"
               value={row.aciklama}
               onChange={(e) => {
                 const next = [...items];
@@ -1295,12 +1324,14 @@ export default function AdminVakaDetailPage() {
             items={beklenenTestler}
             onChange={setBeklenenTestler}
             keyPlaceholder="KREATININ"
+            keySuggestions={birlesikTestKatalogu.map((t) => t.key)}
           />
           <RubrikListEditor
             label="Gereksiz testler (ceza)"
             items={gereksizTestler}
             onChange={setGereksizTestler}
             keyPlaceholder="BT_TORAKS"
+            keySuggestions={birlesikTestKatalogu.map((t) => t.key)}
           />
           <RubrikListEditor
             label="Kırmızı bayraklar (red flags)"
