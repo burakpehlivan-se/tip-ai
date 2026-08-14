@@ -13,7 +13,7 @@ import { ClinicalReasoningValidationError, normalizeClinicalReasoning } from "@/
 import { JsonStoreReadError } from "@/lib/admin/json-store";
 import { getRequestId, logger } from "@/lib/logger";
 
-const KEY = /^[A-Za-z0-9_-]{1,80}$/;
+const KEY = /^[\p{L}0-9_-]{1,80}$/u;
 const GUEST_COOKIE = "tip_ai_guest_attempt";
 
 function attemptStoreUnavailable(req: NextRequest, error: unknown) {

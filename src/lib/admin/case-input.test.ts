@@ -36,6 +36,25 @@ describe("admin vaka request parser", () => {
     });
   });
 
+  it("Türkçe karakterli yanıt anahtarlarını kabul eder", () => {
+    expect(
+      parseCasePatchInput({
+        hastaYanitlari: {
+          BÖBREK_OYKUSU: "Kronik böbrek hastalığım var",
+          SOY_BÖBREK: "Ailede böbrek hastalığı yok",
+        },
+      })
+    ).toEqual({
+      ok: true,
+      value: {
+        hastaYanitlari: {
+          BÖBREK_OYKUSU: "Kronik böbrek hastalığım var",
+          SOY_BÖBREK: "Ailede böbrek hastalığı yok",
+        },
+      },
+    });
+  });
+
   it("oluşturma isteğinde kimlik alanlarını ve normalleştirilmiş key'i döndürür", () => {
     expect(
       parseCreateCaseInput({

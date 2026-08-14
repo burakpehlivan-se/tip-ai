@@ -26,7 +26,7 @@ export type CreateCaseInput = Pick<
 type JsonRecord = Record<string, unknown>;
 
 const CASE_KEY = /^[a-z0-9-]{2,80}$/;
-const ACTION_KEY = /^[A-Za-z0-9_-]{1,80}$/;
+const ACTION_KEY = /^[\p{L}0-9_-]{1,80}$/u;
 const TEST_TYPES: TestSonucTipi[] = ["numeric", "text", "json", "image"];
 const DURUMLAR: VakaDurum[] = ["taslak", "aktif", "arsiv"];
 const SEVIYELER: Seviye[] = ["baslangic", "orta", "ileri"];
