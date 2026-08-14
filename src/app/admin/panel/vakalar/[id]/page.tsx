@@ -5,6 +5,7 @@ import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { birlesikTestKatalogu } from "@/lib/data";
 import { humanizeKey } from "@/lib/types";
+import { KISILIK_TIPLERI, type KisilikTipiKey } from "@/lib/ai/kisilik-tipleri";
 
 type TabId =
   | "meta"
@@ -15,7 +16,8 @@ type TabId =
   | "labs"
   | "vitals"
   | "yanitlar"
-  | "management";
+  | "management"
+  | "ai";
 
 interface RubrikAksiyon {
   key: string;
@@ -114,6 +116,7 @@ const TABS: { id: TabId; label: string }[] = [
   { id: "vitals", label: "7. Vitals" },
   { id: "yanitlar", label: "8. Yanıtlar" },
   { id: "management", label: "9. Management" },
+  { id: "ai", label: "AI" },
 ];
 
 function pretty(v: unknown): string {
@@ -416,6 +419,14 @@ export default function AdminVakaDetailPage() {
   const [editDrafts, setEditDrafts] = useState<Record<string, string>>({});
   const [katalogFiltre, setKatalogFiltre] = useState("");
 
+  // ── AI entegrasyonu ──
+  const [aiCevap, setAiCevap] = useState(true);
+  const [aiKisilik, setAiKisilik] = useState(false);
+  const [aiKisilikTipi, setAiKisilikTipi] = useState<KisilikTipiKey>("sakin");
+  const [aiEslestirme, setAiEslestirme] = useState(false);
+  const [aiUretiliyor, setAiUretiliyor] = useState(false);
+  const [aiRapor, setAiRapor] = useState("");
+
   const hydrate = useCallback((c: AdminVaka) => {
     setVaka(c);
     setMeta({
@@ -501,6 +512,65 @@ export default function AdminVakaDetailPage() {
   function notify(msg: string) {
     setFlash(msg);
     setTimeout(() => setFlash(""), 4000);
+  }
+
+  useEffect(() => {
+    fetch("/api/admin/settings")
+      .then((r) => r.json())
+      .then((d) => setAiEslestirme(Boolean(d.settings?.ai?.eslestirme)))
+      .catch(() => {});
+  }, []);
+
+  async function aiUret() {
+    if (!vaka) return;
+    setAiUretiliyor(true);
+    setError("");
+    setAiRapor("");
+    try {
+      const res = await fetch("/api/admin/ai/generate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id: vaka.id,
+          kisilik: aiKisilik,
+          kisilikTipi: aiKisilik ? aiKisilikTipi : undefined,
+        }),
+      });
+      const d = await res.json();
+      if (!res.ok) {
+        setError(d.error || "AI üretimi başarısız.");
+        return;
+      }
+      const satirlar = Object.entries(d.cevaplar || {})
+        .map(([k, v]) => `${k}=${v}`)
+        .join("\n");
+      setYanitlarText(satirlar);
+      const r = d.rapor;
+      setAiRapor(
+        r
+          ? `Üretildi: ${r.cevaplananSoru}/${r.toplamSoru} soru. Eksik: ${r.eksikSoru.length}. Uyarı: ${r.uyarilar.length}.`
+          : ""
+      );
+      notify("AI cevapları üretildi. '8. Yanıtlar' sekmesinden gözden geçirip CDM kaydedin.");
+    } catch {
+      setError("AI üretimi başarısız.");
+    } finally {
+      setAiUretiliyor(false);
+    }
+  }
+
+  async function aiEslestirmeToggle() {
+    const yeni = !aiEslestirme;
+    setAiEslestirme(yeni);
+    try {
+      await fetch("/api/admin/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ai: { eslestirme: yeni } }),
+      });
+    } catch {
+      setError("Eşleştirme ayarı kaydedilemedi.");
+    }
   }
 
   function parseYanitlar(text: string): Record<string, string> {
@@ -1418,6 +1488,76 @@ export default function AdminVakaDetailPage() {
               value={tedaviNotlar}
               onChange={(e) => setTedaviNotlar(e.target.value)}
             />
+          </div>
+        </Section>
+      )}
+
+      {tab === "ai" && (
+        <Section
+          title="AI — DeepSeek entegrasyonu"
+          hint="Hangi AI parçalarının aktif olacağını buradan seçin. Üretim kaydetmez; gözden geçirip CDM kaydını siz yaparsınız."
+        >
+          <div className="space-y-4">
+            <div className="space-y-3 rounded-lg border border-hairline bg-surface-soft p-4">
+              <label className="flex items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={aiCevap}
+                  onChange={(e) => setAiCevap(e.target.checked)}
+                />
+                Cevap üretimi (tüm chip yanıtları)
+              </label>
+              <label className="flex items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={aiKisilik}
+                  onChange={(e) => setAiKisilik(e.target.checked)}
+                />
+                Kişilik tipi uygula
+              </label>
+              {aiKisilik && (
+                <div className="flex items-center gap-2 pl-6">
+                  <label className="text-xs text-muted">Kişilik tipi</label>
+                  <select
+                    className="input max-w-xs"
+                    value={aiKisilikTipi}
+                    onChange={(e) => setAiKisilikTipi(e.target.value as KisilikTipiKey)}
+                  >
+                    {Object.entries(KISILIK_TIPLERI).map(([k, v]) => (
+                      <option key={k} value={k}>
+                        {v.ad}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+              <button
+                type="button"
+                className="btn-primary text-sm"
+                disabled={!aiCevap || aiUretiliyor}
+                onClick={() => void aiUret()}
+              >
+                {aiUretiliyor ? "Üretiliyor…" : "AI ile cevapları üret"}
+              </button>
+              {aiRapor && (
+                <pre className="whitespace-pre-wrap text-xs font-mono text-steel">{aiRapor}</pre>
+              )}
+            </div>
+
+            <div className="space-y-3 rounded-lg border border-hairline bg-surface-soft p-4">
+              <label className="flex items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={aiEslestirme}
+                  onChange={() => void aiEslestirmeToggle()}
+                />
+                Serbest metin AI eşleştirme (öğrenci akışı)
+              </label>
+              <p className="text-[11px] text-muted">
+                Açıkken sözlükte bulunamayan serbest metin sorular DeepSeek ile en yakın
+                chip'e eşleştirilir. Global ayardır; tüm vakalarda geçerlidir.
+              </p>
+            </div>
           </div>
         </Section>
       )}

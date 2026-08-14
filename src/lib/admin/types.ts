@@ -183,10 +183,16 @@ export interface CemicegekAyarlari {
   aktifHastaliklar: string[];
 }
 
+export interface AiAyarlari {
+  /** Serbest metin sorular için DeepSeek eşleştirme fallback'i. */
+  eslestirme?: boolean;
+}
+
 export interface SystemSettings {
   version: number;
   updatedAt: number;
   cemicegek: CemicegekAyarlari;
+  ai?: AiAyarlari;
 }
 
 /** Öğrenci / admin play oturum özeti (analitik) */

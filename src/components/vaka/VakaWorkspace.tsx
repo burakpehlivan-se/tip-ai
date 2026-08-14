@@ -124,6 +124,22 @@ function toReasoningList(value: string): string[] {
     .slice(0, 5);
 }
 
+/** Serbest metin için sunucu tarafı AI eşleştirme fallback'i. */
+async function aiEslestir(metin: string): Promise<string | null> {
+  try {
+    const res = await fetch("/api/ai/soru-eslestir", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ metin }),
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    return typeof data?.chipKey === "string" && data.chipKey ? data.chipKey : null;
+  } catch {
+    return null;
+  }
+}
+
 export default function VakaWorkspace({
   vaka,
   mod = "normal",
@@ -378,19 +394,25 @@ export default function VakaWorkspace({
     if (!input.trim() || islemYukleniyor) return;
 
     const normalized = normalizeSoru(input);
+    let aksiyon = normalized;
+    if (normalized === "OZEL") {
+      const eslesen = await aiEslestir(input);
+      if (eslesen) aksiyon = eslesen;
+    }
+
     setIslemYukleniyor(true);
     setIslemHatasi("");
     try {
       const hastaYanit = onAsk
-        ? await onAsk(normalized)
-        : vaka.hastaYanitlari[normalized] || vaka.hastaYanitlari["OZEL"];
+        ? await onAsk(aksiyon)
+        : vaka.hastaYanitlari[aksiyon] || vaka.hastaYanitlari["OZEL"];
       const yeniMesajlar: ChatMesaj[] = [
         { id: `${Date.now()}-q`, rol: "ogrenci", metin: input, zaman: Date.now() },
         { id: `${Date.now()}-a`, rol: "hasta", metin: hastaYanit, zaman: Date.now() + 1 },
       ];
       setMesajlar((prev) => [...prev, ...yeniMesajlar]);
-      if (normalized !== "OZEL" && !sorulanAksiyonlar.includes(normalized)) {
-        setSorulanAksiyonlar((prev) => [...prev, normalized]);
+      if (aksiyon !== "OZEL" && !sorulanAksiyonlar.includes(aksiyon)) {
+        setSorulanAksiyonlar((prev) => [...prev, aksiyon]);
       }
       setInput("");
     } catch {

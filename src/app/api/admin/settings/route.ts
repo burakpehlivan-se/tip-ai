@@ -28,6 +28,10 @@ export async function PUT(req: NextRequest) {
         ...current.cemicegek,
         ...(body.cemicegek || {}),
       },
+      ai: {
+        ...(current.ai || {}),
+        ...(body.ai || {}),
+      },
       version: current.version,
     };
     // clamp
