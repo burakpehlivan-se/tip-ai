@@ -738,7 +738,10 @@ export default function AdminVakaDetailPage() {
       });
       const d = await res.json();
       if (!res.ok) {
-        setError(d.error || "Kayıt hatası");
+        const issues = Array.isArray(d.issues) && d.issues.length > 0
+          ? d.issues.map((i: { field?: string; message?: string }) => `${i.field}: ${i.message}`).join(" · ")
+          : "";
+        setError(issues ? `${d.error || "Kayıt hatası"} — ${issues}` : d.error || "Kayıt hatası");
         return;
       }
       notify("CDM vaka kaydedildi.");
