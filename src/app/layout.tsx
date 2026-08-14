@@ -48,7 +48,7 @@ export default function RootLayout({
         <div id="app-boot" role="status" aria-live="polite">
           <div><i aria-hidden="true" /><span>Sistem hazırlanıyor…</span></div>
         </div>
-        <noscript>
+        <noscript suppressHydrationWarning>
           <style>{"#app-boot { display: none; } #app-content { visibility: visible; }"}</style>
         </noscript>
         <div id="app-content">{children}</div>
