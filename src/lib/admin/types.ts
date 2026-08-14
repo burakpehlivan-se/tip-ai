@@ -1,4 +1,5 @@
 import { Rubric, Seviye, TestSonucu } from "../types";
+import { KisilikTipiKey } from "../ai/kisilik-tipleri";
 
 export type VakaDurum = "taslak" | "aktif" | "arsiv";
 export type VakaIncelemeDurumu = "taslak" | "incelemede" | "onayli" | "degisiklik_istendi" | "legacy";
@@ -135,6 +136,32 @@ export interface CasesStore {
   cases: AdminVaka[];
   /** Append-only yayın sürümü kaydı; geçmiş denemelerin klinik bağlamını kanıtlar. */
   publishedVersions: PublishedCaseVersion[];
+}
+
+/** Yeniden kullanılabilir hasta şablonu — vaka oluştururken/düzenlerken uygulanır. */
+export interface HastaTipi {
+  /** ASCII slug (URL/anahtar) — ad'dan üretilir, benzersiz. */
+  id: string;
+  /** Görünen tip adı, örn. "Diyabetik Kadın". */
+  ad: string;
+  /** Örnekler / kullanım açıklaması. */
+  aciklama?: string;
+  yasAraligi: [number, number];
+  cinsiyetTercih: "E" | "K" | "herhangi";
+  /** Komorbidite / hastalık öyküsü listesi. */
+  komorbiditeler: string[];
+  /** AI cevap tonu. */
+  kisilikTipi?: KisilikTipiKey;
+  /** AI'nin ürettiği örnek hasta cevapları (soru anahtarı → cevap). */
+  ornekCevaplar?: Record<string, string>;
+  createdAt: number;
+  updatedAt: number;
+}
+
+export interface HastaTipleriStore {
+  version: number;
+  updatedAt: number;
+  tipler: HastaTipi[];
 }
 
 /** Vaka özelinde eğitmen / admin feedback’i (vaka değerleriyle birlikte) */

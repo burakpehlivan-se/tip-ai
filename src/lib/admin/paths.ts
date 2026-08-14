@@ -52,6 +52,10 @@ export function settingsPath(): string {
   return path.join(adminDataDir(), "settings.json");
 }
 
+export function hastaTipleriPath(): string {
+  return path.join(adminDataDir(), "hasta-tipleri.json");
+}
+
 export function analyticsPath(): string {
   return path.join(adminDataDir(), "analytics.json");
 }

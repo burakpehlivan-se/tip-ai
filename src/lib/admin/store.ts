@@ -10,6 +10,8 @@ import {
   CasesStore,
   DEFAULT_CEMICEGEK,
   FeedbackStore,
+  HastaTipi,
+  HastaTipleriStore,
   LogsStore,
   PlaySession,
   SystemSettings,
@@ -23,6 +25,7 @@ import {
   backupsIndexPath,
   casesPath,
   feedbackPath,
+  hastaTipleriPath,
   logsPath,
   settingsPath,
 } from "./paths";
@@ -539,6 +542,21 @@ export function saveSettings(settings: SystemSettings, actor: string): SystemSet
     ],
   });
   return settings;
+}
+
+// ─── Hasta Tipleri ───
+
+export function loadHastaTipleriStore(): HastaTipleriStore {
+  return readJson<HastaTipleriStore>(hastaTipleriPath(), { version: 1, updatedAt: 0, tipler: [] });
+}
+
+export function saveHastaTipleriStore(store: HastaTipleriStore): void {
+  store.updatedAt = Date.now();
+  writeJsonAtomic(hastaTipleriPath(), store);
+}
+
+export function getHastaTipiById(id: string): HastaTipi | undefined {
+  return loadHastaTipleriStore().tipler.find((t) => t.id === id);
 }
 
 // ─── Analytics ───

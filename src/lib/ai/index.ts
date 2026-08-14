@@ -15,3 +15,6 @@ export type { CevapUretimSonucu, UretimRaporu, UretimSecenekleri, UretimDebug, G
 
 export { serbestMetinEslestir } from "./soru-eslestirici";
 export type { EslesmeSonucu } from "./soru-eslestirici";
+
+export { hastaTipiOrnekCevaplariniUret, ORNEK_SORULAR } from "./hasta-tipi-uretici";
+export type { HastaTipiUretimSonucu } from "./hasta-tipi-uretici";

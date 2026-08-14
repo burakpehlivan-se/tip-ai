@@ -93,6 +93,7 @@ export function navAllowedForRole(role: AdminRole, href: string): boolean {
   const perms = permissionsForRole(role);
   if (href === "/admin/panel") return perms.has("panel.access");
   if (href.startsWith("/admin/panel/vakalar")) return perms.has("cases.read");
+  if (href.startsWith("/admin/panel/hasta-tipleri")) return perms.has("cases.read");
   if (href.startsWith("/admin/panel/dogrulama")) return perms.has("cases.validate");
   if (href.startsWith("/admin/panel/analitik")) return perms.has("analytics.read");
   if (href.startsWith("/admin/panel/ayarlar")) return perms.has("settings.read");
