@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import JsonViewer from "@/components/admin/JsonViewer";
 
 interface AuditLog {
   id: string;
@@ -88,17 +89,30 @@ export default function AdminLogsPage() {
                     {log.undoOf && <span className="badge badge-blue">undo</span>}
                   </div>
                   {log.patches.length > 0 && (
-                    <details className="mt-2 text-xs text-steel">
+                    <details className="mt-2 text-xs">
                       <summary className="cursor-pointer text-muted">
-                        {log.patches.length} patch
+                        {log.patches.length} patch — JSON görüntüle
                       </summary>
-                      <ul className="mt-1 space-y-1 font-mono break-all">
+                      <div className="mt-2 space-y-3">
                         {log.patches.map((p, i) => (
-                          <li key={i}>
-                            {p.path}: {JSON.stringify(p.before)} → {JSON.stringify(p.after)}
-                          </li>
+                          <div key={i} className="rounded-lg border border-hairline-soft bg-surface-soft p-3">
+                            <div className="mb-2 font-mono text-[11px] text-steel break-all">
+                              {p.path}
+                              {p.field ? <span className="text-muted"> · {p.field}</span> : null}
+                            </div>
+                            <div className="grid gap-3 sm:grid-cols-2">
+                              <div className="min-w-0">
+                                <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted">önce</div>
+                                <JsonViewer value={p.before} />
+                              </div>
+                              <div className="min-w-0">
+                                <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted">sonra</div>
+                                <JsonViewer value={p.after} />
+                              </div>
+                            </div>
+                          </div>
                         ))}
-                      </ul>
+                      </div>
                     </details>
                   )}
                 </div>
