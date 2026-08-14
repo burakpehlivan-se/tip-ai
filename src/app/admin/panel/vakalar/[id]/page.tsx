@@ -6,7 +6,6 @@ import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { birlesikTestKatalogu } from "@/lib/data";
 import { CHIP_HAVUZU } from "@/lib/data/chip-havuzu";
 import { humanizeKey } from "@/lib/types";
-import { KISILIK_TIPLERI, type KisilikTipiKey } from "@/lib/ai/kisilik-tipleri";
 
 type TabId =
   | "meta"
@@ -451,16 +450,13 @@ export default function AdminVakaDetailPage() {
   const [katalogFiltre, setKatalogFiltre] = useState("");
 
   // ── AI entegrasyonu ──
-  const [aiCevap, setAiCevap] = useState(true);
-  const [aiKisilik, setAiKisilik] = useState(false);
-  const [aiKisilikTipi, setAiKisilikTipi] = useState<KisilikTipiKey>("sakin");
+  const [hastaTipleri, setHastaTipleri] = useState<{ id: string; ad: string }[]>([]);
+  const [seciliTipler, setSeciliTipler] = useState<string[]>([]);
   const [aiEslestirme, setAiEslestirme] = useState(false);
   const [aiUretiliyor, setAiUretiliyor] = useState(false);
   const [aiRapor, setAiRapor] = useState("");
-  const [aiUyarilar, setAiUyarilar] = useState<string[]>([]);
-  const [aiProfil, setAiProfil] = useState("");
-  const [aiGruplar, setAiGruplar] = useState<
-    Array<{ index: number; chipSayisi: number; prompt: string; hamYanit: string; hata?: string }>
+  const [aiSonuclar, setAiSonuclar] = useState<
+    Array<{ tipId?: string; tipAd: string; cevaplar: Record<string, string>; basarili?: boolean; uyarilar?: string[] }>
   >([]);
 
   const hydrate = useCallback((c: AdminVaka) => {
@@ -559,22 +555,26 @@ export default function AdminVakaDetailPage() {
       .catch(() => {});
   }, []);
 
+  useEffect(() => {
+    fetch("/api/admin/hasta-tipleri")
+      .then((r) => r.json())
+      .then((d) => setHastaTipleri(d.tipler || []))
+      .catch(() => {});
+  }, []);
+
   async function aiUret() {
     if (!vaka) return;
     setAiUretiliyor(true);
     setError("");
     setAiRapor("Başlatılıyor…");
-    setAiUyarilar([]);
-    setAiProfil("");
-    setAiGruplar([]);
+    setAiSonuclar([]);
     try {
       const res = await fetch("/api/admin/ai/generate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           id: vaka.id,
-          kisilik: aiKisilik,
-          kisilikTipi: aiKisilik ? aiKisilikTipi : undefined,
+          tipIds: seciliTipler,
         }),
       });
       if (!res.ok) {
@@ -606,23 +606,41 @@ export default function AdminVakaDetailPage() {
           } catch {
             continue;
           }
-          if (olay.tip === "ilerleme") {
+          if (olay.tip === "tip-basla") {
+            setAiRapor(`${String(olay.tipAd || olay.tipId || "")} üretiliyor…`);
+          } else if (olay.tip === "ilerleme") {
             const tur = olay.tur === "grup" ? `Grup ${olay.tamamlanan}/${olay.toplam}` : `Tamamlama ${olay.tamamlanan}/${olay.toplam}`;
             setAiRapor(`${tur} üretiliyor…`);
-          } else if (olay.tip === "tamam") {
+          } else if (olay.tip === "tip-tamam") {
             const cevaplar = (olay.cevaplar ?? {}) as Record<string, string>;
-            const rapor = olay.rapor as { cevaplananSoru?: number; toplamSoru?: number; eksikSoru?: string[]; uyarilar?: string[] } | undefined;
-            const debug = olay.debug as { profil?: string; gruplar?: Array<{ index: number; chipSayisi: number; prompt: string; hamYanit: string; hata?: string }> } | undefined;
-            setYanitlarList(Object.entries(cevaplar).map(([k, v]) => ({ key: k, value: v })));
-            setAiRapor(
-              rapor
-                ? `Üretildi: ${rapor.cevaplananSoru}/${rapor.toplamSoru} soru. Eksik: ${rapor.eksikSoru?.length ?? 0}. Uyarı: ${rapor.uyarilar?.length ?? 0}.`
-                : ""
-            );
-            setAiUyarilar(Array.isArray(rapor?.uyarilar) ? rapor.uyarilar : []);
-            setAiProfil(typeof debug?.profil === "string" ? debug.profil : "");
-            setAiGruplar(Array.isArray(debug?.gruplar) ? debug.gruplar : []);
-            notify("AI cevapları üretildi. '8. Yanıtlar' sekmesinden gözden geçirip CDM kaydedin.");
+            const rapor = olay.rapor as { cevaplananSoru?: number; toplamSoru?: number; uyarilar?: string[] } | undefined;
+            setAiSonuclar((s) => [
+              ...s,
+              {
+                tipId: typeof olay.tipId === "string" ? olay.tipId : undefined,
+                tipAd: String(olay.tipAd || olay.tipId || "Varsayılan"),
+                cevaplar,
+                basarili: Boolean(olay.basarili),
+                uyarilar: Array.isArray(rapor?.uyarilar) ? rapor.uyarilar : [],
+              },
+            ]);
+          } else if (olay.tip === "tamam") {
+            // Tek koşu (hasta tipi seçilmedi)
+            const cevaplar = (olay.cevaplar ?? {}) as Record<string, string>;
+            const rapor = olay.rapor as { uyarilar?: string[] } | undefined;
+            setAiSonuclar((s) => [
+              ...s,
+              {
+                tipId: undefined,
+                tipAd: "Varsayılan",
+                cevaplar,
+                basarili: Boolean(olay.basarili),
+                uyarilar: Array.isArray(rapor?.uyarilar) ? rapor.uyarilar : [],
+              },
+            ]);
+          } else if (olay.tip === "bitti") {
+            setAiRapor("Tüm tipler için üretim tamamlandı.");
+            notify("AI cevapları üretildi. Sonuçları aşağıdan gözden geçirip yanıtlara uygulayın.");
           } else if (olay.tip === "hata") {
             setError(typeof olay.mesaj === "string" ? olay.mesaj : "AI üretimi başarısız.");
           }
@@ -1716,107 +1734,98 @@ export default function AdminVakaDetailPage() {
 
       {tab === "ai" && (
         <Section
-          title="AI — DeepSeek entegrasyonu"
-          hint="Hangi AI parçalarının aktif olacağını buradan seçin. Üretim kaydetmez; gözden geçirip CDM kaydını siz yaparsınız."
+          title="AI — hasta cevapları üretimi"
+          hint="Bir veya birden fazla hasta tipi seçin; AI her tip için ayrı ayrı (ard arda) cevap üretir. Üretim kaydetmez; gözden geçirip yanıtlara uygulayın."
         >
           <div className="space-y-4">
             <div className="space-y-3 rounded-lg border border-hairline bg-surface-soft p-4">
-              <label className="flex items-center gap-2 text-sm text-ink">
-                <input
-                  type="checkbox"
-                  checked={aiCevap}
-                  onChange={(e) => setAiCevap(e.target.checked)}
-                />
-                Cevap üretimi (tüm chip yanıtları)
-              </label>
-              <label className="flex items-center gap-2 text-sm text-ink">
-                <input
-                  type="checkbox"
-                  checked={aiKisilik}
-                  onChange={(e) => setAiKisilik(e.target.checked)}
-                />
-                Kişilik tipi uygula
-              </label>
-              {aiKisilik && (
-                <div className="flex items-center gap-2 pl-6">
-                  <label className="text-xs text-muted">Kişilik tipi</label>
-                  <select
-                    className="input max-w-xs"
-                    value={aiKisilikTipi}
-                    onChange={(e) => setAiKisilikTipi(e.target.value as KisilikTipiKey)}
-                  >
-                    {Object.entries(KISILIK_TIPLERI).map(([k, v]) => (
-                      <option key={k} value={k}>
-                        {v.ad}
-                      </option>
-                    ))}
-                  </select>
+              <div>
+                <div className="mb-1 text-xs font-medium text-muted">
+                  Hasta tipi seçin (birden fazla olabilir)
                 </div>
-              )}
-              <button
-                type="button"
-                className="btn-primary text-sm"
-                disabled={!aiCevap || aiUretiliyor}
-                onClick={() => void aiUret()}
-              >
-                {aiUretiliyor ? "Üretiliyor…" : "AI ile cevapları üret"}
-              </button>
+                {hastaTipleri.length === 0 ? (
+                  <p className="text-xs text-steel">Hasta tipi yok — önce Hasta Tipleri ekranından ekleyin.</p>
+                ) : (
+                  <div className="grid gap-1 sm:grid-cols-2">
+                    {hastaTipleri.map((t) => (
+                      <label key={t.id} className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm text-ink hover:bg-surface">
+                        <input
+                          type="checkbox"
+                          className="h-4 w-4 accent-brand"
+                          checked={seciliTipler.includes(t.id)}
+                          onChange={(e) =>
+                            setSeciliTipler((s) =>
+                              e.target.checked ? [...s, t.id] : s.filter((x) => x !== t.id)
+                            )
+                          }
+                        />
+                        <span className="truncate">{t.ad}</span>
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3">
+                <button
+                  type="button"
+                  className="btn-primary text-sm"
+                  disabled={aiUretiliyor}
+                  onClick={() => void aiUret()}
+                >
+                  {aiUretiliyor ? "Üretiliyor…" : "AI ile cevapları üret"}
+                </button>
+                {seciliTipler.length > 0 && (
+                  <span className="text-xs text-steel">{seciliTipler.length} tip seçildi</span>
+                )}
+              </div>
               {aiRapor && (
                 <pre className="whitespace-pre-wrap text-xs font-mono text-steel">{aiRapor}</pre>
               )}
-              {aiUyarilar.length > 0 && (
-                <div className="rounded-md border border-clinical-orange/30 bg-clinical-orange/5 p-2">
-                  <div className="mb-1 text-[11px] font-semibold text-clinical-orange">
-                    Uyarılar ({aiUyarilar.length})
+
+              {aiSonuclar.map((s, i) => (
+                <div key={`${s.tipId || "default"}-${i}`} className="rounded-lg border border-hairline bg-canvas p-3">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-sm font-semibold text-ink">{s.tipAd}</div>
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className="btn-secondary text-xs"
+                        onClick={() =>
+                          setYanitlarList(Object.entries(s.cevaplar).map(([k, v]) => ({ key: k, value: v })))
+                        }
+                      >
+                        Yanıtlara uygula
+                      </button>
+                    </div>
                   </div>
-                  <ul className="list-inside list-disc space-y-0.5 text-xs text-ink">
-                    {aiUyarilar.map((u, i) => (
-                      <li key={i}>{u}</li>
-                    ))}
-                  </ul>
+                  {s.uyarilar && s.uyarilar.length > 0 && (
+                    <div className="mt-2 rounded-md border border-clinical-orange/30 bg-clinical-orange/5 p-2">
+                      <div className="mb-1 text-[11px] font-semibold text-clinical-orange">
+                        Uyarılar ({s.uyarilar.length})
+                      </div>
+                      <ul className="list-inside list-disc space-y-0.5 text-xs text-ink">
+                        {s.uyarilar.map((u, j) => (
+                          <li key={j}>{u}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                  <details className="mt-2">
+                    <summary className="cursor-pointer text-xs text-muted">
+                      {Object.keys(s.cevaplar).length} cevap — görüntüle
+                    </summary>
+                    <div className="mt-2 max-h-72 space-y-1 overflow-auto rounded-md bg-surface-soft p-2">
+                      {Object.entries(s.cevaplar).map(([k, v]) => (
+                        <div key={k} className="text-xs">
+                          <span className="font-mono font-medium text-brand-deep">{k}</span>
+                          <span className="text-muted">: </span>
+                          <span className="text-ink">{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </details>
                 </div>
-              )}
-
-              {aiProfil && (
-                <details className="rounded-md border border-hairline bg-canvas">
-                  <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-ink">
-                    AI girdisi — hasta profili
-                  </summary>
-                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap border-t border-hairline px-3 py-2 text-[11px] font-mono text-steel">
-                    {aiProfil}
-                  </pre>
-                </details>
-              )}
-
-              {aiGruplar.map((g) => (
-                <details key={g.index} className="rounded-md border border-hairline bg-canvas">
-                  <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-ink">
-                    Grup {g.index + 1} — {g.chipSayisi} soru
-                    {g.hata ? <span className="ml-2 text-clinical-red">hata</span> : null}
-                  </summary>
-                  <div className="space-y-2 border-t border-hairline px-3 py-2">
-                    <div>
-                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                        Girdi (prompt)
-                      </div>
-                      <pre className="max-h-56 overflow-auto whitespace-pre-wrap text-[11px] font-mono text-steel">
-                        {g.prompt}
-                      </pre>
-                    </div>
-                    <div>
-                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
-                        Çıktı (ham yanıt)
-                      </div>
-                      {g.hata ? (
-                        <p className="text-xs text-clinical-red">{g.hata}</p>
-                      ) : (
-                        <pre className="max-h-56 overflow-auto whitespace-pre-wrap text-[11px] font-mono text-steel">
-                          {g.hamYanit || "(boş)"}
-                        </pre>
-                      )}
-                    </div>
-                  </div>
-                </details>
               ))}
             </div>
 

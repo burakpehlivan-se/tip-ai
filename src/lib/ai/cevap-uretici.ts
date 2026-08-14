@@ -10,7 +10,7 @@
  *   6. Güvenlik kontrolünden geçirilir
  */
 
-import { AdminVaka } from "@/lib/admin/types";
+import { AdminVaka, HastaTipi } from "@/lib/admin/types";
 import { SoruChipi } from "@/lib/types";
 import { CHIP_HAVUZU } from "@/lib/data/case-generator";
 import { buildDefaultYanitlar } from "@/lib/data/hasta-yanit-enrich";
@@ -51,6 +51,8 @@ export interface CevapUretimSonucu {
 export interface UretimSecenekleri {
   kisilik?: boolean;
   kisilikTipi?: KisilikTipiKey;
+  /** Seçilirse hastanın kişiliği + demografisi bu tipten gelir. */
+  hastaTipi?: HastaTipi;
 }
 
 const GRUP_BOYU = 45;
@@ -133,7 +135,70 @@ export function profilOlustur(vaka: AdminVaka): string {
   return satirlar.join("\n");
 }
 
-/** Gruplara bölünmüş soru listesi (kategori sırası korunur) */
+/** AdminVaka + isteğe bağlı HastaTipi → tüm alanları içeren JSON profil (AI girdisi). */
+export function profilJson(vaka: AdminVaka, tip?: HastaTipi): Record<string, unknown> {
+  return {
+    hastalik: {
+      ad: vaka.hastalikAdi,
+      anaSikayet: vaka.anaSikayet,
+      ozetBilgiler: vaka.ozetBilgiler || [],
+      semptomSablon: vaka.semptomSablon,
+      yasAraligi: vaka.yasAraligi,
+      cinsiyetTercih: vaka.cinsiyetTercih,
+      tanilar: (vaka.conditions || []).map((c) => ({ code: c.code, ad: c.ad, primary: !!c.primary })),
+      komorbiditeler: vaka.patientProfil?.komorbiditeler || [],
+      sigara: vaka.patientProfil?.sigara,
+      vitals: vaka.vitals || {},
+      ilaclar: (vaka.tedavi?.ilaclar || []).map((i) => `${i.ad}${i.doz ? " " + i.doz : ""}`),
+      beklenenSorular: (vaka.rubric?.beklenenSorular || []).map((s) => ({
+        key: s.key,
+        etiket: s.etiket,
+        aciklama: s.aciklama,
+      })),
+      beklenenTestler: (vaka.rubric?.beklenenTestler || []).map((t) => t.etiket),
+      gereksizTestler: (vaka.rubric?.gereksizTestler || []).map((t) => t.etiket),
+      redFlagler: (vaka.rubric?.redFlagler || []).map((r) => r.etiket),
+    },
+    hastaTipi: tip
+      ? {
+          ad: tip.ad,
+          aciklama: tip.aciklama,
+          yasAraligi: tip.yasAraligi,
+          cinsiyetTercih: tip.cinsiyetTercih,
+          komorbiditeler: tip.komorbiditeler || [],
+          konusmaKurallari: tip.konusmaKurallari,
+          konusmaOrnekleri: tip.konusmaOrnekleri,
+          ornekCumleler: tip.ornekCumleler,
+        }
+      : undefined,
+  };
+}
+
+interface KonusmaProfili {
+  ad?: string;
+  aciklama?: string;
+  kurallar?: string;
+  ornekler?: { pozitif: string; negatif: string; belirsiz: string };
+  cumleler?: string[];
+}
+
+/** Hasta tipi (öncelikli) veya kişilik anahtarından konuşma profili çıkarır. */
+function konusmaProfili(tip?: HastaTipi, kisilikKey?: KisilikTipiKey): KonusmaProfili {
+  if (tip && (tip.konusmaKurallari || tip.konusmaOrnekleri)) {
+    return {
+      ad: tip.ad,
+      aciklama: tip.aciklama,
+      kurallar: tip.konusmaKurallari,
+      ornekler: tip.konusmaOrnekleri,
+      cumleler: tip.ornekCumleler,
+    };
+  }
+  if (kisilikKey) {
+    const k = KISILIK_TIPLERI[kisilikKey];
+    return { ad: k.ad, aciklama: k.aciklama, kurallar: k.konusmaKurallari, ornekler: k.ornekCevaplar };
+  }
+  return {};
+}
 function chipGruplari(chips: SoruChipi[]): SoruChipi[][] {
   const gruplar: SoruChipi[][] = [];
   for (let i = 0; i < chips.length; i += GRUP_BOYU) {
@@ -142,35 +207,33 @@ function chipGruplari(chips: SoruChipi[]): SoruChipi[][] {
   return gruplar;
 }
 
-function promptBasligi(profil: string, kisilikKey?: KisilikTipiKey): string {
-  const kisilik = kisilikKey ? KISILIK_TIPLERI[kisilikKey] : undefined;
+function promptBasligi(profilJsonStr: string, konusma: KonusmaProfili): string {
   let baslik = `Sen bir tıp eğitimi simülasyon sistemi için hasta cevapları üreten bir uzmansın.
-Sana bir hasta profili ve bir soru listesi vereceğim. Her soru için bu hastanın vereceği cevabı yazacaksın.
+Sana bir hasta profili (JSON) ve bir soru listesi vereceğim. Her soru için bu hastanın vereceği cevabı yazacaksın.
 
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-HASTA PROFİLİ
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${profil}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+HASTA PROFİLİ (JSON)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${profilJsonStr}
 `;
 
-  if (kisilik) {
+  if (konusma.ad || konusma.kurallar || konusma.ornekler) {
     baslik += `
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-KİŞİLİK TİPİ: ${kisilik.ad}
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-${kisilik.aciklama}
-
-Konuşma kuralları:
-${kisilik.konusmaKurallari}
-
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+KONUŞMA PROFİLİ: ${konusma.ad || "Hasta"}
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+${konusma.aciklama || ""}
+${konusma.kurallar ? `\nKonuşma kuralları:\n${konusma.kurallar}` : ""}
+${konusma.ornekler ? `
 Örnek cevaplar:
-- Pozitif: "${kisilik.ornekCevaplar.pozitif}"
-- Negatif: "${kisilik.ornekCevaplar.negatif}"
-- Belirsiz: "${kisilik.ornekCevaplar.belirsiz}"
+- Pozitif: "${konusma.ornekler.pozitif}"
+- Negatif: "${konusma.ornekler.negatif}"
+- Belirsiz: "${konusma.ornekler.belirsiz}"` : ""}
+${konusma.cumleler?.length ? `\nEk örnek cümleler:\n${konusma.cumleler.map((c) => `- ${c}`).join("\n")}` : ""}
 `;
   } else {
     baslik += `
-KİŞİLİK TİPİ: Doğal, sakin ve işbirlikçi bir hasta. Kısa, net cevaplar verir.
+KONUŞMA PROFİLİ: Doğal, sakin ve işbirlikçi bir hasta. Kısa, net cevaplar verir.
 `;
   }
 
@@ -180,9 +243,10 @@ CEVAP KURALLARI
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 1. HASTA GİBİ KONUŞ: Tıbbi terim kullanma. "Dispne" değil "nefes darlığı", "sefalji" değil "baş ağrısı". Halk dilinde konuş.
 2. TUTARLI OL: Profilde var olan semptomlar için pozitif, olmayanlar için negatif cevap ver. Belirsiz olanlar için "bilmiyorum" tarzında.
-3. ANA ŞİKAYET AĞRI İSE: Genel ağrı sorularını ana şikayete göre, spesifik bölge sorularını o bölgede ağrı yoksa "yok" diyerek cevapla.
-4. VİTAL BULGULAR: Sorulunca yukarıdaki değerleri söyle, sadece sayıyı ver.
-5. Her cevap 1-3 cümle olsun.
+3. HASTALIK + HASTA TİPİ: Hastalığın yaş/cinsiyet beklentisiyle hasta tipinin yaş/cinsiyetini birlikte değerlendir; çelişki varsa hastalık bilgisi önceliklidir.
+4. ANA ŞİKAYET AĞRI İSE: Genel ağrı sorularını ana şikayete göre, spesifik bölge sorularını o bölgede ağrı yoksa "yok" diyerek cevapla.
+5. VİTAL BULGULAR: Sorulunca yukarıdaki değerleri söyle, sadece sayıyı ver.
+6. Her cevap 1-3 cümle olsun.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FORMAT
@@ -212,12 +276,12 @@ function chipKeyKumesi(): Set<string> {
 
 /** Bir grup için tek DeepSeek çağrısı → cevap haritası + debug izi */
 async function grupUret(
-  profil: string,
+  profilJsonStr: string,
   index: number,
   chips: SoruChipi[],
-  kisilikKey?: KisilikTipiKey
+  konusma: KonusmaProfili
 ): Promise<{ cevaplar: Record<string, string>; debug: GrupDebug }> {
-  const prompt = `${promptBasligi(profil, kisilikKey)}\n\nSORULAR:\n${soruListesiMetni(chips)}`;
+  const prompt = `${promptBasligi(profilJsonStr, konusma)}\n\nSORULAR:\n${soruListesiMetni(chips)}`;
 
   try {
     const yanit = await deepseekChat({
@@ -261,7 +325,7 @@ export async function vakaCevaplariniUret(
   secenekler: UretimSecenekleri = {},
   onProgress?: (ilerleme: UretimIlerleme) => void
 ): Promise<CevapUretimSonucu> {
-  const profil = profilOlustur(vaka);
+  const profil = JSON.stringify(profilJson(vaka, secenekler.hastaTipi), null, 2);
 
   if (!deepseekYapilandirilmisMi()) {
     return {
@@ -277,7 +341,10 @@ export async function vakaCevaplariniUret(
     };
   }
 
-  const kisilikKey = secenekler.kisilik ? secenekler.kisilikTipi || "sakin" : undefined;
+  const konusma = konusmaProfili(
+    secenekler.hastaTipi,
+    secenekler.kisilik ? secenekler.kisilikTipi || "sakin" : undefined
+  );
   const anahtarlar = chipKeyKumesi();
   const gruplar = chipGruplari(CHIP_HAVUZU);
 
@@ -286,7 +353,7 @@ export async function vakaCevaplariniUret(
 
   // Sıralı üretim — reasoning modeli eşzamanlı isteklerde sunucu tarafı yavaşlatılıyor.
   for (let i = 0; i < gruplar.length; i++) {
-    const { cevaplar: uretilen, debug } = await grupUret(profil, i, gruplar[i], kisilikKey);
+    const { cevaplar: uretilen, debug } = await grupUret(profil, i, gruplar[i], konusma);
     debugGruplar.push(debug);
     for (const [k, v] of Object.entries(uretilen)) {
       if (anahtarlar.has(k)) cevaplar[k] = v;
@@ -298,7 +365,7 @@ export async function vakaCevaplariniUret(
   for (let tur = 0; tur < MAX_TAMAMLAMA_TURU; tur++) {
     const eksik = CHIP_HAVUZU.filter((c) => !cevaplar[c.aksiyon]);
     if (eksik.length === 0) break;
-    const { cevaplar: uretilen, debug } = await grupUret(profil, gruplar.length + tur, eksik, kisilikKey);
+    const { cevaplar: uretilen, debug } = await grupUret(profil, gruplar.length + tur, eksik, konusma);
     debugGruplar.push(debug);
     let kazanim = 0;
     for (const [k, v] of Object.entries(uretilen)) {
