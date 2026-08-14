@@ -3,7 +3,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
-import { computeAnalyticsSummary, listFeedbacks, loadCasesStore } from "@/lib/admin/store";
+import { computeAnalyticsSummary, listFeedbacks } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 
 import { requirePermission } from "@/lib/admin/permissions";
 
@@ -12,8 +13,8 @@ export async function GET(req: NextRequest) {
   const denied = requirePermission(session, "analytics.read");
   if (denied) return denied;
 
-  const summary = computeAnalyticsSummary();
-  const cases = loadCasesStore();
+  const cases = await loadRuntimeCasesStore();
+  const summary = computeAnalyticsSummary(cases.cases);
   const feedbacks = listFeedbacks();
   return NextResponse.json({
     ...summary,

@@ -19,6 +19,7 @@ import path from "node:path";
 import { scryptSync } from "node:crypto";
 import { Pool } from "pg";
 import { runMigrations } from "./migrate";
+import { checkCaseStoreMigrationReadiness } from "./migration-readiness";
 import { importUsersFromFile } from "../../../scripts/import-users";
 import { importCasesFromFile } from "../../../scripts/import-cases";
 import { verifyCaseStoreParity } from "../../../scripts/verify-case-store-parity";
@@ -150,6 +151,19 @@ describePg("PostgreSQL 16 entegrasyon", () => {
     } finally {
       await pool.end();
     }
+  });
+
+  it("PostgreSQL vaka deposu için migration readiness kontrolü geçer", async () => {
+    await expect(checkCaseStoreMigrationReadiness()).resolves.toMatchObject({
+      ok: true,
+      checks: {
+        migrationJournal: true,
+        migrationApplied: true,
+        casesTable: true,
+        publishedVersionsTable: true,
+        auditLogTable: true,
+      },
+    });
   });
 
   it("legacy JSON deposunu idempotent aktarır ve zaman damgalı yedek alır", async () => {

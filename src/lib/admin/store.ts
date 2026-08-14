@@ -573,9 +573,9 @@ export function recordPlaySession(
   return full;
 }
 
-export function computeAnalyticsSummary() {
+/** Vaka kaynağı runtime adapter'dan verilebildiği için içerik hesabı depodan ayrıdır. */
+export function computeAnalyticsSummary(cases = loadCasesStore().cases) {
   const sessions = loadAnalytics().sessions;
-  const cases = loadCasesStore().cases;
   const byCase = new Map<
     string,
     {
