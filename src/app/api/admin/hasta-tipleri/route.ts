@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { loadHastaTipleriStore, saveHastaTipleriStore } from "@/lib/admin/store";
+import { loadHastaTipleriStore, saveHastaTipleriStore, createBackup } from "@/lib/admin/store";
 import { hastaTipiSlug, parseHastaTipiInput } from "@/lib/admin/hasta-tipi-input";
 import { getRequestId, logger } from "@/lib/logger";
 
@@ -50,12 +50,16 @@ export async function POST(req: NextRequest) {
       cinsiyetTercih: parsed.value.cinsiyetTercih ?? "herhangi",
       komorbiditeler: parsed.value.komorbiditeler ?? [],
       kisilikTipi: parsed.value.kisilikTipi,
+      konusmaKurallari: parsed.value.konusmaKurallari,
+      konusmaOrnekleri: parsed.value.konusmaOrnekleri,
+      ornekCumleler: parsed.value.ornekCumleler,
       ornekCevaplar: parsed.value.ornekCevaplar,
       createdAt: now,
       updatedAt: now,
     };
     store.tipler.push(tip);
     saveHastaTipleriStore(store);
+    createBackup("hasta-tipi-eklendi", session!.username);
 
     return NextResponse.json({ ok: true, tip });
   } catch (error) {

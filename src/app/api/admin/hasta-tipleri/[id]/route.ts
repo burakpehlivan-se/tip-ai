@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { loadHastaTipleriStore, saveHastaTipleriStore } from "@/lib/admin/store";
+import { loadHastaTipleriStore, saveHastaTipleriStore, createBackup } from "@/lib/admin/store";
 import { hastaTipiSlug, parseHastaTipiInput } from "@/lib/admin/hasta-tipi-input";
 import { getRequestId, logger } from "@/lib/logger";
 
@@ -62,6 +62,7 @@ export async function PATCH(
 
     store.tipler[index] = { ...store.tipler[index], ...updates, updatedAt: Date.now() };
     saveHastaTipleriStore(store);
+    createBackup("hasta-tipi-guncellendi", session!.username);
 
     return NextResponse.json({ ok: true, tip: store.tipler[index] });
   } catch (error) {
@@ -90,6 +91,7 @@ export async function DELETE(
 
   store.tipler.splice(index, 1);
   saveHastaTipleriStore(store);
+  createBackup("hasta-tipi-silindi", session!.username);
 
   return NextResponse.json({ ok: true });
 }

@@ -119,6 +119,42 @@ describe("admin store (temp dir)", () => {
     expect(loadCasesStore().cases.length).toBe(before);
   });
 
+  it("yedek hasta tiplerini de içerir ve geri yükler", async () => {
+    const {
+      loadHastaTipleriStore,
+      saveHastaTipleriStore,
+      createBackup,
+      restoreBackup,
+    } = await import("./store");
+
+    const store = loadHastaTipleriStore();
+    const seededSayi = store.tipler.length;
+    const now = Date.now();
+    store.tipler.push({
+      id: "diyabetik-kadin",
+      ad: "Diyabetik Kadın",
+      yasAraligi: [45, 65],
+      cinsiyetTercih: "K",
+      komorbiditeler: ["T2DM"],
+      createdAt: now,
+      updatedAt: now,
+    });
+    saveHastaTipleriStore(store);
+
+    const meta = createBackup("hasta-tipi-test", "test-actor");
+
+    // Sil
+    const s2 = loadHastaTipleriStore();
+    s2.tipler = s2.tipler.filter((t) => t.id !== "diyabetik-kadin");
+    saveHastaTipleriStore(s2);
+    expect(loadHastaTipleriStore().tipler.some((t) => t.id === "diyabetik-kadin")).toBe(false);
+
+    const restored = await restoreBackup(meta.id, "test-actor");
+    expect(restored.ok).toBe(true);
+    expect(loadHastaTipleriStore().tipler.some((t) => t.id === "diyabetik-kadin")).toBe(true);
+    expect(loadHastaTipleriStore().tipler.length).toBe(seededSayi + 1);
+  });
+
   it("withStoreLock görevleri sırayla seri çalıştırır", async () => {
     const { withStoreLock } = await import("./store");
     const order: number[] = [];

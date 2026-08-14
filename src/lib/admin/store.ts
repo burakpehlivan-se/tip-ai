@@ -359,10 +359,12 @@ export function loadBackupsIndex(): BackupsIndex {
 
 export function createBackup(reason: string, actor: string): BackupMeta {
   const cases = loadCasesStore();
+  const hastaTipleri = loadHastaTipleriStore();
   const id = `bak_${Date.now()}`;
   const filename = `${id}.json`;
   const file = path.join(backupsDir(), filename);
-  writeJsonAtomic(file, cases);
+  // Tam admin anlık görüntüsü: vakalar + hasta tipleri.
+  writeJsonAtomic(file, { version: 1, cases, hastaTipleri });
   const meta: BackupMeta = {
     id,
     timestamp: Date.now(),
@@ -391,7 +393,7 @@ export function createBackup(reason: string, actor: string): BackupMeta {
   appendLog({
     action: "create_backup",
     actor,
-    message: `Yedek alındı (${reason}): ${id} · ${cases.cases.length} vaka · changeCount=${cases.changeCount}`,
+    message: `Yedek alındı (${reason}): ${id} · ${cases.cases.length} vaka · ${hastaTipleri.tipler.length} hasta tipi · changeCount=${cases.changeCount}`,
     patches: [],
   });
   return meta;
@@ -418,7 +420,17 @@ export async function restoreBackup(
     // restore öncesi güvenlik yedeği
     createBackup("pre-restore", actor);
 
-    const snapshot = readJson<CasesStore>(file, null as unknown as CasesStore);
+    const raw = readJson<unknown>(file, null);
+    if (!raw || typeof raw !== "object") {
+      return { ok: false, error: "Yedek bozuk." };
+    }
+    const obj = raw as { cases?: unknown; hastaTipleri?: unknown };
+    // Yeni format: { cases, hastaTipleri } sarmalayıcı. Eski format: düz CasesStore.
+    const yeniFormat =
+      typeof obj.cases === "object" &&
+      obj.cases !== null &&
+      Array.isArray((obj.cases as { cases?: unknown }).cases);
+    const snapshot = (yeniFormat ? obj.cases : raw) as CasesStore;
     if (!snapshot || !Array.isArray(snapshot.cases)) {
       return { ok: false, error: "Yedek bozuk." };
     }
@@ -427,6 +439,15 @@ export async function restoreBackup(
     // changeCount'u koru / arttır
     snapshot.changeCount = (loadCasesStore().changeCount || 0) + 1;
     saveCasesStore(snapshot);
+
+    if (yeniFormat && obj.hastaTipleri && typeof obj.hastaTipleri === "object") {
+      const ht = obj.hastaTipleri as HastaTipleriStore;
+      if (Array.isArray(ht.tipler)) {
+        ht.updatedAt = Date.now();
+        saveHastaTipleriStore(ht);
+      }
+    }
+
     appendLog({
       action: "restore_backup",
       actor,
