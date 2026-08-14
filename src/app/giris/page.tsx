@@ -148,7 +148,6 @@ function GirisForm() {
               minLength={3}
               maxLength={30}
               aria-describedby={sekme === "kayit" ? "giris-username-help" : undefined}
-              aria-invalid={Boolean(error)}
             />
             {sekme === "kayit" && (
               <p id="giris-username-help" className="mt-1 text-xs text-steel">
@@ -171,7 +170,6 @@ function GirisForm() {
               minLength={6}
               maxLength={128}
               aria-describedby={sekme === "kayit" ? "giris-password-help" : undefined}
-              aria-invalid={Boolean(error)}
             />
             {sekme === "kayit" && (
               <p id="giris-password-help" className="mt-1 text-xs text-steel">

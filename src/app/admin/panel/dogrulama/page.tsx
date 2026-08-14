@@ -320,6 +320,7 @@ export default function DogrulamaPage() {
         <input
           className="input max-w-xs text-sm ml-auto"
           placeholder="Vaka ara…"
+          aria-label="Vaka ara"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />

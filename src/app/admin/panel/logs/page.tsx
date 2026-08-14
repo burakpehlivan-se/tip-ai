@@ -89,6 +89,7 @@ export default function AdminLogsPage() {
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <select
           className="input max-w-[200px] text-sm"
+          aria-label="İşlem türüne göre filtrele"
           value={filterAction}
           onChange={(e) => setFilterAction(e.target.value)}
         >
@@ -100,12 +101,14 @@ export default function AdminLogsPage() {
         <input
           className="input max-w-[160px] text-sm"
           placeholder="Kullanıcı…"
+          aria-label="Kullanıcıya göre filtrele"
           value={filterActor}
           onChange={(e) => setFilterActor(e.target.value)}
         />
         <input
           className="input min-w-[180px] flex-1 text-sm"
           placeholder="Mesajda ara…"
+          aria-label="Mesaj metninde ara"
           value={filterText}
           onChange={(e) => setFilterText(e.target.value)}
         />

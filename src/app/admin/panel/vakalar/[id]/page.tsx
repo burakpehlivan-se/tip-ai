@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { birlesikTestKatalogu } from "@/lib/data";
 import { CHIP_HAVUZU } from "@/lib/data/chip-havuzu";
 import { humanizeKey } from "@/lib/types";
@@ -392,6 +392,8 @@ export default function AdminVakaDetailPage() {
   const [tab, setTab] = useState<TabId>("meta");
   const [saving, setSaving] = useState(false);
   const [reviewing, setReviewing] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const skipDirtyRef = useRef(true);
 
   // ── form state (CDM sections) ──
   const [meta, setMeta] = useState({
@@ -460,6 +462,8 @@ export default function AdminVakaDetailPage() {
   >([]);
 
   const hydrate = useCallback((c: AdminVaka) => {
+    setDirty(false);
+    skipDirtyRef.current = true;
     setVaka(c);
     setMeta({
       hastalikAdi: c.hastalikAdi || "",
@@ -542,6 +546,29 @@ export default function AdminVakaDetailPage() {
   useEffect(() => {
     load();
   }, [load]);
+
+  // Kaydedilmemiş değişiklik takibi
+  useEffect(() => {
+    if (skipDirtyRef.current) {
+      skipDirtyRef.current = false;
+      return;
+    }
+    setDirty(true);
+  }, [
+    meta, patient, presentation, ozetBilgilerList, conditions, beklenenSorular,
+    beklenenTestler, gereksizTestler, redFlagler, kabulEdilenTani, vitals,
+    yanitlarList, idealYol, egitimNotu, tedaviIlaclar, tedaviProsedurler, tedaviNotlar,
+  ]);
+
+  useEffect(() => {
+    if (!dirty) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [dirty]);
 
   function notify(msg: string) {
     setFlash(msg);

@@ -22,9 +22,9 @@ uzun vaka çalışma seansları için gözü yormaz.
 | `ink` | #0a0a0a | Başlıklar, primer metin |
 | `charcoal` | #1c1c1e | Hover/active状态的 koyu metin |
 | `slate` | #3a3a3c | İkincil metin |
-| `steel` | #5a5a5c | Üçüncül metin, açıklamalar |
-| `stone` | #888888 | Caption, muted label |
-| `muted` | #a8a8aa | Disabled, placeholder |
+| `steel` | #4b4b4e | Üçüncül metin, açıklamalar |
+| `stone` | #6b6b6f | Caption, muted label |
+| `muted` | #71717a | Disabled, placeholder |
 | `hairline` | #e5e5e5 | 1px border'lar |
 | `hairline-soft` | #ededed | Hafif divider'lar |
 | `brand` | #14b8a6 | Ana aksent — buton, başarı, aktif |

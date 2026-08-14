@@ -475,6 +475,7 @@ export default function AdminVakalarPage() {
         <input
           className="input w-full max-w-md"
           placeholder="Vaka veya poliklinik ara…"
+          aria-label="Vaka veya poliklinik ara"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />

@@ -1091,6 +1091,7 @@ export default function VakaWorkspace({
                     onClick={() => setTestArama("")}
                     className="btn-ghost px-2 text-xs text-muted hover:text-ink"
                     title="Temizle"
+                    aria-label="Aramayı temizle"
                   >
                     ✕
                   </button>

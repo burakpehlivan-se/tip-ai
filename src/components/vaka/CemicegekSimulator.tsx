@@ -484,10 +484,20 @@ export default function CemicegekSimulator() {
                 : i === aktifIndex
                   ? "👤"
                   : "⏳";
+          const durumMetni = k.tamamlandiMi
+            ? "tamamlandı"
+            : k.raporHazir
+              ? "rapor hazır"
+              : k.labda
+                ? "lab'da"
+                : i === aktifIndex
+                  ? "aktif"
+                  : "bekliyor";
           return (
             <button
               key={k.id}
               type="button"
+              aria-label={`${k.siraNo}. vaka — ${durumMetni}`}
               onClick={() => {
                 if (k.labda && !k.raporHazir) {
                   bannerGoster(`#${k.siraNo} lab’da — eşik dolunca veya «sıradaki» ile dönebilir.`);
