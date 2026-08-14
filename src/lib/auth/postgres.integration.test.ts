@@ -35,6 +35,12 @@ import {
 import { addCohortMember, createCohortCaseAssignment, listAssignmentsForStudent } from "@/lib/learning/cohort-store";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 import { loadCasesStore } from "@/lib/admin/store";
+import {
+  getRuntimeCaseById,
+  getRuntimePublishedCaseVersion,
+  listRuntimeCasesGrouped,
+  loadRuntimeCasesStore,
+} from "@/lib/admin/runtime-case-store";
 import { answerPostgresAttempt } from "@/lib/student/postgres-attempt-store";
 import { authenticateUser, createUser, findUserByUsername, updateUser } from "./user-store";
 import {
@@ -262,6 +268,31 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       sourcePublishedVersions: 1,
       postgresPublishedVersions: 1,
     });
+
+    const previousCaseStore = process.env.CASE_STORE;
+    process.env.CASE_STORE = "postgres";
+    try {
+      await expect(loadRuntimeCasesStore()).resolves.toMatchObject({
+        cases: [expect.objectContaining({ id: content.id, surum: 2 })],
+        publishedVersions: [expect.objectContaining({ caseId: content.id, version: 1 })],
+      });
+      await expect(getRuntimeCaseById(content.id)).resolves.toMatchObject({
+        id: content.id,
+        durum: "aktif",
+        surum: 2,
+      });
+      await expect(getRuntimePublishedCaseVersion(content.id, 1)).resolves.toMatchObject({
+        caseId: content.id,
+        version: 1,
+        approvedBy: "reviewer",
+      });
+      await expect(listRuntimeCasesGrouped()).resolves.toEqual([
+        expect.objectContaining({ poliklinikKey: "acil", cases: [expect.objectContaining({ id: content.id })] }),
+      ]);
+    } finally {
+      if (previousCaseStore === undefined) delete process.env.CASE_STORE;
+      else process.env.CASE_STORE = previousCaseStore;
+    }
 
     fs.writeFileSync(
       casesFile,
