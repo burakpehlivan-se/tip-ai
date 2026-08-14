@@ -12,7 +12,7 @@ export default function AdminOynaPage() {
   const id = decodeURIComponent(params.id as string);
   const [adminCase, setAdminCase] = useState<AdminVaka | null>(null);
   const [playVaka, setPlayVaka] = useState<Vaka | null>(null);
-  const [debugMode, setDebugMode] = useState(true);
+  const [debugMode, setDebugMode] = useState(false);
   const [error, setError] = useState("");
   const [feedback, setFeedback] = useState("");
   const [feedbacks, setFeedbacks] = useState<
@@ -34,10 +34,17 @@ export default function AdminOynaPage() {
       setSidebarAcik(false);
     }
   }, []);
+
   const [feedbackTab, setFeedbackTab] = useState<"not" | "kayitli" | "rubric" | "json">("not");
   const [debugJson, setDebugJson] = useState<DebugJson | null>(null);
   const [tumSorulariDahilEt, setTumSorulariDahilEt] = useState(true);
   const [kopyalandi, setKopyalandi] = useState(false);
+
+  useEffect(() => {
+    if (!debugMode && (feedbackTab === "rubric" || feedbackTab === "json")) {
+      setFeedbackTab("not");
+    }
+  }, [debugMode, feedbackTab]);
 
   const load = useCallback(() => {
     fetch(`/api/admin/cases/${encodeURIComponent(id)}`)
@@ -203,7 +210,7 @@ export default function AdminOynaPage() {
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <h1 className="truncate text-sm font-semibold text-ink">
-              🎮 {meta.hastalikAdi}
+              🎮 {debugMode ? meta.hastalikAdi : "Vaka"}
             </h1>
             <span className="hidden shrink-0 text-[11px] text-muted sm:inline">
               {meta.poliklinikAd} · {meta.durum} · v{meta.surum}
@@ -270,7 +277,7 @@ export default function AdminOynaPage() {
           }`}
         >
           <VakaWorkspace
-            key={`${playVaka.id}-${debugMode}`}
+            key={playVaka.id}
             vaka={playVaka}
             embed
             debugMode={debugMode}
@@ -286,10 +293,14 @@ export default function AdminOynaPage() {
             <div className="flex shrink-0 border-b border-hairline">
               {(
                 [
-                  { id: "not" as const, label: "Not" },
+                  { id: "not" as const, label: "Notlar" },
                   { id: "kayitli" as const, label: `Kayıt (${feedbacks.length})` },
-                  { id: "rubric" as const, label: "Rubrik" },
-                  { id: "json" as const, label: "Debug JSON" },
+                  ...(debugMode
+                    ? ([
+                        { id: "rubric" as const, label: "Rubrik" },
+                        { id: "json" as const, label: "Debug JSON" },
+                      ] as const)
+                    : []),
                 ] as const
               ).map((t) => (
                 <button
@@ -311,11 +322,12 @@ export default function AdminOynaPage() {
               {feedbackTab === "not" && (
                 <form onSubmit={submitFeedback} className="flex h-full min-h-0 flex-col gap-2">
                   <p className="text-[11px] text-muted">
-                    Vaka değerleriyle birlikte kaydedilir (bug / iyileştirme / eğitmen notu).
+                    Vakaya özel notunuz — değerlerle birlikte kaydedilir ve tekrar açtığınızda
+                    görünür.
                   </p>
                   <textarea
                     className="input min-h-[120px] w-full flex-1 resize-none text-sm"
-                    placeholder="Örn: Troponin yorumu zayıf; red flag listesine senkop eklensin…"
+                    placeholder="Örn: Antikoagülan öyküsü kritik; red flag olarak senkop eklenebilir…"
                     value={feedback}
                     onChange={(e) => setFeedback(e.target.value)}
                     required
@@ -328,7 +340,7 @@ export default function AdminOynaPage() {
                   )}
                   {error && <p className="text-[11px] text-clinical-red">{error}</p>}
                   <button type="submit" className="btn-primary w-full text-sm">
-                    Feedback kaydet
+                    Notu kaydet
                   </button>
                 </form>
               )}
