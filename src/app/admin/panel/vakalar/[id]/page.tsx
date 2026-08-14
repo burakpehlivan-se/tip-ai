@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { birlesikTestKatalogu } from "@/lib/data";
+import { CHIP_HAVUZU } from "@/lib/data/chip-havuzu";
 import { humanizeKey } from "@/lib/types";
 import { KISILIK_TIPLERI, type KisilikTipiKey } from "@/lib/ai/kisilik-tipleri";
 
@@ -663,6 +664,8 @@ export default function AdminVakaDetailPage() {
   }
 
   function yanitEtiketi(key: string): string {
+    const chip = CHIP_HAVUZU.find((c) => c.aksiyon === key);
+    if (chip) return chip.etiket;
     const r = beklenenSorular.find((s) => s.key === key);
     if (r?.etiket) return r.etiket;
     return key ? humanizeKey(key) : "";
@@ -1598,6 +1601,13 @@ export default function AdminVakaDetailPage() {
               + Soru / cevap ekle
             </button>
           </div>
+          <datalist id="yanit-key-suggestions">
+            {CHIP_HAVUZU.map((c) => (
+              <option key={c.aksiyon} value={c.aksiyon}>
+                {c.etiket}
+              </option>
+            ))}
+          </datalist>
           {yanitlarList.length === 0 && (
             <p className="text-xs text-muted">Henüz cevap yok — ekleyin veya AI ile üretin.</p>
           )}
@@ -1614,6 +1624,7 @@ export default function AdminVakaDetailPage() {
                   <input
                     className="input text-xs font-mono"
                     placeholder="ODEM_SURE"
+                    list="yanit-key-suggestions"
                     value={y.key}
                     onChange={(e) => {
                       const next = [...yanitlarList];
