@@ -10,6 +10,7 @@ import {
   loadCasesStore,
   recordMutation,
 } from "@/lib/admin/store";
+import { getRuntimeCaseById } from "@/lib/admin/runtime-case-store";
 import { AdminVaka } from "@/lib/admin/types";
 import { parseCasePatchInput } from "@/lib/admin/case-input";
 import { getRequestId, logger } from "@/lib/logger";
@@ -42,7 +43,7 @@ export async function GET(
 
   const { id: rawId } = await params;
   const id = decodeId(rawId);
-  const vaka = getCaseById(id);
+  const vaka = await getRuntimeCaseById(id);
   if (!vaka) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
   return NextResponse.json({ case: vaka });
 }

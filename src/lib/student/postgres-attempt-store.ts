@@ -2,7 +2,8 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/auth/db";
 import { learningAttempts } from "@/lib/auth/schema";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
-import { loadCasesStore, recordPlaySession } from "@/lib/admin/store";
+import { recordPlaySession } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import type { AdminVaka } from "@/lib/admin/types";
 import { getLabResult } from "@/lib/lab-motor";
 import { degerlendir } from "@/lib/scoring/degerlendir";
@@ -76,7 +77,7 @@ function resumableAttempt(record: StoredAttempt): ResumableAttemptCase {
 }
 
 export async function startPostgresStudentAttempt(studentId: string, poliklinikKey: string): Promise<PublicAttemptCase | null> {
-  const candidates = loadCasesStore().cases.filter(
+  const candidates = (await loadRuntimeCasesStore()).cases.filter(
     (item) => item.durum === "aktif" && (poliklinikKey === "*" || item.poliklinikKey === poliklinikKey)
   );
   const template = candidates[Math.floor(Math.random() * candidates.length)];

@@ -1,7 +1,7 @@
 import crypto from "crypto";
 import path from "path";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
-import { loadCasesStore } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import type { AdminVaka } from "@/lib/admin/types";
 import { adminDataDir } from "@/lib/admin/paths";
 import { readJsonOrRecover, withJsonStoreLock, writeJsonAtomic } from "@/lib/admin/json-store";
@@ -135,8 +135,8 @@ export function startStudentAttempt(actor: string, poliklinikKey: string, studen
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return startPostgresStudentAttempt(studentId, poliklinikKey);
   }
-  return withJsonStoreLock(() => {
-    const candidates = loadCasesStore().cases.filter(
+  return withJsonStoreLock(async () => {
+    const candidates = (await loadRuntimeCasesStore()).cases.filter(
       (item) => item.durum === "aktif" && (poliklinikKey === "*" || item.poliklinikKey === poliklinikKey)
     );
     if (!candidates.length) return null;
@@ -148,7 +148,7 @@ export function startStudentAttempt(actor: string, poliklinikKey: string, studen
 
 function createAttemptFromTemplate(
   actor: string,
-  template: ReturnType<typeof loadCasesStore>["cases"][number],
+  template: AdminVaka,
   poliklinikKey: string,
   assignmentId?: string
 ): PublicAttemptCase {

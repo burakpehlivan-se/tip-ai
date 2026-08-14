@@ -6,10 +6,10 @@ import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
 import {
   clone,
-  listCasesGrouped,
   loadCasesStore,
   recordMutation,
 } from "@/lib/admin/store";
+import { listRuntimeCasesGrouped, loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
 import { parseCreateCaseInput } from "@/lib/admin/case-input";
 import { getRequestId, logger } from "@/lib/logger";
@@ -19,8 +19,7 @@ export async function GET(req: NextRequest) {
   const denied = requirePermission(session, "cases.read");
   if (denied) return denied;
 
-  const grouped = listCasesGrouped();
-  const store = loadCasesStore();
+  const [grouped, store] = await Promise.all([listRuntimeCasesGrouped(), loadRuntimeCasesStore()]);
   return NextResponse.json({
     grouped,
     total: store.cases.length,

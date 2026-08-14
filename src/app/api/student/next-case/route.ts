@@ -2,7 +2,8 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { loadAnalytics, loadCasesStore } from "@/lib/admin/store";
+import { loadAnalytics } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import { getStudentSessionFromRequest } from "@/lib/student/auth";
 import { recommendNextCase } from "@/lib/student/next-case-recommendation";
 
@@ -16,7 +17,7 @@ export async function GET(req: NextRequest) {
   const sessions = loadAnalytics().sessions.filter(
     (entry) => entry.mode === "ogrenci" && entry.actor.toLowerCase() === session.username.toLowerCase()
   );
-  const candidates = loadCasesStore().cases
+  const candidates = (await loadRuntimeCasesStore()).cases
     .filter((caseItem) => (caseItem.durum || "aktif") === "aktif")
     .map((caseItem) => ({
       id: caseItem.id,

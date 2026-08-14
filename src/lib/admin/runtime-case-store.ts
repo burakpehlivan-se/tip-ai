@@ -44,5 +44,6 @@ export async function getRuntimePublishedCaseVersion(
 export async function listRuntimeCasesGrouped(): Promise<
   { poliklinikKey: string; poliklinikAd: string; poliklinikIcon: string; cases: AdminVaka[] }[]
 > {
-  return caseStoreMode() === "postgres" ? listPostgresCasesGrouped() : jsonCases.listCasesGrouped();
+  if (caseStoreMode() === "json") return jsonCases.listCasesGrouped();
+  return listPostgresCasesGrouped();
 }
