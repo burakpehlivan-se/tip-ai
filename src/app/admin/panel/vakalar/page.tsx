@@ -487,8 +487,9 @@ export default function AdminVakalarPage() {
         >
           <h2 className="text-sm font-semibold text-ink">Yeni vaka</h2>
           <div>
-            <label className="text-xs text-muted">Poliklinik</label>
+            <label htmlFor="yeni-poli" className="text-xs text-muted">Poliklinik</label>
             <select
+              id="yeni-poli"
               className="input w-full"
               value={form.poliklinikKey}
               onChange={(e) => setForm({ ...form, poliklinikKey: e.target.value })}
@@ -502,8 +503,9 @@ export default function AdminVakalarPage() {
             </select>
           </div>
           <div>
-            <label className="text-xs text-muted">Hastalık anahtarı (slug)</label>
+            <label htmlFor="yeni-hastalik-key" className="text-xs text-muted">Hastalık anahtarı (slug)</label>
             <input
+              id="yeni-hastalik-key"
               className="input w-full"
               placeholder="ornek-hastalik"
               value={form.hastalikKey}
@@ -512,8 +514,9 @@ export default function AdminVakalarPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-muted">Hastalık adı</label>
+            <label htmlFor="yeni-hastalik-ad" className="text-xs text-muted">Hastalık adı</label>
             <input
+              id="yeni-hastalik-ad"
               className="input w-full"
               value={form.hastalikAdi}
               onChange={(e) => setForm({ ...form, hastalikAdi: e.target.value })}
@@ -521,8 +524,9 @@ export default function AdminVakalarPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-muted">Ana şikayet</label>
+            <label htmlFor="yeni-ana-sikayet" className="text-xs text-muted">Ana şikayet</label>
             <input
+              id="yeni-ana-sikayet"
               className="input w-full"
               value={form.anaSikayet}
               onChange={(e) => setForm({ ...form, anaSikayet: e.target.value })}

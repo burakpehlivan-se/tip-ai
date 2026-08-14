@@ -253,37 +253,38 @@ export default function AdminHastaTipiDetailPage() {
       {msg && <div className="rounded-md bg-brand/10 px-3 py-2 text-sm text-brand-deep">{msg}</div>}
       {err && <div className="rounded-md bg-clinical-red/10 px-3 py-2 text-sm text-clinical-red">{err}</div>}
 
-      <Section title="temel bilgiler" hint="Tip adı, demografi ve komorbiditeler.">
+      <Section title="Temel bilgiler" hint="Tip adı, demografi ve komorbiditeler.">
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-xs text-muted">Tip adı</label>
-            <input className="input w-full" value={ad} onChange={(e) => setAd(e.target.value)} />
+            <label htmlFor="ht-ad" className="text-xs text-muted">Tip adı</label>
+            <input id="ht-ad" className="input w-full" value={ad} onChange={(e) => setAd(e.target.value)} />
           </div>
           <div>
-            <label className="text-xs text-muted">Cinsiyet tercihi</label>
-            <select className="input w-full" value={cinsiyet} onChange={(e) => setCinsiyet(e.target.value as HastaTipi["cinsiyetTercih"])}>
+            <label htmlFor="ht-cinsiyet" className="text-xs text-muted">Cinsiyet tercihi</label>
+            <select id="ht-cinsiyet" className="input w-full" value={cinsiyet} onChange={(e) => setCinsiyet(e.target.value as HastaTipi["cinsiyetTercih"])}>
               <option value="herhangi">Herhangi</option>
               <option value="E">Erkek</option>
               <option value="K">Kadın</option>
             </select>
           </div>
           <div>
-            <label className="text-xs text-muted">Yaş min</label>
-            <input type="number" className="input w-full" value={yasMin} onChange={(e) => setYasMin(Number(e.target.value))} />
+            <label htmlFor="ht-yas-min" className="text-xs text-muted">Yaş min</label>
+            <input id="ht-yas-min" type="number" className="input w-full" value={yasMin} onChange={(e) => setYasMin(Number(e.target.value))} />
           </div>
           <div>
-            <label className="text-xs text-muted">Yaş max</label>
-            <input type="number" className="input w-full" value={yasMax} onChange={(e) => setYasMax(Number(e.target.value))} />
+            <label htmlFor="ht-yas-max" className="text-xs text-muted">Yaş max</label>
+            <input id="ht-yas-max" type="number" className="input w-full" value={yasMax} onChange={(e) => setYasMax(Number(e.target.value))} />
           </div>
           <div className="sm:col-span-2">
-            <label className="text-xs text-muted">Komorbiditeler / hastalık öyküsü (virgülle)</label>
-            <input className="input w-full" value={komorbiditeler} onChange={(e) => setKomorbiditeler(e.target.value)} placeholder="HTN, T2DM, KOAH" />
+            <label htmlFor="ht-komorbidite" className="text-xs text-muted">Komorbiditeler / hastalık öyküsü (virgülle)</label>
+            <input id="ht-komorbidite" className="input w-full" value={komorbiditeler} onChange={(e) => setKomorbiditeler(e.target.value)} placeholder="HTN, T2DM, KOAH" />
           </div>
         </div>
       </Section>
 
-      <Section title="kişilik (AI ton)" hint="Bu tipin simüle edilen hastası hangi tonda konuşacak.">
-        <select className="input w-full" value={kisilikTipi} onChange={(e) => setKisilikTipi(e.target.value)}>
+      <Section title="Kişilik (AI ton)" hint="Bu tipin simüle edilen hastası hangi tonda konuşacak.">
+        <label htmlFor="ht-kisilik" className="text-xs text-muted">Kişilik tipi</label>
+        <select id="ht-kisilik" className="input w-full" value={kisilikTipi} onChange={(e) => setKisilikTipi(e.target.value)}>
           <option value="">Doğal / sakin (varsayılan)</option>
           {KISILIK_TIPI_KEYLERI.map((k) => (
             <option key={k} value={k}>{KISILIK_TIPLERI[k].ad}</option>
@@ -291,10 +292,11 @@ export default function AdminHastaTipiDetailPage() {
         </select>
       </Section>
 
-      <Section title="konuşma örnekleri" hint="Hastanın nasıl konuştuğunu gösteren örnekler — AI cevap üretirken bu tonda konuşur.">
+      <Section title="Konuşma örnekleri" hint="Hastanın nasıl konuştuğunu gösteren örnekler — AI cevap üretirken bu tonda konuşur.">
         <div>
-          <label className="text-xs text-muted">Konuşma kuralları</label>
+          <label htmlFor="ht-konusma-kurallari" className="text-xs text-muted">Konuşma kuralları</label>
           <textarea
+            id="ht-konusma-kurallari"
             className="input h-24 w-full resize-y text-sm"
             value={konusmaKurallari}
             onChange={(e) => setKonusmaKurallari(e.target.value)}
@@ -303,8 +305,9 @@ export default function AdminHastaTipiDetailPage() {
         </div>
         <div className="grid gap-3 sm:grid-cols-3">
           <div>
-            <label className="text-xs text-muted">Pozitif örnek cevap</label>
+            <label htmlFor="ht-ornek-pozitif" className="text-xs text-muted">Pozitif örnek cevap</label>
             <textarea
+              id="ht-ornek-pozitif"
               className="input h-20 w-full resize-y text-sm"
               value={konusmaOrnekleri.pozitif}
               onChange={(e) => setKonusmaOrnekleri({ ...konusmaOrnekleri, pozitif: e.target.value })}
@@ -312,8 +315,9 @@ export default function AdminHastaTipiDetailPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-muted">Negatif örnek cevap</label>
+            <label htmlFor="ht-ornek-negatif" className="text-xs text-muted">Negatif örnek cevap</label>
             <textarea
+              id="ht-ornek-negatif"
               className="input h-20 w-full resize-y text-sm"
               value={konusmaOrnekleri.negatif}
               onChange={(e) => setKonusmaOrnekleri({ ...konusmaOrnekleri, negatif: e.target.value })}
@@ -321,8 +325,9 @@ export default function AdminHastaTipiDetailPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-muted">Belirsiz örnek cevap</label>
+            <label htmlFor="ht-ornek-belirsiz" className="text-xs text-muted">Belirsiz örnek cevap</label>
             <textarea
+              id="ht-ornek-belirsiz"
               className="input h-20 w-full resize-y text-sm"
               value={konusmaOrnekleri.belirsiz}
               onChange={(e) => setKonusmaOrnekleri({ ...konusmaOrnekleri, belirsiz: e.target.value })}
@@ -331,11 +336,12 @@ export default function AdminHastaTipiDetailPage() {
           </div>
         </div>
         <div>
-          <label className="text-xs text-muted">Ek örnek konuşma cümleleri</label>
+          <label htmlFor="ht-ek-cumle-0" className="text-xs text-muted">Ek örnek konuşma cümleleri</label>
           <div className="space-y-2">
             {ornekCumleler.map((c, i) => (
               <div key={i} className="flex items-center gap-2">
                 <input
+                  id={`ht-ek-cumle-${i}`}
                   className="input flex-1 text-sm"
                   value={c}
                   onChange={(e) => {
@@ -365,8 +371,9 @@ export default function AdminHastaTipiDetailPage() {
         </div>
       </Section>
 
-      <Section title="örnekler / açıklama" hint="Tipin hangi senaryolarda kullanılacağına dair not.">
-        <textarea className="input h-28 w-full resize-y" value={aciklama} onChange={(e) => setAciklama(e.target.value)} placeholder="Örn. T2DM + HT tanılı, kontrol randevusuna gelen orta yaş hasta." />
+      <Section title="Örnekler / açıklama" hint="Tipin hangi senaryolarda kullanılacağına dair not.">
+        <label htmlFor="ht-aciklama" className="text-xs text-muted">Açıklama</label>
+        <textarea id="ht-aciklama" className="input h-28 w-full resize-y" value={aciklama} onChange={(e) => setAciklama(e.target.value)} placeholder="Örn. T2DM + HT tanılı, kontrol randevusuna gelen orta yaş hasta." />
       </Section>
 
       <Section title="AI penceresi — örnek hasta cevapları" hint="AI bu tip için standart sorulara örnek hasta cevapları üretir. Üretim kaydetmez; gözden geçirip kaydetmelisin.">

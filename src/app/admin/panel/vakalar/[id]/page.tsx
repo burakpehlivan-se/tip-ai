@@ -1054,16 +1054,17 @@ export default function AdminVakaDetailPage() {
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-xs text-muted">Hastalık adı</label>
+              <label htmlFor="v-hastalik-ad" className="text-xs text-muted">Hastalık adı</label>
               <input
+                id="v-hastalik-ad"
                 className="input w-full"
                 value={meta.hastalikAdi}
                 onChange={(e) => setMeta({ ...meta, hastalikAdi: e.target.value })}
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Hastalık anahtarı (salt okunur)</label>
-              <input className="input w-full bg-surface-soft" value={vaka.hastalikKey} readOnly />
+              <label htmlFor="v-hastalik-key" className="text-xs text-muted">Hastalık anahtarı (salt okunur)</label>
+              <input id="v-hastalik-key" className="input w-full bg-surface-soft" value={vaka.hastalikKey} readOnly />
             </div>
             <div>
               <label className="text-xs text-muted">Yayın / inceleme</label>
@@ -1072,8 +1073,9 @@ export default function AdminVakaDetailPage() {
               </div>
             </div>
             <div>
-              <label className="text-xs text-muted">Seviye</label>
+              <label htmlFor="v-seviye" className="text-xs text-muted">Seviye</label>
               <select
+                id="v-seviye"
                 className="input w-full"
                 value={meta.seviye}
                 onChange={(e) => setMeta({ ...meta, seviye: e.target.value })}
@@ -1091,18 +1093,19 @@ export default function AdminVakaDetailPage() {
               {vaka.uzmanOnayi ? `✓ Reviewer: ${vaka.uzmanOnaylayan || "kayıtlı"}` : "Reviewer onayı bekleniyor"}
             </div>
             <div>
-              <label className="text-xs text-muted">Klinik kaynak</label>
-              <input className="input w-full" value={meta.klinikKaynak} onChange={(e) => setMeta({ ...meta, klinikKaynak: e.target.value })} placeholder="Kılavuz, yayın veya kurum protokolü" />
+              <label htmlFor="v-klinik-kaynak" className="text-xs text-muted">Klinik kaynak</label>
+              <input id="v-klinik-kaynak" className="input w-full" value={meta.klinikKaynak} onChange={(e) => setMeta({ ...meta, klinikKaynak: e.target.value })} placeholder="Kılavuz, yayın veya kurum protokolü" />
             </div>
             <div>
-              <label className="text-xs text-muted">Kaynak tarihi</label>
-              <input type="date" className="input w-full" value={meta.klinikKaynakTarihi} onChange={(e) => setMeta({ ...meta, klinikKaynakTarihi: e.target.value })} />
+              <label htmlFor="v-kaynak-tarihi" className="text-xs text-muted">Kaynak tarihi</label>
+              <input id="v-kaynak-tarihi" type="date" className="input w-full" value={meta.klinikKaynakTarihi} onChange={(e) => setMeta({ ...meta, klinikKaynakTarihi: e.target.value })} />
             </div>
           </div>
           {vaka.incelemeNotu && <p className="mt-2 text-sm text-steel">Reviewer notu: {vaka.incelemeNotu}</p>}
           <div>
-            <label className="text-xs text-muted">Etiketler (virgülle)</label>
+            <label htmlFor="v-etiketler" className="text-xs text-muted">Etiketler (virgülle)</label>
             <input
+              id="v-etiketler"
               className="input w-full"
               value={meta.etiketler}
               onChange={(e) => setMeta({ ...meta, etiketler: e.target.value })}
@@ -1110,8 +1113,8 @@ export default function AdminVakaDetailPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-muted">Eğitim hedefleri (satır başına bir hedef)</label>
-            <textarea className="input h-24 w-full resize-y" value={meta.egitimHedefleri} onChange={(e) => setMeta({ ...meta, egitimHedefleri: e.target.value })} placeholder="Örn. Göğüs ağrısında red flag taraması yapar." />
+            <label htmlFor="v-egitim-hedefleri" className="text-xs text-muted">Eğitim hedefleri (satır başına bir hedef)</label>
+            <textarea id="v-egitim-hedefleri" className="input h-24 w-full resize-y" value={meta.egitimHedefleri} onChange={(e) => setMeta({ ...meta, egitimHedefleri: e.target.value })} placeholder="Örn. Göğüs ağrısında red flag taraması yapar." />
           </div>
           {vaka.sonKlinikGozdenGecirmeTarihi && <p className="text-xs text-steel">Son klinik gözden geçirme: {new Date(vaka.sonKlinikGozdenGecirmeTarihi).toLocaleDateString("tr-TR")}</p>}
         </Section>
@@ -1124,8 +1127,9 @@ export default function AdminVakaDetailPage() {
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-xs text-muted">Yaş (min)</label>
+              <label htmlFor="v-yas-min" className="text-xs text-muted">Yaş (min)</label>
               <input
+                id="v-yas-min"
                 type="number"
                 className="input w-full"
                 value={patient.yasMin}
@@ -1133,8 +1137,9 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Yaş (max)</label>
+              <label htmlFor="v-yas-max" className="text-xs text-muted">Yaş (max)</label>
               <input
+                id="v-yas-max"
                 type="number"
                 className="input w-full"
                 value={patient.yasMax}
@@ -1142,8 +1147,9 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Cinsiyet tercihi</label>
+              <label htmlFor="v-cinsiyet" className="text-xs text-muted">Cinsiyet tercihi</label>
               <select
+                id="v-cinsiyet"
                 className="input w-full"
                 value={patient.cinsiyetTercih}
                 onChange={(e) => setPatient({ ...patient, cinsiyetTercih: e.target.value })}
@@ -1154,8 +1160,9 @@ export default function AdminVakaDetailPage() {
               </select>
             </div>
             <div>
-              <label className="text-xs text-muted">BMI</label>
+              <label htmlFor="v-bmi" className="text-xs text-muted">BMI</label>
               <input
+                id="v-bmi"
                 className="input w-full"
                 value={patient.bmi}
                 onChange={(e) => setPatient({ ...patient, bmi: e.target.value })}
@@ -1163,8 +1170,9 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Sigara</label>
+              <label htmlFor="v-sigara" className="text-xs text-muted">Sigara</label>
               <input
+                id="v-sigara"
                 className="input w-full"
                 value={patient.sigara}
                 onChange={(e) => setPatient({ ...patient, sigara: e.target.value })}
@@ -1172,8 +1180,9 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Ek hastalıklar (virgülle)</label>
+              <label htmlFor="v-komorbidite" className="text-xs text-muted">Ek hastalıklar (virgülle)</label>
               <input
+                id="v-komorbidite"
                 className="input w-full"
                 value={patient.komorbiditeler}
                 onChange={(e) => setPatient({ ...patient, komorbiditeler: e.target.value })}
@@ -1190,8 +1199,9 @@ export default function AdminVakaDetailPage() {
           hint="Ana şikayet + öykü (HPI) özeti + semptom şablonu."
         >
           <div>
-            <label className="text-xs text-muted">Ana şikayet (chief complaint)</label>
+            <label htmlFor="v-ana-sikayet" className="text-xs text-muted">Ana şikayet (chief complaint)</label>
             <input
+              id="v-ana-sikayet"
               className="input w-full"
               value={presentation.anaSikayet}
               onChange={(e) =>
@@ -1200,11 +1210,12 @@ export default function AdminVakaDetailPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-muted">Özet bilgiler (öykü — birden fazla ekleyin)</label>
+            <label htmlFor="v-ozet-0" className="text-xs text-muted">Özet bilgiler (öykü — birden fazla ekleyin)</label>
             <div className="space-y-2">
               {ozetBilgilerList.map((b, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <input
+                    id={`v-ozet-${i}`}
                     className="input flex-1"
                     value={b}
                     onChange={(e) => {
@@ -1233,8 +1244,9 @@ export default function AdminVakaDetailPage() {
             </div>
           </div>
           <div>
-            <label className="text-xs text-muted">Semptom şablonu</label>
+            <label htmlFor="v-semptom-sablon" className="text-xs text-muted">Semptom şablonu</label>
             <input
+              id="v-semptom-sablon"
               className="input w-full"
               value={presentation.semptomSablon}
               onChange={(e) =>
@@ -1532,8 +1544,9 @@ export default function AdminVakaDetailPage() {
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
             <div>
-              <label className="text-xs text-muted">Tansiyon — büyük (sistolik)</label>
+              <label htmlFor="v-tansiyon-sis" className="text-xs text-muted">Tansiyon — büyük (sistolik)</label>
               <input
+                id="v-tansiyon-sis"
                 type="number"
                 inputMode="numeric"
                 step="1"
@@ -1544,8 +1557,9 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Tansiyon — küçük (diyastolik)</label>
+              <label htmlFor="v-tansiyon-dia" className="text-xs text-muted">Tansiyon — küçük (diyastolik)</label>
               <input
+                id="v-tansiyon-dia"
                 type="number"
                 inputMode="numeric"
                 step="1"
@@ -1556,8 +1570,9 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Nabız (/dk)</label>
+              <label htmlFor="v-nabiz" className="text-xs text-muted">Nabız (/dk)</label>
               <input
+                id="v-nabiz"
                 type="number"
                 inputMode="numeric"
                 step="1"
@@ -1568,8 +1583,9 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Ateş (°C)</label>
+              <label htmlFor="v-ates" className="text-xs text-muted">Ateş (°C)</label>
               <input
+                id="v-ates"
                 type="number"
                 inputMode="decimal"
                 step="0.1"
@@ -1580,8 +1596,9 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">SpO₂ (%)</label>
+              <label htmlFor="v-spo2" className="text-xs text-muted">SpO₂ (%)</label>
               <input
+                id="v-spo2"
                 type="number"
                 inputMode="numeric"
                 step="1"
@@ -1592,8 +1609,9 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Solunum (/dk)</label>
+              <label htmlFor="v-solunum" className="text-xs text-muted">Solunum (/dk)</label>
               <input
+                id="v-solunum"
                 type="number"
                 inputMode="numeric"
                 step="1"
@@ -1689,26 +1707,29 @@ export default function AdminVakaDetailPage() {
           hint="OSCE Değerlendirme ve Plan (A&P). İlaç satırı: ad | doz | yol | endikasyon"
         >
           <div>
-            <label className="text-xs text-muted">İdeal klinik yol (satır satır)</label>
+            <label htmlFor="v-ideal-yol" className="text-xs text-muted">İdeal klinik yol (satır satır)</label>
             <textarea
+              id="v-ideal-yol"
               className="input w-full min-h-[120px]"
               value={idealYol}
               onChange={(e) => setIdealYol(e.target.value)}
             />
           </div>
           <div>
-            <label className="text-xs text-muted">Eğitim notu</label>
+            <label htmlFor="v-egitim-notu" className="text-xs text-muted">Eğitim notu</label>
             <textarea
+              id="v-egitim-notu"
               className="input w-full min-h-[100px]"
               value={egitimNotu}
               onChange={(e) => setEgitimNotu(e.target.value)}
             />
           </div>
           <div>
-            <label className="text-xs text-muted">
+            <label htmlFor="v-ilaclar" className="text-xs text-muted">
               İlaçlar (ad | doz | yol | sıklık | süre | endikasyon)
             </label>
             <textarea
+              id="v-ilaclar"
               className="input w-full min-h-[80px] font-mono text-xs"
               value={tedaviIlaclar}
               onChange={(e) => setTedaviIlaclar(e.target.value)}
@@ -1716,16 +1737,18 @@ export default function AdminVakaDetailPage() {
             />
           </div>
           <div>
-            <label className="text-xs text-muted">Prosedürler / öneriler (satır)</label>
+            <label htmlFor="v-prosedurler" className="text-xs text-muted">Prosedürler / öneriler (satır)</label>
             <textarea
+              id="v-prosedurler"
               className="input w-full min-h-[70px]"
               value={tedaviProsedurler}
               onChange={(e) => setTedaviProsedurler(e.target.value)}
             />
           </div>
           <div>
-            <label className="text-xs text-muted">Önemli notlar (satır)</label>
+            <label htmlFor="v-notlar" className="text-xs text-muted">Önemli notlar (satır)</label>
             <textarea
+              id="v-notlar"
               className="input w-full min-h-[70px]"
               value={tedaviNotlar}
               onChange={(e) => setTedaviNotlar(e.target.value)}
