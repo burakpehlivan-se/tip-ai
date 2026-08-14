@@ -34,6 +34,7 @@ export async function POST(req: NextRequest) {
       cevaplar: sonuc.cevaplar,
       rapor: sonuc.rapor,
       basarili: sonuc.basarili,
+      debug: sonuc.debug,
     });
   } catch (error) {
     logger.exception("AI cevap üretimi başarısız", error, {

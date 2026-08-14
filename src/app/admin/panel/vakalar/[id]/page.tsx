@@ -426,6 +426,11 @@ export default function AdminVakaDetailPage() {
   const [aiEslestirme, setAiEslestirme] = useState(false);
   const [aiUretiliyor, setAiUretiliyor] = useState(false);
   const [aiRapor, setAiRapor] = useState("");
+  const [aiUyarilar, setAiUyarilar] = useState<string[]>([]);
+  const [aiProfil, setAiProfil] = useState("");
+  const [aiGruplar, setAiGruplar] = useState<
+    Array<{ index: number; chipSayisi: number; prompt: string; hamYanit: string; hata?: string }>
+  >([]);
 
   const hydrate = useCallback((c: AdminVaka) => {
     setVaka(c);
@@ -526,6 +531,9 @@ export default function AdminVakaDetailPage() {
     setAiUretiliyor(true);
     setError("");
     setAiRapor("");
+    setAiUyarilar([]);
+    setAiProfil("");
+    setAiGruplar([]);
     try {
       const res = await fetch("/api/admin/ai/generate", {
         method: "POST",
@@ -551,6 +559,9 @@ export default function AdminVakaDetailPage() {
           ? `Üretildi: ${r.cevaplananSoru}/${r.toplamSoru} soru. Eksik: ${r.eksikSoru.length}. Uyarı: ${r.uyarilar.length}.`
           : ""
       );
+      setAiUyarilar(Array.isArray(r?.uyarilar) ? r.uyarilar : []);
+      setAiProfil(typeof d.debug?.profil === "string" ? d.debug.profil : "");
+      setAiGruplar(Array.isArray(d.debug?.gruplar) ? d.debug.gruplar : []);
       notify("AI cevapları üretildi. '8. Yanıtlar' sekmesinden gözden geçirip CDM kaydedin.");
     } catch {
       setError("AI üretimi başarısız.");
@@ -1542,6 +1553,60 @@ export default function AdminVakaDetailPage() {
               {aiRapor && (
                 <pre className="whitespace-pre-wrap text-xs font-mono text-steel">{aiRapor}</pre>
               )}
+              {aiUyarilar.length > 0 && (
+                <div className="rounded-md border border-clinical-orange/30 bg-clinical-orange/5 p-2">
+                  <div className="mb-1 text-[11px] font-semibold text-clinical-orange">
+                    Uyarılar ({aiUyarilar.length})
+                  </div>
+                  <ul className="list-inside list-disc space-y-0.5 text-xs text-ink">
+                    {aiUyarilar.map((u, i) => (
+                      <li key={i}>{u}</li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {aiProfil && (
+                <details className="rounded-md border border-hairline bg-canvas">
+                  <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-ink">
+                    AI girdisi — hasta profili
+                  </summary>
+                  <pre className="max-h-64 overflow-auto whitespace-pre-wrap border-t border-hairline px-3 py-2 text-[11px] font-mono text-steel">
+                    {aiProfil}
+                  </pre>
+                </details>
+              )}
+
+              {aiGruplar.map((g) => (
+                <details key={g.index} className="rounded-md border border-hairline bg-canvas">
+                  <summary className="cursor-pointer px-3 py-2 text-xs font-semibold text-ink">
+                    Grup {g.index + 1} — {g.chipSayisi} soru
+                    {g.hata ? <span className="ml-2 text-clinical-red">hata</span> : null}
+                  </summary>
+                  <div className="space-y-2 border-t border-hairline px-3 py-2">
+                    <div>
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                        Girdi (prompt)
+                      </div>
+                      <pre className="max-h-56 overflow-auto whitespace-pre-wrap text-[11px] font-mono text-steel">
+                        {g.prompt}
+                      </pre>
+                    </div>
+                    <div>
+                      <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">
+                        Çıktı (ham yanıt)
+                      </div>
+                      {g.hata ? (
+                        <p className="text-xs text-clinical-red">{g.hata}</p>
+                      ) : (
+                        <pre className="max-h-56 overflow-auto whitespace-pre-wrap text-[11px] font-mono text-steel">
+                          {g.hamYanit || "(boş)"}
+                        </pre>
+                      )}
+                    </div>
+                  </div>
+                </details>
+              ))}
             </div>
 
             <div className="space-y-3 rounded-lg border border-hairline bg-surface-soft p-4">

@@ -24,10 +24,28 @@ export interface UretimRaporu {
   uyarilar: string[];
 }
 
+export interface GrupDebug {
+  index: number;
+  chipSayisi: number;
+  /** AI'ya gönderilen tam prompt. */
+  prompt: string;
+  /** AI'dan dönen ham içerik (content veya reasoning). */
+  hamYanit: string;
+  hata?: string;
+}
+
+export interface UretimDebug {
+  /** Vakadan türetilen metin profil (AI girdisi). */
+  profil: string;
+  /** Grup bazında prompt + ham yanıt izleri. */
+  gruplar: GrupDebug[];
+}
+
 export interface CevapUretimSonucu {
   basarili: boolean;
   cevaplar: Record<string, string>;
   rapor: UretimRaporu;
+  debug: UretimDebug;
 }
 
 export interface UretimSecenekleri {
@@ -192,12 +210,13 @@ function chipKeyKumesi(): Set<string> {
   return new Set(CHIP_HAVUZU.map((c) => c.aksiyon));
 }
 
-/** Bir grup için tek DeepSeek çağrısı → cevap haritası */
+/** Bir grup için tek DeepSeek çağrısı → cevap haritası + debug izi */
 async function grupUret(
   profil: string,
+  index: number,
   chips: SoruChipi[],
   kisilikKey?: KisilikTipiKey
-): Promise<Record<string, string>> {
+): Promise<{ cevaplar: Record<string, string>; debug: GrupDebug }> {
   const prompt = `${promptBasligi(profil, kisilikKey)}\n\nSORULAR:\n${soruListesiMetni(chips)}`;
 
   try {
@@ -210,18 +229,23 @@ async function grupUret(
       maxTokens: 16000,
     });
 
-    const parsed = jsonCikar(yanit.content || yanit.reasoningContent || "") as { cevaplar?: Record<string, unknown> } | null;
-    if (!parsed) return {};
+    const hamYanit = yanit.content || yanit.reasoningContent || "";
+    const parsed = jsonCikar(hamYanit) as { cevaplar?: Record<string, unknown> } | null;
+    const debug: GrupDebug = { index, chipSayisi: chips.length, prompt, hamYanit };
+    if (!parsed) return { cevaplar: {}, debug };
 
     const kaynak = parsed.cevaplar && typeof parsed.cevaplar === "object" ? parsed.cevaplar : (parsed as Record<string, unknown>);
     const cikti: Record<string, string> = {};
     for (const [k, v] of Object.entries(kaynak)) {
       if (typeof v === "string" && v.trim()) cikti[k] = v.trim();
     }
-    return cikti;
-  } catch {
+    return { cevaplar: cikti, debug };
+  } catch (hata) {
     // Tek grubun hata vermesi tüm üretimi durdurmasın; eksikler tamamlama turunda doldurulur.
-    return {};
+    return {
+      cevaplar: {},
+      debug: { index, chipSayisi: chips.length, prompt, hamYanit: "", hata: hata instanceof Error ? hata.message : String(hata) },
+    };
   }
 }
 /** Vaka profilinden tüm chip yanıtlarını üretir. */
@@ -229,6 +253,8 @@ export async function vakaCevaplariniUret(
   vaka: AdminVaka,
   secenekler: UretimSecenekleri = {}
 ): Promise<CevapUretimSonucu> {
+  const profil = profilOlustur(vaka);
+
   if (!deepseekYapilandirilmisMi()) {
     return {
       basarili: false,
@@ -237,21 +263,23 @@ export async function vakaCevaplariniUret(
         toplamSoru: CHIP_HAVUZU.length,
         cevaplananSoru: 0,
         eksikSoru: CHIP_HAVUZU.map((c) => c.aksiyon),
-        uyarilar: ["DEEPSEEK_API_KEY tanımlı değil."],
+        uyarilar: ["DEEPSEEK_API_KEY tanımlı değil. Sunucu ortamında .env/.env.local yüklenmediyse uygulamayı yeniden başlatın."],
       },
+      debug: { profil, gruplar: [] },
     };
   }
 
-  const profil = profilOlustur(vaka);
   const kisilikKey = secenekler.kisilik ? secenekler.kisilikTipi || "sakin" : undefined;
   const anahtarlar = chipKeyKumesi();
   const gruplar = chipGruplari(CHIP_HAVUZU);
 
   const cevaplar: Record<string, string> = {};
+  const debugGruplar: GrupDebug[] = [];
 
   // Sıralı üretim — reasoning modeli eşzamanlı isteklerde sunucu tarafı yavaşlatılıyor.
-  for (const grup of gruplar) {
-    const uretilen = await grupUret(profil, grup, kisilikKey);
+  for (let i = 0; i < gruplar.length; i++) {
+    const { cevaplar: uretilen, debug } = await grupUret(profil, i, gruplar[i], kisilikKey);
+    debugGruplar.push(debug);
     for (const [k, v] of Object.entries(uretilen)) {
       if (anahtarlar.has(k)) cevaplar[k] = v;
     }
@@ -261,7 +289,8 @@ export async function vakaCevaplariniUret(
   for (let tur = 0; tur < MAX_TAMAMLAMA_TURU; tur++) {
     const eksik = CHIP_HAVUZU.filter((c) => !cevaplar[c.aksiyon]);
     if (eksik.length === 0) break;
-    const uretilen = await grupUret(profil, eksik, kisilikKey);
+    const { cevaplar: uretilen, debug } = await grupUret(profil, gruplar.length + tur, eksik, kisilikKey);
+    debugGruplar.push(debug);
     let kazanim = 0;
     for (const [k, v] of Object.entries(uretilen)) {
       if (anahtarlar.has(k) && !cevaplar[k]) {
@@ -290,6 +319,7 @@ export async function vakaCevaplariniUret(
       eksikSoru,
       uyarilar,
     },
+    debug: { profil, gruplar: debugGruplar },
   };
 }
 
