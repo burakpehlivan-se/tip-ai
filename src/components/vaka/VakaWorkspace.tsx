@@ -900,16 +900,17 @@ export default function VakaWorkspace({
               const aktifKat = Array.from(acikKategoriler)[0];
               if (!aktifKat) return null;
               const all = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === aktifKat);
-              // Önce vakaya relevant sorular, sonra diğerleri — kesme yok
+              // Debug kapalıyken "ilgili soru" sıralaması ve vurgusu kapalı (kör oynama);
+              // debug açıkken beklenen sorular öne alınır ve yeşil vurgulanır.
               const relevant = all.filter((c) => relevantAksiyonSeti.has(c.aksiyon));
               const rest = all.filter((c) => !relevantAksiyonSeti.has(c.aksiyon));
-              const chips = [...relevant, ...rest];
+              const chips = debugMode ? [...relevant, ...rest] : all;
               if (chips.length === 0) return null;
               return (
                 <div className="mx-auto flex max-w-2xl gap-1 overflow-x-auto pt-1.5 scrollbar-thin" aria-label="Önerilen anamnez soruları">
                   {chips.map((chip) => {
                     const soruldu = sorulanAksiyonSeti.has(chip.aksiyon);
-                    const rel = relevantAksiyonSeti.has(chip.aksiyon);
+                    const rel = debugMode && relevantAksiyonSeti.has(chip.aksiyon);
                     return (
                           <button key={chip.aksiyon} onClick={() => chipSor(chip)} disabled={soruldu || islemYukleniyor}
                         className={`min-h-8 shrink-0 rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-[background-color,border-color,color] ${
