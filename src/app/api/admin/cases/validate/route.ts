@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { loadCasesStore } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import {
   buildValidationReport,
   formatValidationReportText,
@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
   const statusFilter = req.nextUrl.searchParams.get("status");
   const poliklinik = req.nextUrl.searchParams.get("poliklinik")?.trim() || null;
 
-  const store = loadCasesStore();
+  const store = await loadRuntimeCasesStore();
   let cases = store.cases;
   if (poliklinik) {
     cases = cases.filter((c) => c.poliklinikKey === poliklinik);

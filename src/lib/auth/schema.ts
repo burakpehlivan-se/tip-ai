@@ -223,6 +223,33 @@ export const publishedClinicalCaseVersions = pgTable(
 export type PublishedClinicalCaseVersion = typeof publishedClinicalCaseVersions.$inferSelect;
 
 /**
+ * P2 vaka denetim izi. Klinik vaka gövdesi veya serbest hasta bilgisi burada
+ * tekrar tutulmaz; değişikliğin yalnızca güvenli özeti ve yapısal alanları
+ * kaydedilir. Geçmiş sürümler ile ilişki kurulmaz çünkü vaka geri çekilse bile
+ * denetim kanıtı korunmalıdır.
+ */
+export const clinicalCaseAuditLogs = pgTable(
+  "clinical_case_audit_logs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    caseId: text("case_id").notNull(),
+    event: text("event").notNull(),
+    actor: text("actor").notNull(),
+    /** İnsan-okur güvenli özet; ham vaka veya parola/bağlantı bilgisi içermez. */
+    summary: text("summary").notNull(),
+    /** Sadece alan adı, önceki/sonraki sürüm, işlem kimliği gibi yapılandırılmış metadata. */
+    meta: jsonb("meta"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    index("clinical_case_audit_logs_case_created_idx").on(table.caseId, table.createdAt),
+    index("clinical_case_audit_logs_actor_created_idx").on(table.actor, table.createdAt),
+  ]
+);
+
+export type ClinicalCaseAuditLog = typeof clinicalCaseAuditLogs.$inferSelect;
+
+/**
  * P2 sınıf/grup kapsamı. Grup üyeliği yalnızca kimlik bilgisi taşır; klinik
  * oturumların gövdesi bu tabloda tutulmaz. Böylece eğitmen atamalarının
  * kapsamı sorgulanabilir kalır ve sağlık verisi ile kimlik verisi ayrışır.

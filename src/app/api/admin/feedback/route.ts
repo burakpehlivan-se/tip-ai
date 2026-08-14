@@ -4,7 +4,8 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { addFeedback, getCaseById, listFeedbacks } from "@/lib/admin/store";
+import { addFeedback, listFeedbacks } from "@/lib/admin/store";
+import { getRuntimeCaseById } from "@/lib/admin/runtime-case-store";
 import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest) {
@@ -29,7 +30,7 @@ export async function POST(req: NextRequest) {
     if (!caseId || !metin) {
       return NextResponse.json({ error: "caseId ve metin zorunlu." }, { status: 400 });
     }
-    const vaka = getCaseById(caseId);
+    const vaka = await getRuntimeCaseById(caseId);
     if (!vaka) {
       return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
     }

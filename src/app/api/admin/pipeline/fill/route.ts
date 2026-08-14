@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { loadCasesStore, recordMutation } from "@/lib/admin/store";
+import { recordRuntimeCaseMutation } from "@/lib/admin/runtime-case-store";
 import { fillAllCases, fillCaseGeneratedTests } from "@/lib/pipeline/lab-fill";
 import { scanAllCases } from "@/lib/pipeline/case-scanner";
 
@@ -26,19 +26,19 @@ export async function POST(req: NextRequest) {
 
   if (body.id) {
     let filled: string[] = [];
-    const result = recordMutation(
-      session!.username,
-      "add_test",
-      `Pipeline: ${body.id} eksik testleri lab motoruyla dolduruldu`,
-      [],
-      (store) => {
+    const result = await recordRuntimeCaseMutation({
+      actor: session!.username,
+      action: "add_test",
+      message: `Pipeline: ${body.id} eksik testleri lab motoruyla dolduruldu`,
+      patches: [],
+      mutate: (store) => {
         const idx = store.cases.findIndex((c) => c.id === body.id);
         if (idx < 0) return;
         const out = fillCaseGeneratedTests(store.cases[idx]);
         store.cases[idx] = out.vaka;
         filled = out.fill.filled;
-      }
-    );
+      },
+    });
     const target = result.store.cases.find((c) => c.id === body.id);
     return NextResponse.json({
       ok: true,
@@ -48,19 +48,19 @@ export async function POST(req: NextRequest) {
   }
 
   const summary = { totalFilled: 0, totalStaticRequired: 0, totalInvalid: 0 };
-  const result = recordMutation(
-    session!.username,
-    "add_test",
-    "Pipeline: tüm vakaların eksik testleri lab motoruyla dolduruldu",
-    [],
-    (store) => {
+  const result = await recordRuntimeCaseMutation({
+    actor: session!.username,
+    action: "add_test",
+    message: "Pipeline: tüm vakaların eksik testleri lab motoruyla dolduruldu",
+    patches: [],
+    mutate: (store) => {
       const out = fillAllCases(store.cases);
       store.cases = out.cases;
       summary.totalFilled = out.totalFilled;
       summary.totalStaticRequired = out.totalStaticRequired;
       summary.totalInvalid = out.totalInvalid;
-    }
-  );
+    },
+  });
 
   return NextResponse.json({
     ok: true,

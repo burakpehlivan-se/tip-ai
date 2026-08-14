@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { loadCasesStore } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import {
   analyzeAllVakasOverrides,
   buildOverrideMigrationSummary,
@@ -17,7 +17,7 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
 
   try {
-  const store = loadCasesStore();
+  const store = await loadRuntimeCasesStore();
   const { reports, grandTotal } = analyzeAllVakasOverrides(store.cases);
 
   const vakaId = req.nextUrl.searchParams.get("vakaId");

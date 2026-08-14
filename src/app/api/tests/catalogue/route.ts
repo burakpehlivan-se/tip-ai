@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
-import { loadCasesStore } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import { computeCatalogueFlags } from "@/lib/pipeline/catalogue-flags";
 import { testCatalogueWithMeta } from "@/lib/data";
 
@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   const url = new URL(req.url);
   const mode = url.searchParams.get("mode") || "default";
 
-  const store = loadCasesStore();
+  const store = await loadRuntimeCasesStore();
   const flags = computeCatalogueFlags(store.cases);
   const full = testCatalogueWithMeta(flags.hasData);
 

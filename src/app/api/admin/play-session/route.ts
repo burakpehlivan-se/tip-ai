@@ -4,7 +4,8 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { getCaseById, recordPlaySession } from "@/lib/admin/store";
+import { recordPlaySession } from "@/lib/admin/store";
+import { getRuntimeCaseById } from "@/lib/admin/runtime-case-store";
 import { getRequestId, logger } from "@/lib/logger";
 
 export async function POST(req: NextRequest) {
@@ -15,7 +16,7 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
     const caseId = String(body.caseId || "");
-    const vaka = getCaseById(caseId);
+    const vaka = await getRuntimeCaseById(caseId);
     if (!vaka) return NextResponse.json({ error: "Vaka yok" }, { status: 404 });
 
     const ps = recordPlaySession(

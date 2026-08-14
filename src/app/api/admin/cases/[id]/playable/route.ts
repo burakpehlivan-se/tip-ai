@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { getCaseById } from "@/lib/admin/store";
+import { getRuntimeCaseById } from "@/lib/admin/runtime-case-store";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -12,7 +12,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const denied = requirePermission(session, "play");
   if (denied) return denied;
   const { id: rawId } = await params;
-  const vaka = getCaseById(decodeURIComponent(rawId));
+  const vaka = await getRuntimeCaseById(decodeURIComponent(rawId));
   if (!vaka) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
   return NextResponse.json({ vaka: adminVakaToPlayable(vaka) });
 }

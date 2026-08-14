@@ -6,10 +6,15 @@ import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
 import {
   clone,
-  getCaseById,
-  loadCasesStore,
-  recordMutation,
 } from "@/lib/admin/store";
+import {
+  getRuntimeCaseById,
+  recordRuntimeCaseMutation,
+} from "@/lib/admin/runtime-case-store";
+import {
+  PostgresCaseMutationConflictError,
+  PostgresCaseMutationError,
+} from "@/lib/admin/postgres-case-store";
 import { AdminVaka } from "@/lib/admin/types";
 import { parseCasePatchInput } from "@/lib/admin/case-input";
 import { getRequestId, logger } from "@/lib/logger";
@@ -42,7 +47,7 @@ export async function GET(
 
   const { id: rawId } = await params;
   const id = decodeId(rawId);
-  const vaka = getCaseById(id);
+  const vaka = await getRuntimeCaseById(id);
   if (!vaka) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
   return NextResponse.json({ case: vaka });
 }
@@ -57,7 +62,7 @@ export async function PATCH(
 
   const { id: rawId } = await params;
   const id = decodeId(rawId);
-  const existing = getCaseById(id);
+  const existing = await getRuntimeCaseById(id);
   if (!existing) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
   try {
@@ -134,22 +139,27 @@ export async function PATCH(
     }
 
     const modifiedAt = Math.max(Date.now(), existing.updatedAt + 1);
-    const result = recordMutation(
-      session!.username,
-      "update_case",
-      `"${existing.hastalikAdi}" vakası güncellendi (${patches.map((p) => p.field).join(", ")}).`,
+    const result = await recordRuntimeCaseMutation({
+      actor: session!.username,
+      action: "update_case",
+      message: `"${existing.hastalikAdi}" vakası güncellendi (${patches.map((p) => p.field).join(", ")}).`,
       patches,
-      (s) => {
+      expectedUpdatedAt: { [id]: expectedUpdatedAt },
+      mutate: (s) => {
         const idx = s.cases.findIndex((c) => c.id === id);
         if (idx >= 0) {
           s.cases[idx] = { ...s.cases[idx], ...persistedUpdates, updatedAt: modifiedAt };
         }
-      }
-    );
+      },
+    });
 
     const updated = result.store.cases.find((c) => c.id === id);
     return NextResponse.json({ ok: true, case: updated, log: result.log, backup: result.backup });
   } catch (error) {
+    if (error instanceof PostgresCaseMutationConflictError) {
+      const current = await getRuntimeCaseById(id);
+      return staleCaseResponse(current?.updatedAt || existing.updatedAt);
+    }
     logger.exception("Vaka güncellenemedi", error, {
       requestId: getRequestId(req),
       route: "/api/admin/cases/[id]",
@@ -168,25 +178,32 @@ export async function DELETE(
 
   const { id: rawId } = await params;
   const id = decodeId(rawId);
-  const existing = getCaseById(id);
+  const existing = await getRuntimeCaseById(id);
   if (!existing) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
 
-  const result = recordMutation(
-    session!.username,
-    "delete_case",
-    `"${existing.hastalikAdi}" vakası silindi (${id}).`,
-    [
-      {
-        path: `__case_delete__:${id}`,
-        caseId: id,
-        before: clone(existing),
-        after: null,
+  try {
+    const result = await recordRuntimeCaseMutation({
+      actor: session!.username,
+      action: "delete_case",
+      message: `"${existing.hastalikAdi}" vakası silindi (${id}).`,
+      patches: [
+        {
+          path: `__case_delete__:${id}`,
+          caseId: id,
+          before: clone(existing),
+          after: null,
+        },
+      ],
+      mutate: (s) => {
+        s.cases = s.cases.filter((c) => c.id !== id);
       },
-    ],
-    (s) => {
-      s.cases = s.cases.filter((c) => c.id !== id);
-    }
-  );
+    });
 
-  return NextResponse.json({ ok: true, log: result.log, backup: result.backup });
+    return NextResponse.json({ ok: true, log: result.log, backup: result.backup });
+  } catch (error) {
+    if (error instanceof PostgresCaseMutationError) {
+      return NextResponse.json({ error: error.message }, { status: 409 });
+    }
+    throw error;
+  }
 }

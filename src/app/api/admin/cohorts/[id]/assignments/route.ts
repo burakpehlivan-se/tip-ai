@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { getCaseById } from "@/lib/admin/store";
+import { getRuntimeCaseById } from "@/lib/admin/runtime-case-store";
 import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
 import { createCohortCaseAssignment, parseOptionalText } from "@/lib/learning/cohort-store";
 
@@ -28,7 +28,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const title = parseOptionalText(body?.title, 160);
   const instructions = parseOptionalText(body?.instructions, 2000);
   const dueAt = parseDueAt(body?.dueAt);
-  const caseItem = getCaseById(caseId);
+  const caseItem = await getRuntimeCaseById(caseId);
   const reviewStatus = caseItem?.incelemeDurumu || "legacy";
   if (!caseItem || caseItem.durum !== "aktif" || !["onayli", "legacy"].includes(reviewStatus)) {
     return NextResponse.json({ error: "Yalnızca aktif ve onaylı vakalar atanabilir." }, { status: 422 });

@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { loadCasesStore } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import { getRequestId, logger } from "@/lib/logger";
 
 /**
@@ -11,7 +11,7 @@ import { getRequestId, logger } from "@/lib/logger";
  */
 export async function GET(req: NextRequest) {
   try {
-    const store = loadCasesStore();
+    const store = await loadRuntimeCasesStore();
     // Öğrenciye yalnızca aktif + (isteğe bağlı) onaylı taslak olmayan vakalar
     const templates = store.cases
       .filter((c) => (c.durum || "aktif") === "aktif")

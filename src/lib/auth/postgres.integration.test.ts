@@ -19,6 +19,7 @@ import path from "node:path";
 import { scryptSync } from "node:crypto";
 import { Pool } from "pg";
 import { runMigrations } from "./migrate";
+import { checkCaseStoreMigrationReadiness } from "./migration-readiness";
 import { importUsersFromFile } from "../../../scripts/import-users";
 import { importCasesFromFile } from "../../../scripts/import-cases";
 import { verifyCaseStoreParity } from "../../../scripts/verify-case-store-parity";
@@ -26,6 +27,7 @@ import { hashPassword, verifyPassword, needsRehash, versionLegacyHash } from "./
 import { getDb, resetDbForTests } from "./db";
 import {
   authSessions,
+  clinicalCaseAuditLogs,
   clinicalCases,
   cohorts,
   learningAttempts,
@@ -35,6 +37,13 @@ import {
 import { addCohortMember, createCohortCaseAssignment, listAssignmentsForStudent } from "@/lib/learning/cohort-store";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 import { loadCasesStore } from "@/lib/admin/store";
+import {
+  getRuntimeCaseById,
+  getRuntimePublishedCaseVersion,
+  listRuntimeCasesGrouped,
+  loadRuntimeCasesStore,
+  recordRuntimeCaseMutation,
+} from "@/lib/admin/runtime-case-store";
 import { answerPostgresAttempt } from "@/lib/student/postgres-attempt-store";
 import { authenticateUser, createUser, findUserByUsername, updateUser } from "./user-store";
 import {
@@ -61,6 +70,7 @@ const describePg = TEST_URL ? describe : describe.skip;
 async function dropAll(): Promise<void> {
   const pool = new Pool({ connectionString: TEST_URL! });
   try {
+    await pool.query(`DROP TABLE IF EXISTS clinical_case_audit_logs CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS published_clinical_case_versions CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS clinical_cases CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS auth_sessions CASCADE`);
@@ -114,6 +124,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       expect(names).toContain("rate_limit_buckets");
       expect(names).toContain("clinical_cases");
       expect(names).toContain("published_clinical_case_versions");
+      expect(names).toContain("clinical_case_audit_logs");
 
       const { rows: enumRows } = await pool.query(
         `SELECT typname FROM pg_type WHERE typname = 'user_role'`
@@ -140,6 +151,19 @@ describePg("PostgreSQL 16 entegrasyon", () => {
     } finally {
       await pool.end();
     }
+  });
+
+  it("PostgreSQL vaka deposu için migration readiness kontrolü geçer", async () => {
+    await expect(checkCaseStoreMigrationReadiness()).resolves.toMatchObject({
+      ok: true,
+      checks: {
+        migrationJournal: true,
+        migrationApplied: true,
+        casesTable: true,
+        publishedVersionsTable: true,
+        auditLogTable: true,
+      },
+    });
   });
 
   it("legacy JSON deposunu idempotent aktarır ve zaman damgalı yedek alır", async () => {
@@ -263,6 +287,31 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       postgresPublishedVersions: 1,
     });
 
+    const previousCaseStoreForMutation = process.env.CASE_STORE;
+    process.env.CASE_STORE = "postgres";
+    try {
+      await expect(loadRuntimeCasesStore()).resolves.toMatchObject({
+        cases: [expect.objectContaining({ id: content.id, surum: 2 })],
+        publishedVersions: [expect.objectContaining({ caseId: content.id, version: 1 })],
+      });
+      await expect(getRuntimeCaseById(content.id)).resolves.toMatchObject({
+        id: content.id,
+        durum: "aktif",
+        surum: 2,
+      });
+      await expect(getRuntimePublishedCaseVersion(content.id, 1)).resolves.toMatchObject({
+        caseId: content.id,
+        version: 1,
+        approvedBy: "reviewer",
+      });
+      await expect(listRuntimeCasesGrouped()).resolves.toEqual([
+        expect.objectContaining({ poliklinikKey: "acil", cases: [expect.objectContaining({ id: content.id })] }),
+      ]);
+    } finally {
+      if (previousCaseStoreForMutation === undefined) delete process.env.CASE_STORE;
+      else process.env.CASE_STORE = previousCaseStoreForMutation;
+    }
+
     fs.writeFileSync(
       casesFile,
       JSON.stringify({ version: 1, cases: [{ ...content, surum: 3 }], publishedVersions: [] }),
@@ -296,6 +345,79 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       version: 1,
       contentChecksum: "published-checksum-v1",
     });
+
+    const previousCaseStore = process.env.CASE_STORE;
+    process.env.CASE_STORE = "postgres";
+    try {
+      const updatedAt = now + 1_000;
+      const mutation = await recordRuntimeCaseMutation({
+        actor: "reviewer",
+        action: "update_case",
+        message: "Vaka metadata güncellendi.",
+        patches: [
+          {
+            path: `cases.${content.id}.hastalikAdi`,
+            caseId: content.id,
+            field: "hastalikAdi",
+            before: content.hastalikAdi,
+            after: "Güncellenmiş vaka",
+          },
+        ],
+        mutate: (store) => {
+          store.cases = store.cases.map((item) =>
+            item.id === content.id
+              ? { ...item, hastalikAdi: "Güncellenmiş vaka", contentChecksum: "case-checksum-v3", updatedAt }
+              : item
+          );
+        },
+      });
+      expect(mutation.backup).toBeNull();
+      expect(mutation.store.cases).toEqual([
+        expect.objectContaining({ id: content.id, hastalikAdi: "Güncellenmiş vaka", updatedAt }),
+      ]);
+
+      const [mutatedRow] = await db.select().from(clinicalCases).where(eq(clinicalCases.caseId, content.id));
+      expect(mutatedRow).toMatchObject({
+        caseId: content.id,
+        contentChecksum: "case-checksum-v3",
+        content: expect.objectContaining({ hastalikAdi: "Güncellenmiş vaka", updatedAt }),
+      });
+      const auditRows = await db.select().from(clinicalCaseAuditLogs).where(eq(clinicalCaseAuditLogs.caseId, content.id));
+      expect(auditRows).toEqual([
+        expect.objectContaining({
+          event: "update_case",
+          actor: "reviewer",
+          summary: "Vaka metadata güncellendi.",
+          meta: { patches: [{ path: `cases.${content.id}.hastalikAdi`, caseId: content.id, field: "hastalikAdi" }] },
+        }),
+      ]);
+
+      await expect(
+        recordRuntimeCaseMutation({
+          actor: "reviewer",
+          action: "update_case",
+          message: "Eski editör kaydı",
+          patches: [],
+          expectedUpdatedAt: { [content.id]: now },
+          mutate: () => undefined,
+        })
+      ).rejects.toThrow("Vaka başka bir kullanıcı tarafından güncellendi");
+
+      await expect(
+        recordRuntimeCaseMutation({
+          actor: "reviewer",
+          action: "delete_case",
+          message: "Silme denemesi",
+          patches: [{ path: `__case_delete__:${content.id}`, caseId: content.id, before: content, after: null }],
+          mutate: (store) => {
+            store.cases = [];
+          },
+        })
+      ).rejects.toThrow("Vaka silme PostgreSQL kaynakta desteklenmez");
+    } finally {
+      if (previousCaseStore === undefined) delete process.env.CASE_STORE;
+      else process.env.CASE_STORE = previousCaseStore;
+    }
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

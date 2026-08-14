@@ -6,10 +6,12 @@ import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
 import {
   clone,
-  listCasesGrouped,
-  loadCasesStore,
-  recordMutation,
 } from "@/lib/admin/store";
+import {
+  listRuntimeCasesGrouped,
+  loadRuntimeCasesStore,
+  recordRuntimeCaseMutation,
+} from "@/lib/admin/runtime-case-store";
 import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
 import { parseCreateCaseInput } from "@/lib/admin/case-input";
 import { getRequestId, logger } from "@/lib/logger";
@@ -19,8 +21,7 @@ export async function GET(req: NextRequest) {
   const denied = requirePermission(session, "cases.read");
   if (denied) return denied;
 
-  const grouped = listCasesGrouped();
-  const store = loadCasesStore();
+  const [grouped, store] = await Promise.all([listRuntimeCasesGrouped(), loadRuntimeCasesStore()]);
   return NextResponse.json({
     grouped,
     total: store.cases.length,
@@ -46,7 +47,7 @@ export async function POST(req: NextRequest) {
     const { poliklinikKey, hastalikKey, hastalikAdi } = input;
 
     const id = `${poliklinikKey}::${hastalikKey}`;
-    const store = loadCasesStore();
+    const store = await loadRuntimeCasesStore();
     if (store.cases.some((c) => c.id === id)) {
       return NextResponse.json({ error: "Bu vaka zaten var." }, { status: 409 });
     }
@@ -106,11 +107,11 @@ export async function POST(req: NextRequest) {
       tedavi: input.tedavi,
     });
 
-    const result = recordMutation(
-      session!.username,
-      "create_case",
-      `"${hastalikAdi}" vakası eklendi (${id}).`,
-      [
+    const result = await recordRuntimeCaseMutation({
+      actor: session!.username,
+      action: "create_case",
+      message: `"${hastalikAdi}" vakası eklendi (${id}).`,
+      patches: [
         {
           path: `__case_create__:${id}`,
           caseId: id,
@@ -118,10 +119,10 @@ export async function POST(req: NextRequest) {
           after: clone(vaka),
         },
       ],
-      (s) => {
+      mutate: (s) => {
         s.cases.push(vaka);
-      }
-    );
+      },
+    });
 
     return NextResponse.json({ ok: true, case: vaka, log: result.log, backup: result.backup });
   } catch (error) {

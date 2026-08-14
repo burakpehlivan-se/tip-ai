@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { getCaseById, getPublishedCaseVersion } from "@/lib/admin/store";
+import { getRuntimeCaseById, getRuntimePublishedCaseVersion } from "@/lib/admin/runtime-case-store";
 import { JsonStoreReadError } from "@/lib/admin/json-store";
 import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
 import { getAssignmentForStudent } from "@/lib/learning/cohort-store";
@@ -40,9 +40,9 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   if ("response" in resolved) return resolved.response;
 
   const version = Number(resolved.assignment.caseVersion);
-  const currentCase = getCaseById(resolved.assignment.caseId);
+  const currentCase = await getRuntimeCaseById(resolved.assignment.caseId);
   const published = Number.isSafeInteger(version)
-    ? getPublishedCaseVersion(resolved.assignment.caseId, version)
+    ? await getRuntimePublishedCaseVersion(resolved.assignment.caseId, version)
     : undefined;
   // Arşiv/geri çekme yeni denemeleri kapatır. Bunun dışındaki içerik
   // düzenlemeleri öğrencinin atandığı onaylı sürümü değiştiremez.
