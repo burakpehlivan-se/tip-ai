@@ -58,8 +58,8 @@ export interface CompletedAttempt {
 export interface DebugJson {
   hasta: Hasta;
   sorulanSorular: Array<{ soru: string; aksiyon: string; cevap: string }>;
-  sorulmasiGerekenSorular: RubrikAksiyon[];
-  tumSorular: SoruChipi[];
+  sorulmasiGerekenSorular: Array<RubrikAksiyon & { cevap: string }>;
+  tumSorular: Array<SoruChipi & { cevap: string }>;
 }
 
 interface Props {
@@ -227,8 +227,14 @@ export default function VakaWorkspace({
     return {
       hasta: vaka.hasta,
       sorulanSorular,
-      sorulmasiGerekenSorular: vaka.rubric.beklenenSorular,
-      tumSorular: chipList,
+      sorulmasiGerekenSorular: vaka.rubric.beklenenSorular.map((s) => ({
+        ...s,
+        cevap: vaka.hastaYanitlari[s.key] ?? "",
+      })),
+      tumSorular: chipList.map((c) => ({
+        ...c,
+        cevap: vaka.hastaYanitlari[c.aksiyon] ?? "",
+      })),
     };
   }, [vaka, mesajlar]);
 
