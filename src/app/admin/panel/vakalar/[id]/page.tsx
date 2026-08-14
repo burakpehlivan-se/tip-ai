@@ -107,15 +107,15 @@ interface AdminVaka {
 }
 
 const TABS: { id: TabId; label: string }[] = [
-  { id: "meta", label: "1. Meta" },
-  { id: "patient", label: "2. Patient" },
-  { id: "presentation", label: "3. Presentation" },
-  { id: "conditions", label: "4. Conditions" },
-  { id: "rubric", label: "5. Rubric" },
-  { id: "labs", label: "6. Labs" },
-  { id: "vitals", label: "7. Vitals" },
-  { id: "yanitlar", label: "8. Yanıtlar" },
-  { id: "management", label: "9. Management" },
+  { id: "meta", label: "1. Kimlik & Yayın" },
+  { id: "patient", label: "2. Hasta" },
+  { id: "presentation", label: "3. Başvuru" },
+  { id: "conditions", label: "4. Tanılar" },
+  { id: "rubric", label: "5. Puanlama" },
+  { id: "labs", label: "6. Laboratuvar" },
+  { id: "vitals", label: "7. Yaşamsal Bulgular" },
+  { id: "yanitlar", label: "8. Hasta Yanıtları" },
+  { id: "management", label: "9. Yönetim & Tedavi" },
   { id: "ai", label: "AI" },
 ];
 
@@ -997,8 +997,8 @@ export default function AdminVakaDetailPage() {
 
       {tab === "meta" && (
         <Section
-          title="meta — kimlik & yayın"
-          hint="poliklinikKey / hastalikKey depoda sabit; yayın ve onay bağımsız inceleme akışından yönetilir."
+          title="Kimlik & yayın"
+          hint="Hastalık adı ve yayın durumu. poliklinikKey / hastalikKey depoda sabittir; yayın ve onay bağımsız inceleme akışından yönetilir."
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
@@ -1010,7 +1010,7 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">hastalikKey (salt okunur)</label>
+              <label className="text-xs text-muted">Hastalık anahtarı (salt okunur)</label>
               <input className="input w-full bg-surface-soft" value={vaka.hastalikKey} readOnly />
             </div>
             <div>
@@ -1067,12 +1067,12 @@ export default function AdminVakaDetailPage() {
 
       {tab === "patient" && (
         <Section
-          title="patient — demografi & profil"
-          hint="OMOP person + profil (BMI, sigara, komorbidite kodları)."
+          title="Hasta — demografi & profil"
+          hint="Yaş aralığı, cinsiyet ve ek hastalık öyküsü."
         >
           <div className="grid gap-3 sm:grid-cols-2">
             <div>
-              <label className="text-xs text-muted">Yaş min</label>
+              <label className="text-xs text-muted">Yaş (min)</label>
               <input
                 type="number"
                 className="input w-full"
@@ -1081,7 +1081,7 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Yaş max</label>
+              <label className="text-xs text-muted">Yaş (max)</label>
               <input
                 type="number"
                 className="input w-full"
@@ -1120,7 +1120,7 @@ export default function AdminVakaDetailPage() {
               />
             </div>
             <div>
-              <label className="text-xs text-muted">Komorbiditeler (kod, virgülle)</label>
+              <label className="text-xs text-muted">Ek hastalıklar (virgülle)</label>
               <input
                 className="input w-full"
                 value={patient.komorbiditeler}
@@ -1134,11 +1134,11 @@ export default function AdminVakaDetailPage() {
 
       {tab === "presentation" && (
         <Section
-          title="presentation — OSCE başvuru"
-          hint="Chief complaint + HPI özet + semptom şablonu."
+          title="Başvuru — şikayet & öykü"
+          hint="Ana şikayet + öykü (HPI) özeti + semptom şablonu."
         >
           <div>
-            <label className="text-xs text-muted">Ana şikayet</label>
+            <label className="text-xs text-muted">Ana şikayet (chief complaint)</label>
             <input
               className="input w-full"
               value={presentation.anaSikayet}
@@ -1173,8 +1173,8 @@ export default function AdminVakaDetailPage() {
 
       {tab === "conditions" && (
         <Section
-          title="conditions — tanılar (OMOP condition_occurrence)"
-          hint="Sabit kod + ad. Örn. CKD_G3, T2DM, HTN. En az bir primary işaretleyin."
+          title="Tanılar (OMOP condition_occurrence)"
+          hint="Kod + tanı adı. Örn. CKD_G3, T2DM, HTN. En az bir 'birincil tanı' işaretleyin."
         >
           <div className="flex justify-end">
             <button
@@ -1187,7 +1187,7 @@ export default function AdminVakaDetailPage() {
                 ])
               }
             >
-              + Condition
+              + Tanı ekle
             </button>
           </div>
           <div className="space-y-2">
@@ -1198,7 +1198,7 @@ export default function AdminVakaDetailPage() {
               >
                 <input
                   className="input text-xs font-mono"
-                  placeholder="CODE"
+                  placeholder="KOD"
                   value={c.code}
                   onChange={(e) => {
                     const next = [...conditions];
@@ -1227,7 +1227,7 @@ export default function AdminVakaDetailPage() {
                       setConditions(next);
                     }}
                   />
-                  primary
+                  Birincil tanı
                 </label>
                 <button
                   type="button"
@@ -1239,12 +1239,12 @@ export default function AdminVakaDetailPage() {
               </div>
             ))}
             {conditions.length === 0 && (
-              <p className="text-xs text-muted">Condition yok — kabul edilen tanılardan da dolabilir.</p>
+              <p className="text-xs text-muted">Tanı yok — kabul edilen tanılardan da dolabilir.</p>
             )}
           </div>
           <div>
             <label className="text-xs text-muted">
-              rubric.kabulEdilenTani (virgülle — scoring eşleşmesi)
+              Kabul edilen tanılar (virgülle)
             </label>
             <input
               className="input w-full"
@@ -1257,30 +1257,30 @@ export default function AdminVakaDetailPage() {
 
       {tab === "rubric" && (
         <Section
-          title="rubric — OSCE scoring"
-          hint="Beklenen sorular/testler sabit key ile. Test key’leri katalogla hizalı olmalı (KREATININ, IDRAR…)."
+          title="Puanlama — OSCE kriterleri"
+          hint="Öğrenciden beklenen sorular, testler ve kaçınılması gerekenler. Test anahtarları katalogla uyumlu olmalı (KREATININ, IDRAR…)."
         >
           <RubrikListEditor
-            label="beklenenSorular"
+            label="Beklenen sorular (öğrencinin sormalı)"
             items={beklenenSorular}
             onChange={setBeklenenSorular}
             keyPlaceholder="ODEM_SURE"
             showCategory
           />
           <RubrikListEditor
-            label="beklenenTestler"
+            label="Beklenen testler (öğrencinin istemeli)"
             items={beklenenTestler}
             onChange={setBeklenenTestler}
             keyPlaceholder="KREATININ"
           />
           <RubrikListEditor
-            label="gereksizTestler"
+            label="Gereksiz testler (ceza)"
             items={gereksizTestler}
             onChange={setGereksizTestler}
             keyPlaceholder="BT_TORAKS"
           />
           <RubrikListEditor
-            label="redFlagler"
+            label="Kırmızı bayraklar (red flags)"
             items={redFlagler}
             onChange={setRedFlagler}
             keyPlaceholder="HIPERKALEMI"
@@ -1290,8 +1290,8 @@ export default function AdminVakaDetailPage() {
 
       {tab === "labs" && (
         <Section
-          title="labs — measurement (statikTestler)"
-          hint="Sadece birleşik test kataloğundan eklenir. Anahtarlar kanonik (IDRAR, GLUKOZ…)."
+          title="Laboratuvar — ölçümler"
+          hint="Sadece birleşik test kataloğundan eklenir. Anahtarlar kanoniktir (IDRAR, GLUKOZ…)."
         >
           <div className="flex flex-wrap items-end justify-between gap-3">
             <p className="text-xs text-muted">
@@ -1382,9 +1382,9 @@ export default function AdminVakaDetailPage() {
             </div>
           )}
 
-          <h3 className="text-sm font-semibold text-ink pt-2">Vakadaki lab sonuçları</h3>
+          <h3 className="text-sm font-semibold text-ink pt-2">Vakadaki laboratuvar sonuçları</h3>
           {tests.length === 0 && (
-            <p className="text-xs text-muted">Henüz lab yok — katalogdan ekleyin.</p>
+            <p className="text-xs text-muted">Henüz laboratuvar sonucu yok — katalogdan ekleyin.</p>
           )}
           {tests.map((t) => (
             <div
@@ -1450,7 +1450,7 @@ export default function AdminVakaDetailPage() {
 
       {tab === "vitals" && (
         <Section
-          title="vitals — yaşamsal bulgular"
+          title="Yaşamsal bulgular"
           hint="Kaydedilince VITAL_* hasta yanıtlarına da yazılır."
         >
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
@@ -1478,7 +1478,7 @@ export default function AdminVakaDetailPage() {
 
       {tab === "yanitlar" && (
         <Section
-          title="hastaYanitlari — simüle cevaplar"
+          title="Hasta yanıtları — simüle cevaplar"
           hint="Her satır: KEY=metin  (örn. ODEM_SURE=Yaklaşık 1 haftadır). OZEL fallback zorunlu."
         >
           <textarea
@@ -1492,11 +1492,11 @@ export default function AdminVakaDetailPage() {
 
       {tab === "management" && (
         <Section
-          title="management — ideal yol & tedavi"
-          hint="OSCE Assessment & Plan. İlaç satırı: ad | doz | yol | endikasyon"
+          title="Yönetim — ideal yol & tedavi"
+          hint="OSCE Değerlendirme ve Plan (A&P). İlaç satırı: ad | doz | yol | endikasyon"
         >
           <div>
-            <label className="text-xs text-muted">idealYol (satır satır)</label>
+            <label className="text-xs text-muted">İdeal klinik yol (satır satır)</label>
             <textarea
               className="input w-full min-h-[120px]"
               value={idealYol}
