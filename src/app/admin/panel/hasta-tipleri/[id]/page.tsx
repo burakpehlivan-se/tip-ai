@@ -13,6 +13,9 @@ interface HastaTipi {
   cinsiyetTercih: "E" | "K" | "herhangi";
   komorbiditeler: string[];
   kisilikTipi?: string;
+  konusmaKurallari?: string;
+  konusmaOrnekleri?: { pozitif: string; negatif: string; belirsiz: string };
+  ornekCumleler?: string[];
   ornekCevaplar?: Record<string, string>;
   updatedAt: number;
 }
@@ -42,6 +45,9 @@ export default function AdminHastaTipiDetailPage() {
   const [cinsiyet, setCinsiyet] = useState<HastaTipi["cinsiyetTercih"]>("herhangi");
   const [komorbiditeler, setKomorbiditeler] = useState("");
   const [kisilikTipi, setKisilikTipi] = useState("");
+  const [konusmaKurallari, setKonusmaKurallari] = useState("");
+  const [konusmaOrnekleri, setKonusmaOrnekleri] = useState({ pozitif: "", negatif: "", belirsiz: "" });
+  const [ornekCumleler, setOrnekCumleler] = useState<string[]>([]);
 
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
@@ -67,6 +73,13 @@ export default function AdminHastaTipiDetailPage() {
     setCinsiyet(t.cinsiyetTercih || "herhangi");
     setKomorbiditeler((t.komorbiditeler || []).join(", "));
     setKisilikTipi(t.kisilikTipi || "");
+    setKonusmaKurallari(t.konusmaKurallari || "");
+    setKonusmaOrnekleri({
+      pozitif: t.konusmaOrnekleri?.pozitif || "",
+      negatif: t.konusmaOrnekleri?.negatif || "",
+      belirsiz: t.konusmaOrnekleri?.belirsiz || "",
+    });
+    setOrnekCumleler(t.ornekCumleler || []);
   }
 
   function load() {
@@ -100,6 +113,13 @@ export default function AdminHastaTipiDetailPage() {
           cinsiyetTercih: cinsiyet,
           komorbiditeler: komorbiditeler.split(",").map((s) => s.trim()).filter(Boolean),
           kisilikTipi: kisilikTipi || undefined,
+          konusmaKurallari: konusmaKurallari.trim() || undefined,
+          konusmaOrnekleri: {
+            pozitif: konusmaOrnekleri.pozitif.trim(),
+            negatif: konusmaOrnekleri.negatif.trim(),
+            belirsiz: konusmaOrnekleri.belirsiz.trim(),
+          },
+          ornekCumleler: ornekCumleler.map((s) => s.trim()).filter(Boolean),
         }),
       });
       const d = await res.json();
@@ -269,6 +289,80 @@ export default function AdminHastaTipiDetailPage() {
             <option key={k} value={k}>{KISILIK_TIPLERI[k].ad}</option>
           ))}
         </select>
+      </Section>
+
+      <Section title="konuşma örnekleri" hint="Hastanın nasıl konuştuğunu gösteren örnekler — AI cevap üretirken bu tonda konuşur.">
+        <div>
+          <label className="text-xs text-muted">Konuşma kuralları</label>
+          <textarea
+            className="input h-24 w-full resize-y text-sm"
+            value={konusmaKurallari}
+            onChange={(e) => setKonusmaKurallari(e.target.value)}
+            placeholder="- Kısa ve net cevap ver (1-2 cümle)&#10;- Sakin ol, panik yapma"
+          />
+        </div>
+        <div className="grid gap-3 sm:grid-cols-3">
+          <div>
+            <label className="text-xs text-muted">Pozitif örnek cevap</label>
+            <textarea
+              className="input h-20 w-full resize-y text-sm"
+              value={konusmaOrnekleri.pozitif}
+              onChange={(e) => setKonusmaOrnekleri({ ...konusmaOrnekleri, pozitif: e.target.value })}
+              placeholder="Evet, baş ağrım var. İki haftadır."
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted">Negatif örnek cevap</label>
+            <textarea
+              className="input h-20 w-full resize-y text-sm"
+              value={konusmaOrnekleri.negatif}
+              onChange={(e) => setKonusmaOrnekleri({ ...konusmaOrnekleri, negatif: e.target.value })}
+              placeholder="Hayır, göğüs ağrım yok."
+            />
+          </div>
+          <div>
+            <label className="text-xs text-muted">Belirsiz örnek cevap</label>
+            <textarea
+              className="input h-20 w-full resize-y text-sm"
+              value={konusmaOrnekleri.belirsiz}
+              onChange={(e) => setKonusmaOrnekleri({ ...konusmaOrnekleri, belirsiz: e.target.value })}
+              placeholder="Tam emin değilim ama sanırım yok."
+            />
+          </div>
+        </div>
+        <div>
+          <label className="text-xs text-muted">Ek örnek konuşma cümleleri</label>
+          <div className="space-y-2">
+            {ornekCumleler.map((c, i) => (
+              <div key={i} className="flex items-center gap-2">
+                <input
+                  className="input flex-1 text-sm"
+                  value={c}
+                  onChange={(e) => {
+                    const next = [...ornekCumleler];
+                    next[i] = e.target.value;
+                    setOrnekCumleler(next);
+                  }}
+                  placeholder="Örn. Doktor, ilaçlarımı düzenli kullanıyorum."
+                />
+                <button
+                  type="button"
+                  className="text-xs text-clinical-red hover:underline"
+                  onClick={() => setOrnekCumleler(ornekCumleler.filter((_, j) => j !== i))}
+                >
+                  Sil
+                </button>
+              </div>
+            ))}
+            <button
+              type="button"
+              className="text-xs font-medium text-brand-deep hover:underline"
+              onClick={() => setOrnekCumleler((l) => [...l, ""])}
+            >
+              + Cümle ekle
+            </button>
+          </div>
+        </div>
       </Section>
 
       <Section title="örnekler / açıklama" hint="Tipin hangi senaryolarda kullanılacağına dair not.">

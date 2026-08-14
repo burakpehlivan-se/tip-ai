@@ -1,5 +1,6 @@
 import fs from "fs";
 import path from "path";
+import { KISILIK_TIPLERI, KisilikTipiKey } from "../ai/kisilik-tipleri";
 import {
   AdminVaka,
   AnalyticsStore,
@@ -546,8 +547,40 @@ export function saveSettings(settings: SystemSettings, actor: string): SystemSet
 
 // ─── Hasta Tipleri ───
 
+function seedHastaTipleri(): HastaTipi[] {
+  const now = Date.now();
+  return (Object.keys(KISILIK_TIPLERI) as KisilikTipiKey[]).map((k) => {
+    const p = KISILIK_TIPLERI[k];
+    return {
+      id: k,
+      ad: p.ad,
+      aciklama: p.aciklama,
+      yasAraligi: [30, 70] as [number, number],
+      cinsiyetTercih: "herhangi" as const,
+      komorbiditeler: [],
+      kisilikTipi: k,
+      konusmaKurallari: p.konusmaKurallari,
+      konusmaOrnekleri: { ...p.ornekCevaplar },
+      ornekCumleler: [],
+      createdAt: now,
+      updatedAt: now,
+    };
+  });
+}
+
 export function loadHastaTipleriStore(): HastaTipleriStore {
-  return readJson<HastaTipleriStore>(hastaTipleriPath(), { version: 1, updatedAt: 0, tipler: [] });
+  const empty: HastaTipleriStore = { version: 1, seededAt: 0, updatedAt: 0, tipler: [] };
+  const store = readJson<HastaTipleriStore>(hastaTipleriPath(), empty);
+  if (!Array.isArray(store.tipler)) store.tipler = [];
+  if (!store.seededAt) {
+    // İlk açılış: kişilik tiplerini seed et. Mevcut id'lerle çakışanlar atlanır.
+    const existing = new Set(store.tipler.map((t) => t.id));
+    store.tipler = [...store.tipler, ...seedHastaTipleri().filter((t) => !existing.has(t.id))];
+    store.seededAt = Date.now();
+    store.updatedAt = Date.now();
+    writeJsonAtomic(hastaTipleriPath(), store);
+  }
+  return store;
 }
 
 export function saveHastaTipleriStore(store: HastaTipleriStore): void {

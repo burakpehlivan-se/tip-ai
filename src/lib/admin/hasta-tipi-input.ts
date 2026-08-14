@@ -62,7 +62,13 @@ function ageRange(value: unknown, field: string, issues: InputIssue[]): [number,
   return [value[0], value[1]];
 }
 
-function stringList(value: unknown, field: string, issues: InputIssue[], maxItems = 50): string[] | undefined {
+function stringList(
+  value: unknown,
+  field: string,
+  issues: InputIssue[],
+  maxItems = 50,
+  maxItem = 200
+): string[] | undefined {
   if (value === undefined) return undefined;
   if (!Array.isArray(value) || value.length > maxItems) {
     issues.push({ field, message: `En fazla ${maxItems} metinden oluşan liste olmalı.` });
@@ -70,7 +76,7 @@ function stringList(value: unknown, field: string, issues: InputIssue[], maxItem
   }
   const result: string[] = [];
   value.forEach((item, index) => {
-    const parsed = text(item, `${field}[${index}]`, issues, 200);
+    const parsed = text(item, `${field}[${index}]`, issues, maxItem);
     if (parsed) result.push(parsed);
   });
   return result;
@@ -118,6 +124,29 @@ export function parseHastaTipiInput(
 
   const komorbiditeler = stringList(raw.komorbiditeler, "komorbiditeler", issues);
   if (komorbiditeler !== undefined) value.komorbiditeler = komorbiditeler;
+
+  const konusmaKurallari = text(raw.konusmaKurallari, "konusmaKurallari", issues, 4000);
+  if (konusmaKurallari !== undefined) value.konusmaKurallari = konusmaKurallari;
+
+  if (raw.konusmaOrnekleri !== undefined) {
+    if (!isRecord(raw.konusmaOrnekleri)) {
+      issues.push({ field: "konusmaOrnekleri", message: "Nesne olmalı." });
+    } else {
+      const out: { pozitif: string; negatif: string; belirsiz: string } = {
+        pozitif: "",
+        negatif: "",
+        belirsiz: "",
+      };
+      for (const k of ["pozitif", "negatif", "belirsiz"] as const) {
+        const parsed = text(raw.konusmaOrnekleri[k], `konusmaOrnekleri.${k}`, issues, 2000);
+        if (parsed !== undefined) out[k] = parsed;
+      }
+      if (!issues.some((i) => i.field.startsWith("konusmaOrnekleri"))) value.konusmaOrnekleri = out;
+    }
+  }
+
+  const cumleler = stringList(raw.ornekCumleler, "ornekCumleler", issues, 50, 2000);
+  if (cumleler !== undefined) value.ornekCumleler = cumleler;
 
   if (raw.kisilikTipi !== undefined) {
     if (typeof raw.kisilikTipi !== "string" || !KISILIK_TIPI_KEYLERI.includes(raw.kisilikTipi as KisilikTipiKey)) {

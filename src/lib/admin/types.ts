@@ -150,8 +150,14 @@ export interface HastaTipi {
   cinsiyetTercih: "E" | "K" | "herhangi";
   /** Komorbidite / hastalık öyküsü listesi. */
   komorbiditeler: string[];
-  /** AI cevap tonu. */
+  /** AI cevap tonu (kod içi kişilik referansı). */
   kisilikTipi?: KisilikTipiKey;
+  /** Hastanın nasıl konuşacağına dair kurallar (AI prompt girdisi). */
+  konusmaKurallari?: string;
+  /** Örnek konuşma cevapları (pozitif / negatif / belirsiz). */
+  konusmaOrnekleri?: { pozitif: string; negatif: string; belirsiz: string };
+  /** Serbest örnek konuşma cümleleri. */
+  ornekCumleler?: string[];
   /** AI'nin ürettiği örnek hasta cevapları (soru anahtarı → cevap). */
   ornekCevaplar?: Record<string, string>;
   createdAt: number;
@@ -160,6 +166,8 @@ export interface HastaTipi {
 
 export interface HastaTipleriStore {
   version: number;
+  /** İlk açılışta kişilik tipleri seed edilince dolar. */
+  seededAt: number;
   updatedAt: number;
   tipler: HastaTipi[];
 }

@@ -7,6 +7,7 @@ import { GET, POST } from "./route";
 import { GET as getTip, PATCH, DELETE } from "./[id]/route";
 import { createSessionToken } from "@/lib/admin/auth";
 import { loadHastaTipleriStore } from "@/lib/admin/store";
+import { KISILIK_TIPI_KEYLERI } from "@/lib/ai/kisilik-tipleri";
 
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tip-ai-hasta-tipleri-route-test-"));
 const oldCwd = process.cwd();
@@ -73,10 +74,20 @@ describe("admin hasta tipi routes", () => {
     expect(response.status).toBe(409);
   });
 
+  it("ilk açılışta kişilik tiplerini öntanımlı hasta tipi olarak seed eder", async () => {
+    const tipler = loadHastaTipleriStore().tipler;
+    expect(tipler).toHaveLength(KISILIK_TIPI_KEYLERI.length);
+    expect(tipler.map((t) => t.id)).toEqual(expect.arrayContaining(["sakin", "endiseli", "ketum"]));
+    const sakin = tipler.find((t) => t.id === "sakin");
+    expect(sakin?.konusmaOrnekleri?.pozitif).toBeTruthy();
+  });
+
   it("listeler ve tekini getirir", async () => {
     await POST(request("/api/admin/hasta-tipleri", "POST", { ad: "Diyabetik Kadın" }, adminToken()));
     const list = await GET(request("/api/admin/hasta-tipleri", "GET", undefined, adminToken()));
-    expect((await list.json()).tipler).toHaveLength(1);
+    const tipler = (await list.json()).tipler as { id: string; ad: string }[];
+    expect(tipler).toHaveLength(KISILIK_TIPI_KEYLERI.length + 1);
+    expect(tipler.map((t) => t.id)).toContain("diyabetik-kadin");
 
     const one = await getTip(
       request("/api/admin/hasta-tipleri/diyabetik-kadin", "GET", undefined, adminToken()),
@@ -118,6 +129,8 @@ describe("admin hasta tipi routes", () => {
       { params: Promise.resolve({ id: "diyabetik-kadin" }) }
     );
     expect(response.status).toBe(200);
-    expect(loadHastaTipleriStore().tipler).toHaveLength(0);
+    const tipler = loadHastaTipleriStore().tipler;
+    expect(tipler.map((t) => t.id)).not.toContain("diyabetik-kadin");
+    expect(tipler).toHaveLength(KISILIK_TIPI_KEYLERI.length);
   });
 });
