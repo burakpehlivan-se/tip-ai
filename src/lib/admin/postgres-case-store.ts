@@ -9,8 +9,12 @@
 
 import { asc, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/auth/db";
-import { clinicalCases, publishedClinicalCaseVersions } from "@/lib/auth/schema";
-import type { AdminVaka, CasesStore, PublishedCaseVersion } from "./types";
+import {
+  clinicalCaseAuditLogs,
+  clinicalCases,
+  publishedClinicalCaseVersions,
+} from "@/lib/auth/schema";
+import type { AdminVaka, AuditLog, AuditPatch, CasesStore, PublishedCaseVersion } from "./types";
 
 type ClinicalCaseRow = typeof clinicalCases.$inferSelect;
 type PublishedVersionRow = typeof publishedClinicalCaseVersions.$inferSelect;
@@ -20,6 +24,14 @@ export class PostgresCaseDataIntegrityError extends Error {
   constructor(message: string) {
     super(message);
     this.name = "PostgresCaseDataIntegrityError";
+  }
+}
+
+/** Vaka mutasyonu, yayın sürümü değişmezliği veya yarış kuralını ihlal etti. */
+export class PostgresCaseMutationError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "PostgresCaseMutationError";
   }
 }
 
@@ -82,6 +94,21 @@ function publishedVersionFromRow(row: PublishedVersionRow): PublishedCaseVersion
   };
 }
 
+function storeFromRows(caseRows: ClinicalCaseRow[], versionRows: PublishedVersionRow[]): CasesStore {
+  const cases = caseRows.map(caseFromRow);
+  const timestamps = caseRows.flatMap((row) => [row.createdAt.getTime(), row.updatedAt.getTime()]);
+  return {
+    version: 1,
+    seededAt: timestamps.length ? Math.min(...timestamps) : 0,
+    updatedAt: timestamps.length ? Math.max(...timestamps) : 0,
+    // JSON'un otomatik yedekleme sayacı PostgreSQL kaynağına taşınmaz. DB
+    // yedekleme politikası ayrı altyapı sorumluluğudur.
+    changeCount: 0,
+    cases,
+    publishedVersions: versionRows.map(publishedVersionFromRow),
+  };
+}
+
 /**
  * PostgreSQL'den tüm vaka kaydını legacy `CasesStore` sözleşmesine dönüştürür.
  * `changeCount` yalnızca eski JSON yedekleme sayacıdır; PostgreSQL kaynakta
@@ -96,16 +123,7 @@ export async function loadPostgresCasesStore(): Promise<CasesStore> {
       .from(publishedClinicalCaseVersions)
       .orderBy(asc(publishedClinicalCaseVersions.caseId), desc(publishedClinicalCaseVersions.version)),
   ]);
-  const cases = caseRows.map(caseFromRow);
-  const timestamps = caseRows.flatMap((row) => [row.createdAt.getTime(), row.updatedAt.getTime()]);
-  return {
-    version: 1,
-    seededAt: timestamps.length ? Math.min(...timestamps) : 0,
-    updatedAt: timestamps.length ? Math.max(...timestamps) : 0,
-    changeCount: 0,
-    cases,
-    publishedVersions: versionRows.map(publishedVersionFromRow),
-  };
+  return storeFromRows(caseRows, versionRows);
 }
 
 export async function getPostgresCaseById(caseId: string): Promise<AdminVaka | undefined> {
@@ -157,4 +175,147 @@ export async function listPostgresCasesGrouped(): Promise<
     });
   }
   return [...groups.values()].sort((left, right) => left.poliklinikAd.localeCompare(right.poliklinikAd, "tr"));
+}
+
+/** Audit tablosuna vaka gövdesi taşımadan yazılabilecek yapısal patch özeti. */
+function auditPatchSummary(patches: AuditPatch[]) {
+  return patches.map((patch) => ({
+    path: patch.path,
+    caseId: patch.caseId,
+    field: patch.field,
+    testKey: patch.testKey,
+  }));
+}
+
+function sameJson(left: unknown, right: unknown): boolean {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function caseInsertValues(vaka: AdminVaka) {
+  return {
+    caseId: vaka.id,
+    poliklinikKey: vaka.poliklinikKey,
+    status: vaka.durum,
+    reviewStatus: vaka.incelemeDurumu || (vaka.uzmanOnayi ? "onayli" : "legacy"),
+    version: vaka.surum,
+    contentChecksum: vaka.contentChecksum || null,
+    content: vaka,
+    createdAt: new Date(vaka.createdAt),
+    updatedAt: new Date(vaka.updatedAt),
+  };
+}
+
+function caseUpdateValues(vaka: AdminVaka) {
+  const { caseId: _caseId, createdAt: _createdAt, ...values } = caseInsertValues(vaka);
+  return values;
+}
+
+/**
+ * Tek bir PostgreSQL transaction'ında vaka değişikliğini uygular. Tüm mevcut
+ * vaka/sürüm satırları transaction bitene kadar kilitlidir; böylece legacy
+ * callback biçimindeki read-modify-write işlemleri birbirini ezmez.
+ *
+ * Yayınlanan sürümler append-only'dir: silme veya içerik değiştirme reddedilir.
+ * Vaka silme de reddedilir; cutover sonrası geri çekme "arsiv" durumuyla
+ * yapılmalıdır ki geçmiş deneme ve audit kanıtı korunabilsin.
+ */
+export async function recordPostgresCaseMutation(input: {
+  actor: string;
+  action: AuditLog["action"];
+  message: string;
+  patches: AuditPatch[];
+  mutate: (store: CasesStore) => void;
+}): Promise<{ store: CasesStore; log: AuditLog; backup: null }> {
+  const db = getDb();
+  return db.transaction(async (tx) => {
+    const [caseRows, versionRows] = await Promise.all([
+      tx.select().from(clinicalCases).orderBy(asc(clinicalCases.caseId)).for("update"),
+      tx
+        .select()
+        .from(publishedClinicalCaseVersions)
+        .orderBy(asc(publishedClinicalCaseVersions.caseId), desc(publishedClinicalCaseVersions.version))
+        .for("update"),
+    ]);
+    const store = storeFromRows(caseRows, versionRows);
+    const beforeCases = new Map(caseRows.map((row) => [row.caseId, row]));
+    const beforeVersions = new Map(versionRows.map((row) => [`${row.caseId}\u0000${row.version}`, row]));
+    input.mutate(store);
+
+    const afterCases = new Map(store.cases.map((vaka) => [vaka.id, vaka]));
+    if (afterCases.size !== store.cases.length) {
+      throw new PostgresCaseMutationError("Aynı vaka kimliği birden fazla kez kaydedilemez.");
+    }
+    for (const caseId of beforeCases.keys()) {
+      if (!afterCases.has(caseId)) {
+        throw new PostgresCaseMutationError("Vaka silme PostgreSQL kaynakta desteklenmez; vakayı arşivleyin.");
+      }
+    }
+    for (const [caseId, vaka] of afterCases) {
+      if (!isAdminVaka(vaka)) throw new PostgresCaseMutationError("Kaydedilecek vaka geçersiz.");
+      const previous = beforeCases.get(caseId);
+      if (!previous) {
+        await tx.insert(clinicalCases).values(caseInsertValues(vaka));
+        continue;
+      }
+      if (!sameJson(previous.content, vaka)) {
+        if (vaka.updatedAt < previous.updatedAt.getTime()) {
+          throw new PostgresCaseMutationError("Vaka güncelleme zamanı geriye alınamaz.");
+        }
+        await tx.update(clinicalCases).set(caseUpdateValues(vaka)).where(eq(clinicalCases.caseId, caseId));
+      }
+    }
+
+    const afterVersions = new Map(
+      store.publishedVersions.map((version) => [`${version.caseId}\u0000${version.version}`, version])
+    );
+    if (afterVersions.size !== store.publishedVersions.length) {
+      throw new PostgresCaseMutationError("Aynı vaka sürümü ikinci kez yayınlanamaz.");
+    }
+    for (const [key, previous] of beforeVersions) {
+      const current = afterVersions.get(key);
+      if (!current || !sameJson(previous.content, current.content)) {
+        throw new PostgresCaseMutationError("Yayınlanmış vaka sürümleri değiştirilemez veya silinemez.");
+      }
+    }
+    for (const [key, version] of afterVersions) {
+      if (beforeVersions.has(key)) continue;
+      if (!isAdminVaka(version.content) || version.content.id !== version.caseId || version.content.surum !== version.version) {
+        throw new PostgresCaseMutationError("Yayınlanacak vaka sürümü geçersiz.");
+      }
+      await tx.insert(publishedClinicalCaseVersions).values({
+        caseId: version.caseId,
+        version: version.version,
+        contentChecksum: version.contentChecksum,
+        approvedBy: version.approvedBy,
+        approvedAt: new Date(version.approvedAt),
+        content: version.content,
+      });
+    }
+
+    const [audit] = await tx
+      .insert(clinicalCaseAuditLogs)
+      .values({
+        caseId: input.patches.find((patch) => patch.caseId)?.caseId || "system",
+        event: input.action,
+        actor: input.actor,
+        summary: input.message,
+        meta: { patches: auditPatchSummary(input.patches) },
+      })
+      .returning();
+    const timestamp = audit.createdAt.getTime();
+    return {
+      store,
+      log: {
+        id: audit.id,
+        timestamp,
+        actor: input.actor,
+        action: input.action,
+        message: input.message,
+        patches: [],
+        metadata: audit.meta as Record<string, unknown> | undefined,
+        undone: false,
+      },
+      backup: null,
+    };
+  });
 }

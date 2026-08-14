@@ -26,6 +26,7 @@ import { hashPassword, verifyPassword, needsRehash, versionLegacyHash } from "./
 import { getDb, resetDbForTests } from "./db";
 import {
   authSessions,
+  clinicalCaseAuditLogs,
   clinicalCases,
   cohorts,
   learningAttempts,
@@ -40,6 +41,7 @@ import {
   getRuntimePublishedCaseVersion,
   listRuntimeCasesGrouped,
   loadRuntimeCasesStore,
+  recordRuntimeCaseMutation,
 } from "@/lib/admin/runtime-case-store";
 import { answerPostgresAttempt } from "@/lib/student/postgres-attempt-store";
 import { authenticateUser, createUser, findUserByUsername, updateUser } from "./user-store";
@@ -271,7 +273,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       postgresPublishedVersions: 1,
     });
 
-    const previousCaseStore = process.env.CASE_STORE;
+    const previousCaseStoreForMutation = process.env.CASE_STORE;
     process.env.CASE_STORE = "postgres";
     try {
       await expect(loadRuntimeCasesStore()).resolves.toMatchObject({
@@ -292,8 +294,8 @@ describePg("PostgreSQL 16 entegrasyon", () => {
         expect.objectContaining({ poliklinikKey: "acil", cases: [expect.objectContaining({ id: content.id })] }),
       ]);
     } finally {
-      if (previousCaseStore === undefined) delete process.env.CASE_STORE;
-      else process.env.CASE_STORE = previousCaseStore;
+      if (previousCaseStoreForMutation === undefined) delete process.env.CASE_STORE;
+      else process.env.CASE_STORE = previousCaseStoreForMutation;
     }
 
     fs.writeFileSync(
@@ -329,6 +331,68 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       version: 1,
       contentChecksum: "published-checksum-v1",
     });
+
+    const previousCaseStore = process.env.CASE_STORE;
+    process.env.CASE_STORE = "postgres";
+    try {
+      const updatedAt = now + 1_000;
+      const mutation = await recordRuntimeCaseMutation({
+        actor: "reviewer",
+        action: "update_case",
+        message: "Vaka metadata güncellendi.",
+        patches: [
+          {
+            path: `cases.${content.id}.hastalikAdi`,
+            caseId: content.id,
+            field: "hastalikAdi",
+            before: content.hastalikAdi,
+            after: "Güncellenmiş vaka",
+          },
+        ],
+        mutate: (store) => {
+          store.cases = store.cases.map((item) =>
+            item.id === content.id
+              ? { ...item, hastalikAdi: "Güncellenmiş vaka", contentChecksum: "case-checksum-v3", updatedAt }
+              : item
+          );
+        },
+      });
+      expect(mutation.backup).toBeNull();
+      expect(mutation.store.cases).toEqual([
+        expect.objectContaining({ id: content.id, hastalikAdi: "Güncellenmiş vaka", updatedAt }),
+      ]);
+
+      const [mutatedRow] = await db.select().from(clinicalCases).where(eq(clinicalCases.caseId, content.id));
+      expect(mutatedRow).toMatchObject({
+        caseId: content.id,
+        contentChecksum: "case-checksum-v3",
+        content: expect.objectContaining({ hastalikAdi: "Güncellenmiş vaka", updatedAt }),
+      });
+      const auditRows = await db.select().from(clinicalCaseAuditLogs).where(eq(clinicalCaseAuditLogs.caseId, content.id));
+      expect(auditRows).toEqual([
+        expect.objectContaining({
+          event: "update_case",
+          actor: "reviewer",
+          summary: "Vaka metadata güncellendi.",
+          meta: { patches: [{ path: `cases.${content.id}.hastalikAdi`, caseId: content.id, field: "hastalikAdi" }] },
+        }),
+      ]);
+
+      await expect(
+        recordRuntimeCaseMutation({
+          actor: "reviewer",
+          action: "delete_case",
+          message: "Silme denemesi",
+          patches: [{ path: `__case_delete__:${content.id}`, caseId: content.id, before: content, after: null }],
+          mutate: (store) => {
+            store.cases = [];
+          },
+        })
+      ).rejects.toThrow("Vaka silme PostgreSQL kaynakta desteklenmez");
+    } finally {
+      if (previousCaseStore === undefined) delete process.env.CASE_STORE;
+      else process.env.CASE_STORE = previousCaseStore;
+    }
 
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

@@ -14,9 +14,10 @@ import {
   listPostgresCasesGrouped,
   listPostgresPublishedCaseVersions,
   loadPostgresCasesStore,
+  recordPostgresCaseMutation,
 } from "./postgres-case-store";
 import { caseStoreMode } from "./postgres-case-store-mode";
-import type { AdminVaka, CasesStore, PublishedCaseVersion } from "./types";
+import type { AdminVaka, AuditLog, AuditPatch, CasesStore, PublishedCaseVersion } from "./types";
 
 export async function loadRuntimeCasesStore(): Promise<CasesStore> {
   return caseStoreMode() === "postgres" ? loadPostgresCasesStore() : jsonCases.loadCasesStore();
@@ -46,4 +47,21 @@ export async function listRuntimeCasesGrouped(): Promise<
 > {
   if (caseStoreMode() === "json") return jsonCases.listCasesGrouped();
   return listPostgresCasesGrouped();
+}
+
+/**
+ * JSON ve PostgreSQL modları için tek mutation sınırı. PostgreSQL modunda
+ * transaction + immutable published-version koruması uygulanır; JSON modunda
+ * mevcut audit/yedek davranışı korunur. Çağıranlar bu fonksiyona geçmeden
+ * CASE_STORE=postgres etkinleştirilmemelidir.
+ */
+export async function recordRuntimeCaseMutation(input: {
+  actor: string;
+  action: AuditLog["action"];
+  message: string;
+  patches: AuditPatch[];
+  mutate: (store: CasesStore) => void;
+}): Promise<{ store: CasesStore; log: AuditLog; backup: ReturnType<typeof jsonCases.recordMutation>["backup"] | null }> {
+  if (caseStoreMode() === "postgres") return recordPostgresCaseMutation(input);
+  return jsonCases.recordMutation(input.actor, input.action, input.message, input.patches, input.mutate);
 }
