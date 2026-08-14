@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import JsonViewer from "@/components/admin/JsonViewer";
 import JsonDiff from "@/components/admin/JsonDiff";
 
@@ -20,6 +20,28 @@ export default function AdminLogsPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [onlyChanges, setOnlyChanges] = useState(false);
+  const [filterAction, setFilterAction] = useState("");
+  const [filterActor, setFilterActor] = useState("");
+  const [filterText, setFilterText] = useState("");
+  const [sortAsc, setSortAsc] = useState(false);
+
+  const actions = useMemo(() => {
+    const set = new Set<string>();
+    for (const l of logs) set.add(l.action);
+    return Array.from(set).sort();
+  }, [logs]);
+
+  const filtered = useMemo(() => {
+    const q = filterText.trim().toLowerCase();
+    const actor = filterActor.trim().toLowerCase();
+    const list = logs.filter((l) => {
+      if (filterAction && l.action !== filterAction) return false;
+      if (actor && !l.actor.toLowerCase().includes(actor)) return false;
+      if (q && !l.message.toLowerCase().includes(q)) return false;
+      return true;
+    });
+    return list.sort((a, b) => (sortAsc ? a.timestamp - b.timestamp : b.timestamp - a.timestamp));
+  }, [logs, filterAction, filterActor, filterText, sortAsc]);
 
   function load() {
     fetch("/api/admin/logs?limit=300")
@@ -64,6 +86,38 @@ export default function AdminLogsPage() {
         Sadece değişen alanları göster
       </label>
 
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <select
+          className="input max-w-[200px] text-sm"
+          value={filterAction}
+          onChange={(e) => setFilterAction(e.target.value)}
+        >
+          <option value="">Tüm işlemler</option>
+          {actions.map((a) => (
+            <option key={a} value={a}>{a}</option>
+          ))}
+        </select>
+        <input
+          className="input max-w-[160px] text-sm"
+          placeholder="Kullanıcı…"
+          value={filterActor}
+          onChange={(e) => setFilterActor(e.target.value)}
+        />
+        <input
+          className="input min-w-[180px] flex-1 text-sm"
+          placeholder="Mesajda ara…"
+          value={filterText}
+          onChange={(e) => setFilterText(e.target.value)}
+        />
+        <button
+          type="button"
+          className="btn-secondary text-sm"
+          onClick={() => setSortAsc((v) => !v)}
+        >
+          {sortAsc ? "↑ Eskiden yeniye" : "↓ Yeniden eskiye"}
+        </button>
+      </div>
+
       {error && (
         <div className="mt-4 rounded-md bg-clinical-red/10 px-3 py-2 text-sm text-clinical-red">
           {error}
@@ -71,7 +125,7 @@ export default function AdminLogsPage() {
       )}
 
       <div className="mt-6 space-y-3">
-        {logs.map((log) => {
+        {filtered.map((log) => {
           const canUndo =
             !log.undone &&
             log.action !== "undo" &&
@@ -144,7 +198,7 @@ export default function AdminLogsPage() {
             </div>
           );
         })}
-        {logs.length === 0 && <p className="text-sm text-steel">Henüz log yok.</p>}
+        {filtered.length === 0 && <p className="text-sm text-steel">Henüz log yok.</p>}
       </div>
     </div>
   );
