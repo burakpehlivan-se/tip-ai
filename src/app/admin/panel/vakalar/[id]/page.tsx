@@ -370,7 +370,7 @@ function RubrikListEditor({
             )}
             <button
               type="button"
-              className="text-xs text-clinical-red hover:underline"
+              className="inline-flex min-h-9 items-center px-2 text-xs text-clinical-red hover:underline"
               onClick={() => onChange(items.filter((_, j) => j !== i))}
             >
               Sil
@@ -1254,7 +1254,7 @@ export default function AdminVakaDetailPage() {
                   />
                   <button
                     type="button"
-                    className="text-xs text-clinical-red hover:underline"
+                    className="inline-flex min-h-9 items-center px-2 text-xs text-clinical-red hover:underline"
                     onClick={() => setOzetBilgilerList(ozetBilgilerList.filter((_, j) => j !== i))}
                   >
                     Sil
@@ -1345,7 +1345,7 @@ export default function AdminVakaDetailPage() {
                 </label>
                 <button
                   type="button"
-                  className="text-xs text-clinical-red"
+                  className="inline-flex min-h-9 items-center px-2 text-xs text-clinical-red"
                   onClick={() => setConditions(conditions.filter((_, j) => j !== i))}
                 >
                   Sil
@@ -1518,7 +1518,7 @@ export default function AdminVakaDetailPage() {
                 </div>
                 <button
                   type="button"
-                  className="text-xs text-clinical-red"
+                  className="inline-flex min-h-9 items-center px-2 text-xs text-clinical-red"
                   onClick={() => deleteTest(t.testKey)}
                 >
                   Sil

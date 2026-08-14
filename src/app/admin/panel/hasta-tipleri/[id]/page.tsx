@@ -353,7 +353,7 @@ export default function AdminHastaTipiDetailPage() {
                 />
                 <button
                   type="button"
-                  className="text-xs text-clinical-red hover:underline"
+                  className="inline-flex min-h-9 items-center px-2 text-xs text-clinical-red hover:underline"
                   onClick={() => setOrnekCumleler(ornekCumleler.filter((_, j) => j !== i))}
                 >
                   Sil

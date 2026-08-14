@@ -423,7 +423,7 @@ export default function ProfilimPage() {
                         <span
                           className={`rounded-full px-2.5 py-1 text-xs font-medium ${
                             s.taniDogru
-                              ? "bg-emerald-100 text-emerald-700"
+                              ? "bg-clinical-green/15 text-clinical-green"
                               : "bg-clinical-red/10 text-clinical-red"
                           }`}
                         >
