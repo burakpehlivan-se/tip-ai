@@ -1,9 +1,9 @@
 function Primitive({ value }: { value: unknown }) {
   if (value === undefined) return <span className="italic text-muted">undefined</span>;
-  if (value === null) return <span className="italic text-rose-600">null</span>;
-  if (typeof value === "string") return <span className="text-emerald-700">"{value}"</span>;
-  if (typeof value === "number") return <span className="text-amber-700">{value}</span>;
-  if (typeof value === "boolean") return <span className="text-violet-700">{String(value)}</span>;
+  if (value === null) return <span className="italic text-clinical-red">null</span>;
+  if (typeof value === "string") return <span className="text-brand-deep">"{value}"</span>;
+  if (typeof value === "number") return <span className="text-clinical-orange">{value}</span>;
+  if (typeof value === "boolean") return <span className="text-steel">{String(value)}</span>;
   return <span className="text-ink">{String(value)}</span>;
 }
 
@@ -16,7 +16,7 @@ function JsonNode({ name, value }: { name?: string; value: unknown }) {
       <div className="break-all">
         {name !== undefined && (
           <>
-            <span className="text-sky-700">{name}</span>
+            <span className="text-clinical-blue">{name}</span>
             <span className="text-muted">: </span>
           </>
         )}
@@ -34,7 +34,7 @@ function JsonNode({ name, value }: { name?: string; value: unknown }) {
   return (
     <details open={open}>
       <summary className="cursor-pointer select-none text-muted hover:text-ink">
-        {name !== undefined && <span className="text-sky-700">{name}</span>}
+        {name !== undefined && <span className="text-clinical-blue">{name}</span>}
         {name !== undefined && <span className="text-muted">: </span>}
         <span>{label}</span>
       </summary>

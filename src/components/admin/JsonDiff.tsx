@@ -39,11 +39,11 @@ export function diffEntries(before: unknown, after: unknown): DiffEntry[] {
 }
 
 function EntryRow({ entry }: { entry: DiffEntry }) {
-  const key = <span className="font-mono text-sky-700">{entry.key}</span>;
+  const key = <span className="font-mono text-clinical-blue">{entry.key}</span>;
   if (entry.type === "added") {
     return (
       <div>
-        <span className="mr-1 text-emerald-600">+</span>
+        <span className="mr-1 text-brand-deep">+</span>
         {key}
         <span className="text-muted">: </span>
         <JsonViewer value={entry.after} />
@@ -53,7 +53,7 @@ function EntryRow({ entry }: { entry: DiffEntry }) {
   if (entry.type === "removed") {
     return (
       <div>
-        <span className="mr-1 text-rose-600">−</span>
+        <span className="mr-1 text-clinical-red">−</span>
         {key}
         <span className="text-muted">: </span>
         <JsonViewer value={entry.before} />
@@ -63,18 +63,18 @@ function EntryRow({ entry }: { entry: DiffEntry }) {
   if (entry.type === "changed") {
     return (
       <div className="font-mono text-xs break-all">
-        <span className="mr-1 text-amber-600">~</span>
+        <span className="mr-1 text-clinical-orange">~</span>
         {key}
         <span className="text-muted">: </span>
-        <span className="text-rose-600 line-through">{JSON.stringify(entry.before)}</span>
+        <span className="text-clinical-red line-through">{JSON.stringify(entry.before)}</span>
         <span className="text-muted"> → </span>
-        <span className="text-emerald-700">{JSON.stringify(entry.after)}</span>
+        <span className="text-brand-deep">{JSON.stringify(entry.after)}</span>
       </div>
     );
   }
   return (
     <div>
-      <span className="text-sky-700 font-mono">{entry.key}</span>
+      <span className="text-clinical-blue font-mono">{entry.key}</span>
       <div className="ml-3 border-l border-hairline pl-3">
         {(entry.children || []).map((c) => (
           <EntryRow key={c.key} entry={c} />
@@ -98,9 +98,9 @@ export default function JsonDiff({ before, after }: { before: unknown; after: un
   if (!isRecord(before) || !isRecord(after)) {
     return (
       <div className="font-mono text-xs break-all">
-        <span className="text-rose-600 line-through">{JSON.stringify(before)}</span>
+        <span className="text-clinical-red line-through">{JSON.stringify(before)}</span>
         <span className="text-muted"> → </span>
-        <span className="text-emerald-700">{JSON.stringify(after)}</span>
+        <span className="text-brand-deep">{JSON.stringify(after)}</span>
       </div>
     );
   }

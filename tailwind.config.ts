@@ -34,6 +34,7 @@ const config: Config = {
           red: "#b33939",
           orange: "#b45309",
           blue: "#3772cf",
+          green: "#16a34a",
         },
       },
       fontFamily: {

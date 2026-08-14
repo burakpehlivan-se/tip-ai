@@ -38,7 +38,7 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
       <div className={`border-b border-ink/20 px-3 py-1.5 ${fs}`}>
         <div className="grid gap-x-3 gap-y-0.5 sm:grid-cols-2">
           <div className="break-words"><span className="text-muted">Hasta:</span> <span className="font-semibold text-ink">{hasta.tamAd || hasta.ad}</span></div>
-          <div className="break-words"><span className="text-muted">TC:</span> <span className="font-semibold text-ink">{hasta.tc || "—"}</span></div>
+          <div className="break-words"><span className="text-muted">Vaka No:</span> <span className="font-semibold text-ink">{hasta.tc || "—"}</span></div>
           <div><span className="text-muted">Yaş/Cins:</span> <span className="text-ink">{hasta.yas}/{hasta.cinsiyet}</span></div>
           <div className="break-words"><span className="text-muted">Tarih:</span> <span className="text-ink">{tarihStr}</span></div>
         </div>

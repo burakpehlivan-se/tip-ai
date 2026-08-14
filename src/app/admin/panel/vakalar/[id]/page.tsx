@@ -1028,11 +1028,13 @@ export default function AdminVakaDetailPage() {
       )}
 
       {/* CDM tab bar */}
-      <div className="flex gap-1 overflow-x-auto border-b border-hairline pb-px scrollbar-none">
+      <div role="tablist" className="flex gap-1 overflow-x-auto border-b border-hairline pb-px scrollbar-none">
         {TABS.map((t) => (
           <button
             key={t.id}
             type="button"
+            role="tab"
+            aria-selected={tab === t.id}
             onClick={() => setTab(t.id)}
             className={`shrink-0 rounded-t-lg px-3 py-2 text-xs font-medium transition-colors ${
               tab === t.id

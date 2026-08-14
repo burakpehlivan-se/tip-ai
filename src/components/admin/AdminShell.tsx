@@ -149,7 +149,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
             </div>
           </div>
         </header>
-        <main id="panel-icerik" className="flex min-h-0 flex-1 flex-col overflow-hidden">
+        <main id="panel-icerik" tabIndex={-1} className="flex min-h-0 flex-1 flex-col overflow-hidden">
           {children}
         </main>
       </div>
@@ -216,7 +216,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
           })}
         </nav>
       </header>
-      <main id="panel-icerik" className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      <main id="panel-icerik" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-8">{children}</main>
     </div>
   );
 }

@@ -323,7 +323,7 @@ export default function AdminOynaPage() {
         {sidebarAcik && (
           <aside className="flex w-full shrink-0 flex-col overflow-hidden border-l border-hairline bg-canvas lg:w-80">
             {/* Tab başlıkları */}
-            <div className="flex shrink-0 border-b border-hairline">
+            <div role="tablist" className="flex shrink-0 border-b border-hairline">
               {(
                 [
                   { id: "not" as const, label: "Notlar" },
@@ -339,6 +339,8 @@ export default function AdminOynaPage() {
                 <button
                   key={t.id}
                   type="button"
+                  role="tab"
+                  aria-selected={feedbackTab === t.id}
                   onClick={() => setFeedbackTab(t.id)}
                   className={`flex-1 px-2 py-2 text-[11px] font-medium transition-colors ${
                     feedbackTab === t.id
