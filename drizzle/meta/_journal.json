@@ -64,6 +64,13 @@
       "when": 1786730400000,
       "tag": "0008_clinical_case_store",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1786813200000,
+      "tag": "0009_clinical_case_audit_log",
+      "breakpoints": true
     }
   ]
 }

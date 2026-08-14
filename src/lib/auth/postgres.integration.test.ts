@@ -67,6 +67,7 @@ const describePg = TEST_URL ? describe : describe.skip;
 async function dropAll(): Promise<void> {
   const pool = new Pool({ connectionString: TEST_URL! });
   try {
+    await pool.query(`DROP TABLE IF EXISTS clinical_case_audit_logs CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS published_clinical_case_versions CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS clinical_cases CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS auth_sessions CASCADE`);
@@ -120,6 +121,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       expect(names).toContain("rate_limit_buckets");
       expect(names).toContain("clinical_cases");
       expect(names).toContain("published_clinical_case_versions");
+      expect(names).toContain("clinical_case_audit_logs");
 
       const { rows: enumRows } = await pool.query(
         `SELECT typname FROM pg_type WHERE typname = 'user_role'`
