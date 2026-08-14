@@ -403,7 +403,7 @@ export default function AdminVakaDetailPage() {
     spo2: "",
     solunum: "",
   });
-  const [yanitlarText, setYanitlarText] = useState("");
+  const [yanitlarList, setYanitlarList] = useState<{ key: string; value: string }[]>([]);
   const [idealYol, setIdealYol] = useState("");
   const [egitimNotu, setEgitimNotu] = useState("");
   const [tedaviIlaclar, setTedaviIlaclar] = useState("");
@@ -480,11 +480,10 @@ export default function AdminVakaDetailPage() {
         c.vitals?.spo2 != null ? String(c.vitals.spo2) : c.hastaYanitlari?.VITAL_SPO2 || "",
       solunum: c.vitals?.solunum != null ? String(c.vitals.solunum) : "",
     });
-    // KEY=value satırları
-    const yLines = Object.entries(c.hastaYanitlari || {})
-      .map(([k, v]) => `${k}=${v}`)
-      .join("\n");
-    setYanitlarText(yLines);
+    // Soru-cevap listesi
+    setYanitlarList(
+      Object.entries(c.hastaYanitlari || {}).map(([k, v]) => ({ key: k, value: v }))
+    );
     setIdealYol((c.idealYol || []).join("\n"));
     setEgitimNotu(c.egitimNotu || "");
     setTedaviIlaclar(
@@ -584,10 +583,7 @@ export default function AdminVakaDetailPage() {
             const cevaplar = (olay.cevaplar ?? {}) as Record<string, string>;
             const rapor = olay.rapor as { cevaplananSoru?: number; toplamSoru?: number; eksikSoru?: string[]; uyarilar?: string[] } | undefined;
             const debug = olay.debug as { profil?: string; gruplar?: Array<{ index: number; chipSayisi: number; prompt: string; hamYanit: string; hata?: string }> } | undefined;
-            const satirlar = Object.entries(cevaplar)
-              .map(([k, v]) => `${k}=${v}`)
-              .join("\n");
-            setYanitlarText(satirlar);
+            setYanitlarList(Object.entries(cevaplar).map(([k, v]) => ({ key: k, value: v })));
             setAiRapor(
               rapor
                 ? `Üretildi: ${rapor.cevaplananSoru}/${rapor.toplamSoru} soru. Eksik: ${rapor.eksikSoru?.length ?? 0}. Uyarı: ${rapor.uyarilar?.length ?? 0}.`
@@ -623,21 +619,6 @@ export default function AdminVakaDetailPage() {
     }
   }
 
-  function parseYanitlar(text: string): Record<string, string> {
-    const out: Record<string, string> = {};
-    for (const line of text.split("\n")) {
-      const t = line.trim();
-      if (!t) continue;
-      const eq = t.indexOf("=");
-      if (eq <= 0) continue;
-      const k = t.slice(0, eq).trim();
-      const v = t.slice(eq + 1).trim();
-      if (k) out[k] = v;
-    }
-    if (!out.OZEL) out.OZEL = "Anlamadım";
-    return out;
-  }
-
   function parseIlaclar(text: string) {
     return linesToList(text).map((line) => {
       const parts = line.split("|").map((p) => p.trim());
@@ -652,13 +633,24 @@ export default function AdminVakaDetailPage() {
     }).filter((i) => i.ad);
   }
 
+  function yanitEtiketi(key: string): string {
+    const r = beklenenSorular.find((s) => s.key === key);
+    if (r?.etiket) return r.etiket;
+    return key ? humanizeKey(key) : "";
+  }
+
   async function saveAll(e?: FormEvent) {
     e?.preventDefault();
     if (!vaka) return;
     setSaving(true);
     setError("");
 
-    const hastaYanitlari = parseYanitlar(yanitlarText);
+    const hastaYanitlari: Record<string, string> = {};
+    for (const y of yanitlarList) {
+      const k = y.key.trim();
+      if (k) hastaYanitlari[k] = y.value;
+    }
+    if (!hastaYanitlari.OZEL) hastaYanitlari.OZEL = "Anlamadım";
     // vitals → yanıt senkron
     const tansiyon = [vitals.tansiyonSistolik, vitals.tansiyonDiyastolik]
       .map((s) => s.trim())
@@ -1541,14 +1533,68 @@ export default function AdminVakaDetailPage() {
       {tab === "yanitlar" && (
         <Section
           title="Hasta yanıtları — simüle cevaplar"
-          hint="Her satır: KEY=metin  (örn. ODEM_SURE=Yaklaşık 1 haftadır). OZEL fallback zorunlu."
+          hint="Her soru için simüle hastanın verdiği cevap. OZEL anahtarı, anlaşılmayan sorular için fallback olarak zorunludur."
         >
-          <textarea
-            className="input w-full min-h-[240px] font-mono text-xs"
-            value={yanitlarText}
-            onChange={(e) => setYanitlarText(e.target.value)}
-            placeholder={"ODEM_SURE=...\nDIYABET=...\nOZEL=Anlamadım"}
-          />
+          <div className="flex justify-end">
+            <button
+              type="button"
+              className="text-xs font-medium text-brand-deep hover:underline"
+              onClick={() => setYanitlarList((l) => [...l, { key: "", value: "" }])}
+            >
+              + Soru / cevap ekle
+            </button>
+          </div>
+          {yanitlarList.length === 0 && (
+            <p className="text-xs text-muted">Henüz cevap yok — ekleyin veya AI ile üretin.</p>
+          )}
+          <div className="space-y-2">
+            {yanitlarList.map((y, i) => (
+              <div
+                key={i}
+                className="grid gap-2 rounded-lg border border-hairline-soft bg-surface-soft p-2 sm:grid-cols-[200px_1fr_auto]"
+              >
+                <div>
+                  <label className="text-[10px] font-medium uppercase tracking-wide text-muted">
+                    Soru anahtarı
+                  </label>
+                  <input
+                    className="input text-xs font-mono"
+                    placeholder="ODEM_SURE"
+                    value={y.key}
+                    onChange={(e) => {
+                      const next = [...yanitlarList];
+                      next[i] = { ...y, key: e.target.value };
+                      setYanitlarList(next);
+                    }}
+                  />
+                  <div className="mt-0.5 truncate text-[10px] text-steel">
+                    {yanitEtiketi(y.key)}
+                  </div>
+                </div>
+                <div>
+                  <label className="text-[10px] font-medium uppercase tracking-wide text-muted">
+                    Hasta cevabı
+                  </label>
+                  <textarea
+                    className="input min-h-[48px] w-full resize-y text-sm"
+                    value={y.value}
+                    onChange={(e) => {
+                      const next = [...yanitlarList];
+                      next[i] = { ...y, value: e.target.value };
+                      setYanitlarList(next);
+                    }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  className="self-start text-xs text-clinical-red hover:underline"
+                  onClick={() => setYanitlarList(yanitlarList.filter((_, j) => j !== i))}
+                >
+                  Sil
+                </button>
+              </div>
+            ))}
+          </div>
         </Section>
       )}
 
