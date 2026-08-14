@@ -9,6 +9,7 @@ type Role = "admin" | "doktor";
 const NAV: { href: string; label: string; roles: Role[] }[] = [
   { href: "/admin/panel", label: "Özet", roles: ["admin", "doktor"] },
   { href: "/admin/panel/vakalar", label: "Vakalar", roles: ["admin", "doktor"] },
+  { href: "/admin/panel/oyna/karisik", label: "🎲 Karışık Oyna", roles: ["admin", "doktor"] },
   { href: "/admin/panel/hasta-tipleri", label: "Hasta Tipleri", roles: ["admin", "doktor"] },
   { href: "/admin/panel/dogrulama", label: "Doğrulama", roles: ["admin", "doktor"] },
   { href: "/admin/panel/test-durumu", label: "Test Durumu", roles: ["admin", "doktor"] },

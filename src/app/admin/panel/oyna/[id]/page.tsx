@@ -10,6 +10,9 @@ import { DegerlendirmeSonuc, Vaka } from "@/lib/types";
 export default function AdminOynaPage() {
   const params = useParams();
   const id = decodeURIComponent(params.id as string);
+  /** Karışık oyna: URL id içermez, vaka sunucudan rastgele seçilir. */
+  const randomMode = id === "karisik";
+  const [gercekId, setGercekId] = useState<string>(id);
   const [adminCase, setAdminCase] = useState<AdminVaka | null>(null);
   const [playVaka, setPlayVaka] = useState<Vaka | null>(null);
   const [debugMode, setDebugMode] = useState(false);
@@ -47,32 +50,58 @@ export default function AdminOynaPage() {
   }, [debugMode, feedbackTab]);
 
   const load = useCallback(() => {
-    fetch(`/api/admin/cases/${encodeURIComponent(id)}`)
-      .then(async (r) => {
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || "Yüklenemedi");
-        setAdminCase(d.case);
-      })
-      .catch((e) => setError(e.message));
+    const uygula = (caseId: string) => {
+      fetch(`/api/admin/cases/${encodeURIComponent(caseId)}`)
+        .then(async (r) => {
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || "Yüklenemedi");
+          setAdminCase(d.case);
+        })
+        .catch((e) => setError(e.message));
 
-    fetch(`/api/admin/cases/${encodeURIComponent(id)}/playable`)
-      .then(async (r) => {
-        const d = await r.json();
-        if (!r.ok) throw new Error(d.error || "Oynanabilir vaka yüklenemedi");
-        setPlayVaka(d.vaka);
-      })
-      .catch((e) => setError(e.message));
+      fetch(`/api/admin/cases/${encodeURIComponent(caseId)}/playable`)
+        .then(async (r) => {
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || "Oynanabilir vaka yüklenemedi");
+          setPlayVaka(d.vaka);
+        })
+        .catch((e) => setError(e.message));
 
-    fetch(`/api/admin/feedback?caseId=${encodeURIComponent(id)}`)
-      .then((r) => r.json())
-      .then((d) => setFeedbacks(d.feedbacks || []));
-  }, [id]);
+      fetch(`/api/admin/feedback?caseId=${encodeURIComponent(caseId)}`)
+        .then((r) => r.json())
+        .then((d) => setFeedbacks(d.feedbacks || []));
+    };
+
+    if (randomMode) {
+      setError("");
+      setLastSonuc(null);
+      setAdminCase(null);
+      setPlayVaka(null);
+      setDebugMode(false);
+      setFeedbackTab("not");
+      fetch("/api/admin/cases/random-playable")
+        .then(async (r) => {
+          const d = await r.json();
+          if (!r.ok) throw new Error(d.error || "Rastgele vaka seçilemedi");
+          setGercekId(d.id);
+          uygula(d.id);
+        })
+        .catch((e) => setError(e.message));
+    } else {
+      uygula(id);
+    }
+  }, [id, randomMode]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   async function yenidenBaslat() {
+    if (randomMode) {
+      // Yeni rastgele vaka
+      load();
+      return;
+    }
     const response = await fetch(`/api/admin/cases/${encodeURIComponent(id)}/playable`);
     const data = await response.json();
     if (!response.ok) {
@@ -89,7 +118,7 @@ export default function AdminOynaPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        caseId: id,
+        caseId: gercekId,
         mode: "admin-debug",
         toplamPuan: sonuc.toplamPuan,
         maxPuan: sonuc.maxPuan,
@@ -115,7 +144,7 @@ export default function AdminOynaPage() {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        caseId: id,
+        caseId: gercekId,
         metin: feedback.trim(),
         debugNotlar: debugMode ? "debug-play" : undefined,
         debugPuan: lastSonuc
@@ -201,20 +230,24 @@ export default function AdminOynaPage() {
     <div className="flex h-full min-h-0 flex-col overflow-hidden">
       {/* Kompakt üst toolbar */}
       <div className="flex shrink-0 flex-wrap items-center gap-x-3 gap-y-1.5 border-b border-hairline bg-canvas px-3 py-1.5 lg:px-4">
-        <Link
-          href={`/admin/panel/vakalar/${encodeURIComponent(id)}`}
-          className="shrink-0 text-xs text-steel hover:text-ink"
-        >
-          ← Editör
-        </Link>
+        {!randomMode && (
+          <Link
+            href={`/admin/panel/vakalar/${encodeURIComponent(id)}`}
+            className="shrink-0 text-xs text-steel hover:text-ink"
+          >
+            ← Editör
+          </Link>
+        )}
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <h1 className="truncate text-sm font-semibold text-ink">
-              🎮 {debugMode ? meta.hastalikAdi : "Vaka"}
+              {randomMode ? "🎲 Karışık Vaka" : debugMode ? `🎮 ${meta.hastalikAdi}` : "🎮 Vaka"}
             </h1>
-            <span className="hidden shrink-0 text-[11px] text-muted sm:inline">
-              {meta.poliklinikAd} · {meta.durum} · v{meta.surum}
-            </span>
+            {!randomMode && (
+              <span className="hidden shrink-0 text-[11px] text-muted sm:inline">
+                {meta.poliklinikAd} · {meta.durum} · v{meta.surum}
+              </span>
+            )}
           </div>
         </div>
 
@@ -249,7 +282,7 @@ export default function AdminOynaPage() {
             className="btn-secondary px-2.5 py-1 text-[11px]"
             onClick={yenidenBaslat}
           >
-            🔄 Yeniden
+            {randomMode ? "🎲 Yeni vaka" : "🔄 Yeniden"}
           </button>
           <button
             type="button"

@@ -324,6 +324,12 @@ export default function AdminVakalarPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <Link
+            href="/admin/panel/oyna/karisik"
+            className="btn-accent text-sm inline-flex min-h-10 items-center px-3"
+          >
+            🎲 Karışık Oyna
+          </Link>
           <button
             type="button"
             className="btn-secondary text-sm"
