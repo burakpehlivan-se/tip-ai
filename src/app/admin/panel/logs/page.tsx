@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import JsonViewer from "@/components/admin/JsonViewer";
+import JsonDiff from "@/components/admin/JsonDiff";
 
 interface AuditLog {
   id: string;
@@ -18,6 +19,7 @@ export default function AdminLogsPage() {
   const [logs, setLogs] = useState<AuditLog[]>([]);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState("");
+  const [onlyChanges, setOnlyChanges] = useState(false);
 
   function load() {
     fetch("/api/admin/logs?limit=300")
@@ -52,6 +54,15 @@ export default function AdminLogsPage() {
         Her değişiklik kayıt altına alınır. Seçici geri alma: yalnızca ilgili işlemin alanları
         eski haline döner.
       </p>
+
+      <label className="mt-3 flex w-fit items-center gap-2 text-sm text-ink">
+        <input
+          type="checkbox"
+          checked={onlyChanges}
+          onChange={(e) => setOnlyChanges(e.target.checked)}
+        />
+        Sadece değişen alanları göster
+      </label>
 
       {error && (
         <div className="mt-4 rounded-md bg-clinical-red/10 px-3 py-2 text-sm text-clinical-red">
@@ -100,16 +111,20 @@ export default function AdminLogsPage() {
                               {p.path}
                               {p.field ? <span className="text-muted"> · {p.field}</span> : null}
                             </div>
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <div className="min-w-0">
-                                <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted">önce</div>
-                                <JsonViewer value={p.before} />
+                            {onlyChanges ? (
+                              <JsonDiff before={p.before} after={p.after} />
+                            ) : (
+                              <div className="grid gap-3 sm:grid-cols-2">
+                                <div className="min-w-0">
+                                  <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted">önce</div>
+                                  <JsonViewer value={p.before} />
+                                </div>
+                                <div className="min-w-0">
+                                  <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted">sonra</div>
+                                  <JsonViewer value={p.after} />
+                                </div>
                               </div>
-                              <div className="min-w-0">
-                                <div className="mb-1 text-[10px] font-medium uppercase tracking-wide text-muted">sonra</div>
-                                <JsonViewer value={p.after} />
-                              </div>
-                            </div>
+                            )}
                           </div>
                         ))}
                       </div>
