@@ -3,6 +3,12 @@ const nextConfig = {
   output: "standalone",
   outputFileTracingRoot: process.cwd(),
   async headers() {
+    // Fast Refresh (next dev) `eval` kullandığı için geliştirme ortamında
+    // script-src'e 'unsafe-eval' eklenir; üretimde asla eklenmez.
+    const scriptSrc =
+      process.env.NODE_ENV !== "production"
+        ? "'self' 'unsafe-inline' 'unsafe-eval'"
+        : "'self' 'unsafe-inline'";
     const securityHeaders = [
       { key: "X-Content-Type-Options", value: "nosniff" },
       { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
@@ -16,7 +22,7 @@ const nextConfig = {
       {
         key: "Content-Security-Policy",
         value:
-          "default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'",
+          `default-src 'self'; base-uri 'self'; form-action 'self'; frame-ancestors 'none'; object-src 'none'; script-src ${scriptSrc}; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self' data:; connect-src 'self'; worker-src 'self' blob:; manifest-src 'self'`,
       },
     ];
 

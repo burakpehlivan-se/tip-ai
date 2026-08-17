@@ -185,6 +185,94 @@ etkileyen bir değişiklik yeni sürüm oluşturur, yayını taslağa çeker ve 
 temizler. Eski içerik için `legacy` inceleme etiketi korunur; bu kayıtlar
 otomatik olarak yeniden yayımlanmaz.
 
+## Synthea vaka geçişi
+
+Vaka kataloğu Synthea sentetik hasta verisinden üretilir. JSON'daki elle yazılmış
+60 vaka geçişte arşiv olarak kalır; runtime, PostgreSQL'deki `clinical_cases`
+tablosunu okur (`CASE_STORE=postgres`).
+
+### Akış
+
+1. Synthea CSV'lerini `data/raw/synthea/`'dan yükle:
+
+   ```bash
+   DATABASE_URL=postgresql://... npm run db:load-synthea
+   ```
+
+   Loader hem `.csv` hem de `.csv.gz` dosyalarını destekler ve büyük arşivleri
+   akış (streaming) ile okur. Çok büyük veri setleri için deterministik örnekleme:
+
+   ```bash
+   # 5000 hastayı deterministik biçimde örnekle (SyntheticMass 1M için)
+   DATABASE_URL=postgresql://... npx tsx scripts/load-synthea.ts --dir data/raw/synthea --sample 5000
+   ```
+
+2. Vakaları üret ve PostgreSQL'e yaz:
+
+   ```bash
+   DATABASE_URL=postgresql://... npm run db:generate-synthea-cases -- --wipe --publish
+   ```
+
+   - `--dry` : yazmadan yalnızca rapor.
+   - `--no-ai` : DeepSeek zenginleştirmesini atla (`DEEPSEEK_API_KEY` yoksa otomatik atlanır).
+   - `--publish` : doğrulamadan geçenleri `aktif` yapar (varsayılan `taslak`).
+   - `--limit N` : yalnızca ilk N hastayı işler.
+
+3. Runtime'ı PostgreSQL vaka deposuna al:
+
+   ```text
+   CASE_STORE=postgres
+   ```
+
+### SyntheticMass (büyük veri seti)
+
+[SyntheticMass](https://synthea.mitre.org) 1 milyon sentetik hastayı gzip arşiv
+olarak (FHIR, C-CDA ve CSV) sunar. CSV arşivleri bu projedeki küçük örnekle aynı
+Synthea şemasındadır; yalnızca çok daha büyüktür.
+
+- `.csv.gz` dosyalarını `data/raw/synthea/` altına indir (patients, conditions,
+  observations, medications, procedures, encounters, imaging_studies).
+- Belleğe sığması ve eğitim kataloğu için makul kalması için `--sample` ile bir
+  alt küme al; örnekleme hash-tabanlı olduğundan aynı `N` aynı hastaları verir.
+
+```bash
+DATABASE_URL=postgresql://... npx tsx scripts/load-synthea.ts --dir data/raw/synthea --sample 5000
+DATABASE_URL=postgresql://... npm run db:generate-synthea-cases -- --wipe --publish
+```
+
+### FHIR Bundle içe aktarımı
+
+CSV yerine Synthea FHIR Bundle dışa aktarımı varsa, mevcut vaka-üretim
+tablolarına doğrudan yüklenebilir:
+
+```bash
+DATABASE_URL=postgresql://... npm run db:load-synthea-fhir -- --dir reports/output_1/fhir
+# Önceden yüklenmiş temel FHIR verisine yalnızca geçmiş kaynaklarını ekler:
+DATABASE_URL=postgresql://... npm run db:load-synthea-fhir:history -- --dir reports/output_1/fhir
+# Daha önce üretilmiş PostgreSQL vakalarını geçmiş kaynağıyla eşler:
+DATABASE_URL=postgresql://... npm run db:backfill-synthea-case-sources
+```
+
+- Varsayılan işlem eklemelidir ve FHIR kaynak kimlikleriyle idempotenttir;
+  mevcut `synthea_*` kayıtlarını silmez.
+- `--replace` yalnızca eğitim veri deposunu yeniden kurmak istendiğinde
+  kullanılmalıdır; önce tüm `synthea_*` tablolarını siler.
+- Hasta kaynaklarından yalnızca vaka üretiminde gereken demografik alanlar
+  (doğum/ölüm tarihi, cinsiyet, ırk, etnik köken, medeni durum) aktarılır.
+  Ad, iletişim bilgisi, adres, fotoğraf ve kimlik numaraları aktarılmaz.
+- Condition, Observation, MedicationRequest, Procedure, Encounter,
+  AllergyIntolerance, Immunization, CarePlan ve DiagnosticReport kaynakları
+  ilişkisel tablolara aktarılır. Ek geçmiş kaynaklarını temel yüklemeyi tekrar
+  etmeden eklemek için `db:load-synthea-fhir:history` kullanılabilir.
+- Vaka üretimi, vaka şablonunu sentetik kaynak hastaya sunucu içinde bağlar.
+  Öğrenci “Klinik geçmişi görüntüle”yi seçtiğinde yalnızca kimliksiz klinik
+  özet gösterilir ve erişim denetim kaydına yazılır; ad, adres, iletişim,
+  kaynak hasta kimliği ve ham FHIR gövdesi tarayıcıya gönderilmez.
+
+JSON deposu rollback yolu olarak korunur; `CASE_STORE=json` ile eski 60 vaka
+yeniden kaynak olur. Yabancı (İngilizce) hasta/koşul/ilaç adları kaynaktan olduğu
+gibi korunur; yerelleştirme sonraki aşamadadır.
+
 ## Üretim depolama ve yedekleme
 
 Uygulamanın kalıcı verisi JSON dosyaları olarak çalışma dizinindeki

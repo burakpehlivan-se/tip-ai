@@ -1,0 +1,21 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: tip_ai_db
+    environment:
+      POSTGRES_USER: tip_ai
+      POSTGRES_PASSWORD: tip_ai
+      POSTGRES_DB: tip_ai
+    ports:
+      # 5432 kimbutv-db ile çakışmasın diye ayrı port
+      - "5434:5432"
+    volumes:
+      - tip_ai_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tip_ai -d tip_ai"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  tip_ai_pgdata:

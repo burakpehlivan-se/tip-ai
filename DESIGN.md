@@ -142,6 +142,7 @@ harici font isteği olmadan korur. Display weight 600, body weight 400.
 | `TetkikSeçici` | default, selected, ordered, loading, empty search | Search, add, review and submit investigations |
 | `TaslakDurumu` | saving, saved locally, error | Makes local draft persistence explicit |
 | `FazBestecisi` | empty, invalid, ready, submitting | Stage-specific input, validation and primary action |
+| `KlinikGeçmiş` | unavailable, loading, open, error | Opens the de-identified longitudinal history only on the learner's request; its compact summary is added to the case chat |
 
 ## Responsive Behavior
 
