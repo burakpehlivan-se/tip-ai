@@ -21,12 +21,21 @@ export default function AdminHastaTipleriPage() {
   const [err, setErr] = useState("");
   const [msg, setMsg] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  function load() {
-    fetch("/api/admin/hasta-tipleri")
-      .then((r) => r.json())
-      .then((d) => setTipler(d.tiper || []))
-      .catch(() => setErr("Hasta tipleri yüklenemedi."));
+  async function load() {
+    setLoading(true);
+    setErr("");
+    try {
+      const response = await fetch("/api/admin/hasta-tipleri");
+      const data = (await response.json()) as { tipler?: HastaTipiLite[]; error?: string };
+      if (!response.ok) throw new Error(data.error || "Hasta tipleri yüklenemedi.");
+      setTipler(Array.isArray(data.tipler) ? data.tipler : []);
+    } catch (error) {
+      setErr(error instanceof Error ? error.message : "Hasta tipleri yüklenemedi.");
+    } finally {
+      setLoading(false);
+    }
   }
 
   useEffect(() => {
@@ -77,8 +86,9 @@ export default function AdminHastaTipleriPage() {
       {showNew && (
         <form onSubmit={create} className="rounded-xl border border-hairline bg-canvas p-5 space-y-3">
           <div>
-            <label className="text-xs text-muted">Tip adı</label>
+            <label htmlFor="hasta-tipi-ad" className="text-xs text-muted">Tip adı</label>
             <input
+              id="hasta-tipi-ad"
               className="input w-full"
               value={ad}
               onChange={(e) => setAd(e.target.value)}
@@ -98,7 +108,9 @@ export default function AdminHastaTipleriPage() {
       {msg && <div className="rounded-md bg-brand/10 px-3 py-2 text-sm text-brand-deep">{msg}</div>}
       {err && <div className="rounded-md bg-clinical-red/10 px-3 py-2 text-sm text-clinical-red">{err}</div>}
 
-      {tipler.length === 0 && !err ? (
+      {loading ? (
+        <p role="status" className="text-sm text-steel">Hasta tipleri yükleniyor…</p>
+      ) : tipler.length === 0 && !err ? (
         <p className="text-sm text-steel">Henüz hasta tipi yok.</p>
       ) : (
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">

@@ -241,7 +241,7 @@ export default function AdminOynaPage() {
         <div className="min-w-0 flex-1">
           <div className="flex items-baseline gap-2">
             <h1 className="truncate text-sm font-semibold text-ink">
-              {randomMode ? "🎲 Karışık Vaka" : debugMode ? `🎮 ${meta.hastalikAdi}` : "🎮 Vaka"}
+              {randomMode ? "Karışık Vaka" : debugMode ? meta.hastalikAdi : "Vaka"}
             </h1>
             {!randomMode && (
               <span className="hidden shrink-0 text-[11px] text-muted sm:inline">
@@ -282,7 +282,7 @@ export default function AdminOynaPage() {
             className="btn-secondary px-2.5 py-1 text-[11px]"
             onClick={yenidenBaslat}
           >
-            {randomMode ? "🎲 Yeni vaka" : "🔄 Yeniden"}
+            {randomMode ? "Yeni vaka" : "Yeniden"}
           </button>
           <button
             type="button"

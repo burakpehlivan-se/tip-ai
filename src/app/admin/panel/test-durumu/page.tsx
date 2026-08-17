@@ -22,6 +22,12 @@ interface Inventory {
 interface ScanReport {
   totalCases: number;
   totalOk: number;
+  totalOkTests: number;
+  totalCasesWithResults: number;
+  totalCasesComplete: number;
+  totalCasesWithProblems: number;
+  totalExpectedTests: number;
+  coveragePercent: number;
   totalNeedsGenerated: number;
   totalStaticRequired: number;
   totalInvalid: number;
@@ -70,13 +76,18 @@ export default function TestDurumuPage() {
   const [overrideLoading, setOverrideLoading] = useState(false);
   const [overrideMsg, setOverrideMsg] = useState<string | null>(null);
   const [overrideApplying, setOverrideApplying] = useState(false);
+  const [error, setError] = useState("");
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError("");
     try {
       const res = await fetch("/api/admin/pipeline/scan");
-      const json = (await res.json()) as PipelineData;
+      const json = (await res.json()) as PipelineData | { error?: string };
+      if (!res.ok || !("scan" in json)) throw new Error("error" in json ? json.error : "Test durumu yüklenemedi.");
       setData(json);
+    } catch (cause) {
+      setError(cause instanceof Error ? cause.message : "Test durumu yüklenemedi.");
     } finally {
       setLoading(false);
     }
@@ -168,22 +179,30 @@ export default function TestDurumuPage() {
         lab motoru ile doldurma ve validasyon.
       </p>
 
+      {error && (
+        <div role="alert" className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-lg border border-clinical-red/30 bg-clinical-red/5 px-4 py-3 text-sm text-clinical-red">
+          <span>{error}</span>
+          <button type="button" className="btn-secondary text-xs" onClick={() => void load()}>Tekrar dene</button>
+        </div>
+      )}
+
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <Card label="Toplam vaka" value={data?.scan.totalCases ?? "—"} />
-        <Card label="Sonuçlu (OK)" value={data?.scan.totalOk ?? "—"} />
+        <Card label="Toplam vaka" value={data?.scan.totalCases ?? "—"} hint="Tarama kapsamındaki vaka kaydı." />
+        <Card label="Eksiksiz vaka" value={data ? `${data.scan.totalCasesComplete}/${data.scan.totalCases}` : "—"} hint="Rubrikteki tüm test girdileri sonuçlu." />
+        <Card label="Test kapsamı" value={data ? `%${data.scan.coveragePercent}` : "—"} hint={data ? `${data.scan.totalOkTests}/${data.scan.totalExpectedTests} test girdisi sonuçlu.` : "OK sonuç / beklenen test"} accent={data && data.scan.coveragePercent < 100 ? "orange" : "brand"} />
         <Card
-          label="Motor→doldurulacak"
-          value={data?.scan.totalNeedsGenerated ?? "—"}
-          accent={data?.scan.totalNeedsGenerated ? "orange" : "brand"}
-        />
-        <Card
-          label="Geçersiz (sözlük dışı)"
-          value={data?.scan.totalInvalid ?? "—"}
-          accent={data?.scan.totalInvalid ? "red" : "brand"}
+          label="Dikkat gereken vaka"
+          value={data?.scan.totalCasesWithProblems ?? "—"}
+          hint="Eksik, statik veya geçersiz test içeren vaka."
+          accent={data?.scan.totalCasesWithProblems ? "orange" : "brand"}
         />
       </div>
 
-      <div className="mt-6 flex items-center gap-3">
+      <p className="mt-3 text-xs text-muted" role={loading ? "status" : undefined}>
+        {loading ? "Tarama yapılıyor…" : data ? `OK sonuç satırı: ${data.scan.totalOkTests} · Sonuç bulunan vaka: ${data.scan.totalCasesWithResults}` : ""}
+      </p>
+
+      <div className="mt-6 flex flex-wrap items-center gap-3">
         <button
           className="btn-accent"
           onClick={handleFill}
@@ -388,10 +407,12 @@ export default function TestDurumuPage() {
 function Card({
   label,
   value,
+  hint,
   accent,
 }: {
   label: string;
   value: number | string;
+  hint?: string;
   accent?: "brand" | "orange" | "red";
 }) {
   const ring =
@@ -406,6 +427,7 @@ function Card({
         {label}
       </div>
       <div className="mt-2 text-3xl font-semibold text-ink">{value}</div>
+      {hint && <p className="mt-2 text-xs leading-5 text-steel">{hint}</p>}
     </div>
   );
 }

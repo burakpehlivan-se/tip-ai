@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { TestSonucu, Hasta } from "@/lib/types";
 
 interface Props {
@@ -11,6 +12,7 @@ interface Props {
 }
 
 export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK DEVLET HASTANESİ", tarih, compact }: Props) {
+  const [imageError, setImageError] = useState(false);
   const measured = sonuc.measuredAt ? new Date(sonuc.measuredAt) : null;
   const tarihStr = tarih || (measured
     ? measured.toLocaleDateString("tr-TR", { year: "numeric", month: "long", day: "numeric", hour: "2-digit", minute: "2-digit" })
@@ -92,7 +94,7 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
         {sonuc.tip === "image" && (
           <div>
             <div className={`${fsSm} uppercase tracking-wider text-muted mb-1`}>RADYOLOJİK BULGU</div>
-            {typeof sonuc.sonuc === "object" && sonuc.sonuc !== null && "imageUrl" in sonuc.sonuc ? (
+            {typeof sonuc.sonuc === "object" && sonuc.sonuc !== null && "imageUrl" in sonuc.sonuc && !imageError ? (
               <figure>
                 {/* API rotasından gelen dinamik görüntü; next/image burada uygun değil. */}
                 {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -101,6 +103,8 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
                   alt={`Göğüs röntgeni: ${String((sonuc.sonuc as Record<string, unknown>).findingLabel || sonuc.testAdi)}`}
                   className="mx-auto h-auto max-h-[28rem] w-full rounded border border-hairline object-contain"
                   loading="lazy"
+                  onLoad={() => setImageError(false)}
+                  onError={() => setImageError(true)}
                 />
                 {(sonuc.sonuc as Record<string, unknown>).findingLabel ? (
                   <figcaption className="mt-2 text-center text-xs text-steel">
@@ -108,6 +112,10 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
                   </figcaption>
                 ) : null}
               </figure>
+            ) : typeof sonuc.sonuc === "object" && sonuc.sonuc !== null && "imageUrl" in sonuc.sonuc ? (
+              <p role="status" className="rounded border border-clinical-orange/30 bg-clinical-orange/5 px-3 py-3 text-steel">
+                Görüntü yüklenemedi. Görüntü kaynağının hazır olduğunu kontrol edip tetkiki yeniden isteyin.
+              </p>
             ) : (
               <div className="text-ink whitespace-pre-line leading-relaxed">{String(sonuc.sonuc)}</div>
             )}

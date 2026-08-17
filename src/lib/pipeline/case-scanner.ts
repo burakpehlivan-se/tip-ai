@@ -79,10 +79,26 @@ export function scanCase(vaka: AdminVaka): CaseScanResult {
 
 export function scanAllCases(cases: AdminVaka[]): ScanReport {
   const results = cases.map(scanCase);
+  const totalOkTests = results.reduce((n, r) => n + r.okTests.length, 0);
+  const totalExpectedTests = results.reduce(
+    (n, r) => n + r.okTests.length + r.needsGenerated.length + r.staticRequired.length + r.invalidKeys.length,
+    0
+  );
+  const totalCasesWithResults = results.filter((r) => r.okTests.length > 0).length;
+  const totalCasesComplete = results.filter(
+    (r) => r.needsGenerated.length === 0 && r.staticRequired.length === 0 && r.invalidKeys.length === 0
+  ).length;
+  const totalCasesWithProblems = results.length - totalCasesComplete;
   return {
     generatedAt: new Date().toISOString(),
     totalCases: results.length,
-    totalOk: results.reduce((n, r) => n + r.okTests.length, 0),
+    totalOk: totalOkTests,
+    totalOkTests,
+    totalCasesWithResults,
+    totalCasesComplete,
+    totalCasesWithProblems,
+    totalExpectedTests,
+    coveragePercent: totalExpectedTests > 0 ? Math.round((totalOkTests / totalExpectedTests) * 100) : 100,
     totalNeedsGenerated: results.reduce((n, r) => n + r.needsGenerated.length, 0),
     totalStaticRequired: results.reduce((n, r) => n + r.staticRequired.length, 0),
     totalInvalid: results.reduce((n, r) => n + r.invalidKeys.length, 0),

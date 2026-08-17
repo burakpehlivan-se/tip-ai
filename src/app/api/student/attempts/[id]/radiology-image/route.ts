@@ -3,17 +3,16 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import fs from "node:fs";
-import path from "node:path";
 import { eq } from "drizzle-orm";
 import { getDb } from "@/lib/auth/db";
 import { radiologySources } from "@/lib/auth/schema";
 import { getStudentSessionFromRequest } from "@/lib/student/auth";
 import { getStudentAttemptSourceCaseId } from "@/lib/student/attempt-store";
 import { JsonStoreReadError } from "@/lib/admin/json-store";
+import { resolveRadiologyImagePath } from "@/lib/student/radiology-image";
 
 const GUEST_COOKIE = "tip_ai_guest_attempt";
 const ATTEMPT_ID = /^[0-9a-f-]{36}$/i;
-const IMAGES_DIR = path.join(process.cwd(), "data/raw/chestxray/images_001/images");
 
 /**
  * Sahibi doğrulanmış denemenin eşleştirilmiş göğüs röntgeni görüntüsünü döndürür.
@@ -39,11 +38,8 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
       .limit(1);
     if (!src) return NextResponse.json({ error: "Bu vaka için görüntüleme kaydı yok." }, { status: 404 });
 
-    const fileName = path.basename(src.imageIndex);
-    if (!fileName.endsWith(".png")) return NextResponse.json({ error: "Geçersiz görüntü kaydı." }, { status: 404 });
-
-    const filePath = path.join(IMAGES_DIR, fileName);
-    if (!fs.existsSync(filePath)) return NextResponse.json({ error: "Görüntü dosyası bulunamadı." }, { status: 404 });
+    const filePath = resolveRadiologyImagePath(src.imageIndex);
+    if (!filePath) return NextResponse.json({ error: "Görüntü dosyası bulunamadı." }, { status: 404 });
 
     const buf = fs.readFileSync(filePath);
     return new NextResponse(buf, {

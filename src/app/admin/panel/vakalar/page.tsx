@@ -352,7 +352,7 @@ export default function AdminVakalarPage() {
             href="/admin/panel/oyna/karisik"
             className="btn-accent text-sm inline-flex min-h-10 items-center px-3"
           >
-            🎲 Karışık Oyna
+            Karışık Oyna
           </Link>
           <button
             type="button"

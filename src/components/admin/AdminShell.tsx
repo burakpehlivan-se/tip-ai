@@ -9,7 +9,7 @@ type Role = "admin" | "doktor";
 const NAV: { href: string; label: string; roles: Role[] }[] = [
   { href: "/admin/panel", label: "Özet", roles: ["admin", "doktor"] },
   { href: "/admin/panel/vakalar", label: "Vakalar", roles: ["admin", "doktor"] },
-  { href: "/admin/panel/oyna/karisik", label: "🎲 Karışık Oyna", roles: ["admin", "doktor"] },
+  { href: "/admin/panel/oyna/karisik", label: "Karışık Oyna", roles: ["admin", "doktor"] },
   { href: "/admin/panel/hasta-tipleri", label: "Hasta Tipleri", roles: ["admin", "doktor"] },
   { href: "/admin/panel/dogrulama", label: "Doğrulama", roles: ["admin", "doktor"] },
   { href: "/admin/panel/test-durumu", label: "Test Durumu", roles: ["admin", "doktor"] },
@@ -166,7 +166,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
               tıp<span className="text-brand">_ai</span>{" "}
               <span className="text-muted font-normal">panel</span>
             </Link>
-            <nav className="hidden items-center gap-1 lg:flex" aria-label="Panel gezinme">
+            <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto lg:flex" aria-label="Panel gezinme">
               {navItems.map((n) => {
                 const active = isActiveNav(n.href);
                 return (

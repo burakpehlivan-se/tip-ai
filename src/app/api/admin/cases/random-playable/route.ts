@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { loadCasesStore } from "@/lib/admin/store";
+import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 
 /**
@@ -16,7 +16,7 @@ export async function GET(req: NextRequest) {
   const denied = requirePermission(session, "play");
   if (denied) return denied;
 
-  const aktifler = loadCasesStore().cases.filter((c) => c.durum === "aktif");
+  const aktifler = (await loadRuntimeCasesStore()).cases.filter((c) => c.durum === "aktif");
   if (aktifler.length === 0) {
     return NextResponse.json({ error: "Oynanacak yayınlanmış vaka yok." }, { status: 404 });
   }

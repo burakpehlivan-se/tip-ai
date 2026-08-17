@@ -86,7 +86,14 @@ export interface CaseScanResult {
 export interface ScanReport {
   generatedAt: string;
   totalCases: number;
+  /** Aggregate count of rubric test entries with a result. */
   totalOk: number;
+  totalOkTests: number;
+  totalCasesWithResults: number;
+  totalCasesComplete: number;
+  totalCasesWithProblems: number;
+  totalExpectedTests: number;
+  coveragePercent: number;
   totalNeedsGenerated: number;
   totalStaticRequired: number;
   totalInvalid: number;
