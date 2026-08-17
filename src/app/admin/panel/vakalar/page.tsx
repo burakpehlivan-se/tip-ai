@@ -82,6 +82,7 @@ export default function AdminVakalarPage() {
   const [cdmReport, setCdmReport] = useState("");
   const [pendingCdmImport, setPendingCdmImport] = useState<PendingCdmImport | null>(null);
   const [migrating, setMigrating] = useState(false);
+  const [seciliHastaliklar, setSeciliHastaliklar] = useState<Set<string>>(new Set());
 
   function load() {
     fetch("/api/admin/cases")
@@ -106,6 +107,29 @@ export default function AdminVakalarPage() {
     () => grouped.reduce((n, g) => n + g.cases.length, 0),
     [grouped]
   );
+
+  const toplamHastalikCesidi = useMemo(
+    () => new Set(grouped.flatMap((g) => g.cases.map((c) => c.hastalikKey))).size,
+    [grouped]
+  );
+
+  function normalizeAd(ad: string) {
+    return ad.toLocaleLowerCase("tr").trim();
+  }
+
+  function hastalikSecili(poliklinikKey: string, hastalikAdi: string) {
+    return seciliHastaliklar.has(`${poliklinikKey}::${normalizeAd(hastalikAdi)}`);
+  }
+
+  function toggleHastalik(poliklinikKey: string, hastalikAdi: string) {
+    const id = `${poliklinikKey}::${normalizeAd(hastalikAdi)}`;
+    setSeciliHastaliklar((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
 
   const filtered = useMemo(() => {
     const qq = q.trim().toLowerCase();
@@ -320,7 +344,7 @@ export default function AdminVakalarPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Vakalar</h1>
           <p className="mt-1 text-sm text-steel">
-            Polikliniklere göre gruplanmış vaka şablonları · {totalCases} vaka
+            Polikliniklere göre gruplanmış vaka şablonları · {totalCases} vaka · {toplamHastalikCesidi} hastalık çeşidi
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
@@ -543,7 +567,17 @@ export default function AdminVakalarPage() {
       {msg && <p className="mt-3 text-sm text-brand-deep">{msg}</p>}
 
       <div className="mt-8 space-y-4">
-        {filtered.map((g) => (
+        {filtered.map((g) => {
+          const gorulenAdlar = new Set<string>();
+          const uniqueHastaliklar = g.cases.filter((c) => {
+            const ad = normalizeAd(c.hastalikAdi);
+            if (gorulenAdlar.has(ad)) return false;
+            gorulenAdlar.add(ad);
+            return true;
+          });
+          const secili = g.cases.filter((c) => hastalikSecili(g.poliklinikKey, c.hastalikAdi));
+          const gorunenCases = secili.length ? secili : g.cases;
+          return (
           <div key={g.poliklinikKey} className="rounded-xl border border-hairline bg-canvas overflow-hidden">
             <div className="flex items-center gap-2 border-b border-hairline-soft px-2 py-1.5 sm:px-3">
               <button
@@ -590,9 +624,30 @@ export default function AdminVakalarPage() {
               </div>
             </div>
             {open[g.poliklinikKey] && (
-              <div className="border-t border-hairline divide-y divide-hairline-soft">
-                {g.cases.map((c) => {
-                  const testCount = Object.keys(c.statikTestler || {}).length;
+              <>
+                <div className="flex flex-wrap gap-2 border-t border-hairline bg-surface-soft/50 px-3 py-2">
+                  {uniqueHastaliklar.map((c) => {
+                    const aktif = hastalikSecili(g.poliklinikKey, c.hastalikAdi);
+                    return (
+                      <button
+                        key={normalizeAd(c.hastalikAdi)}
+                        type="button"
+                        onClick={() => toggleHastalik(g.poliklinikKey, c.hastalikAdi)}
+                        aria-pressed={aktif}
+                        className={
+                          aktif
+                            ? "rounded-full border border-brand bg-brand-soft/40 px-3 py-1 text-xs font-medium text-brand-deep"
+                            : "rounded-full border border-hairline bg-surface px-3 py-1 text-xs font-medium text-ink hover:border-brand"
+                        }
+                      >
+                        {c.hastalikAdi}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="border-t border-hairline divide-y divide-hairline-soft">
+                  {gorunenCases.map((c) => {
+                    const testCount = Object.keys(c.statikTestler || {}).length;
                   return (
                     <div
                       key={c.id}
@@ -629,9 +684,11 @@ export default function AdminVakalarPage() {
                   );
                 })}
               </div>
+              </>
             )}
           </div>
-        ))}
+          );
+        })}
         {filtered.length === 0 && (
           <p className="text-sm text-steel">Sonuç yok.</p>
         )}

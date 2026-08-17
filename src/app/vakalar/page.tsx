@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { SessionNavigation } from "@/components/auth/SessionNavigation";
+import { poliklinikAciklama } from "@/lib/data/poliklinik-aciklamalari";
 
 interface PoliklinikKart {
   key: string;
@@ -45,7 +46,7 @@ export default function VakalarPage() {
           key: item.poliklinikKey,
           ad: item.poliklinikAd,
           icon: item.poliklinikIcon,
-          aciklama: item.poliklinikAciklama || "Klinik vaka simülasyonları",
+          aciklama: poliklinikAciklama(item.poliklinikKey, item.poliklinikAciklama),
           vakaSayisi: 1,
         });
       }
