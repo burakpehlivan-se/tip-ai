@@ -7,8 +7,10 @@ import { adminDataDir } from "@/lib/admin/paths";
 import { readJsonOrRecover, withJsonStoreLock, writeJsonAtomic } from "@/lib/admin/json-store";
 import type { DegerlendirmeSonuc, TestSonucu, Vaka } from "@/lib/types";
 import { degerlendir } from "@/lib/scoring/degerlendir";
+import { hastaDilineCevir } from "@/lib/ai/hasta-dili";
 import { getLabResult } from "@/lib/lab-motor";
-import { recordPlaySession } from "@/lib/admin/store";
+import { getHastaTipiById, loadHastaTipleriStore, recordPlaySession } from "@/lib/admin/store";
+import { uslupDonustur } from "@/lib/ai/uslup-donusturucu";
 import { assertSupportedAttemptStore } from "./attempt-store-mode";
 import { shouldUsePostgresAttemptStore } from "./attempt-store-mode";
 import {
@@ -21,6 +23,7 @@ import {
   completePostgresAttempt,
   getPostgresActiveAttempt,
   getPostgresAssignedAttempt,
+  getPostgresAttemptSourceCaseId,
   requestPostgresAttemptTest,
   savePostgresAttemptClinicalReasoning,
   startPostgresAssignedAttempt,
@@ -35,9 +38,13 @@ interface AttemptRecord {
   /** Grup atamasından başlatıldıysa, aynı atamaya geri dönüş için sunucu içi bağ. */
   assignmentId?: string;
   poliklinikKey: string;
+  /** Denemeye atanan hasta tipi; yoksa nötr ("sakin") üslup kullanılır. */
+  hastaTipiId?: string;
   vaka: Vaka;
   sorulanAksiyonlar: string[];
   istenenTestler: string[];
+  /** Aksiyon → dönüştürülmüş cevap (devam eden oturumun birebir tekrarı). */
+  cevaplar?: Record<string, string>;
   clinicalReasoning?: ClinicalReasoningInput | null;
   createdAt: number;
   updatedAt: number;
@@ -70,6 +77,8 @@ export interface PublicAttemptCase {
   hasta: Vaka["hasta"];
   soruChipleri: Vaka["soruChipleri"];
   testler: Array<{ testKey: string; testAdi: string }>;
+  /** Denemeye atanan hasta tipi (gösterim için); yoksa null. */
+  hastaTipi?: { id: string; ad: string } | null;
 }
 
 /**
@@ -85,6 +94,7 @@ export interface ResumableAttemptCase extends PublicAttemptCase {
 }
 
 function toPublicAttempt(record: AttemptRecord): PublicAttemptCase {
+  const tip = record.hastaTipiId ? getHastaTipiById(record.hastaTipiId) : undefined;
   return {
     id: record.id,
     semptom: record.vaka.semptom,
@@ -96,11 +106,35 @@ function toPublicAttempt(record: AttemptRecord): PublicAttemptCase {
       testKey: test.testKey,
       testAdi: test.testAdi,
     })),
+    hastaTipi: record.hastaTipiId ? { id: record.hastaTipiId, ad: tip?.ad || record.hastaTipiId } : null,
   };
 }
 
+function baseCevap(record: AttemptRecord, action: string): string {
+  return hastaDilineCevir(record.vaka.hastaYanitlari[action] || record.vaka.hastaYanitlari.OZEL || "Bu konuda ek bilgi veremiyorum.");
+}
+
 function attemptAnswer(record: AttemptRecord, action: string) {
-  return record.vaka.hastaYanitlari[action] || record.vaka.hastaYanitlari.OZEL || "Bu konuda ek bilgi veremiyorum.";
+  return record.cevaplar?.[action] || baseCevap(record, action);
+}
+
+/** Taban cevabı hasta tipi üslubuna dönüştürür ve kayda yazar. */
+async function yanitHesapla(record: AttemptRecord, action: string): Promise<string> {
+  const tip = record.hastaTipiId ? getHastaTipiById(record.hastaTipiId) : undefined;
+  const yanit = await uslupDonustur({
+    vakaId: record.vaka.sourceCaseId || record.vaka.id,
+    tip,
+    actionKey: action,
+    baseCevap: baseCevap(record, action),
+    baglam: {
+      yas: record.vaka.hasta.yas != null ? String(record.vaka.hasta.yas) : undefined,
+      cinsiyet: record.vaka.hasta.cinsiyet === "E" ? "Erkek" : record.vaka.hasta.cinsiyet === "K" ? "Kadın" : undefined,
+      anaSikayet: record.vaka.hasta.anaSikayet,
+    },
+  });
+  record.cevaplar = record.cevaplar || {};
+  record.cevaplar[action] = yanit;
+  return yanit;
 }
 
 function attemptTest(record: AttemptRecord, testKey: string) {
@@ -127,13 +161,20 @@ function ownAttempt(id: string, actor: string): { store: AttemptStore; attempt: 
   return attempt ? { store, attempt } : null;
 }
 
-export function startStudentAttempt(actor: string, poliklinikKey: string, studentId?: string): Promise<PublicAttemptCase | null> {
+function rastgeleHastaTipiId(): string | null {
+  const tipler = loadHastaTipleriStore().tipler;
+  if (!tipler.length) return null;
+  return tipler[Math.floor(Math.random() * tipler.length)].id;
+}
+
+export function startStudentAttempt(actor: string, poliklinikKey: string, studentId?: string, hastaTipiId?: string | null): Promise<PublicAttemptCase | null> {
   // PostgreSQL adapter'ı cutover sırasında bu çağrı sınırına bağlanacaktır.
   // Şimdiden açıkça doğrulamak, yanlış env ile sessiz JSON yazımını engeller.
   assertSupportedAttemptStore(actor);
+  const seciliTip = hastaTipiId && getHastaTipiById(hastaTipiId) ? hastaTipiId : rastgeleHastaTipiId();
   if (shouldUsePostgresAttemptStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
-    return startPostgresStudentAttempt(studentId, poliklinikKey);
+    return startPostgresStudentAttempt(studentId, poliklinikKey, seciliTip ?? undefined);
   }
   return withJsonStoreLock(async () => {
     const candidates = (await loadRuntimeCasesStore()).cases.filter(
@@ -142,7 +183,7 @@ export function startStudentAttempt(actor: string, poliklinikKey: string, studen
     if (!candidates.length) return null;
 
     const template = candidates[Math.floor(Math.random() * candidates.length)];
-    return createAttemptFromTemplate(actor, template, poliklinikKey);
+    return createAttemptFromTemplate(actor, template, poliklinikKey, undefined, seciliTip ?? undefined);
   });
 }
 
@@ -150,13 +191,15 @@ function createAttemptFromTemplate(
   actor: string,
   template: AdminVaka,
   poliklinikKey: string,
-  assignmentId?: string
+  assignmentId?: string,
+  hastaTipiId?: string
 ): PublicAttemptCase {
   const record: AttemptRecord = {
     id: crypto.randomUUID(),
     actor,
     assignmentId,
     poliklinikKey,
+    hastaTipiId,
     vaka: adminVakaToPlayable(template),
     sorulanAksiyonlar: [],
     istenenTestler: [],
@@ -178,12 +221,13 @@ export function startAssignedStudentAttempt(
   studentId?: string
 ): Promise<PublicAttemptCase | null> {
   assertSupportedAttemptStore(actor);
+  const hastaTipiId = rastgeleHastaTipiId();
   if (shouldUsePostgresAttemptStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
-    return startPostgresAssignedAttempt(studentId, assignmentId, template);
+    return startPostgresAssignedAttempt(studentId, assignmentId, template, hastaTipiId ?? undefined);
   }
   return withJsonStoreLock(() => {
-    return createAttemptFromTemplate(actor, template, template.poliklinikKey, assignmentId);
+    return createAttemptFromTemplate(actor, template, template.poliklinikKey, assignmentId, hastaTipiId ?? undefined);
   });
 }
 
@@ -227,19 +271,37 @@ export function getActiveStudentAttemptForAssignment(
   });
 }
 
+/** Sahibi doğrulanmış denemenin kaynak vaka kimliğini yalnızca sunucuya döndürür. */
+export async function getStudentAttemptSourceCaseId(
+  id: string,
+  actor: string,
+  studentId?: string
+): Promise<string | null> {
+  assertSupportedAttemptStore(actor);
+  if (shouldUsePostgresAttemptStore(actor)) {
+    if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
+    return getPostgresAttemptSourceCaseId(id, studentId);
+  }
+  return withJsonStoreLock(() => {
+    const found = ownAttempt(id, actor);
+    return found?.attempt.vaka.sourceCaseId || null;
+  });
+}
+
 export function answerStudentAttempt(id: string, actor: string, action: string, studentId?: string): Promise<string | null> {
   assertSupportedAttemptStore(actor);
   if (shouldUsePostgresAttemptStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return answerPostgresAttempt(id, studentId, action);
   }
-  return withJsonStoreLock(() => {
+  return withJsonStoreLock(async () => {
     const found = ownAttempt(id, actor);
     if (!found) return null;
     if (!found.attempt.sorulanAksiyonlar.includes(action)) found.attempt.sorulanAksiyonlar.push(action);
+    const yanit = await yanitHesapla(found.attempt, action);
     found.attempt.updatedAt = Date.now();
     save(found.store);
-    return attemptAnswer(found.attempt, action);
+    return yanit;
   });
 }
 

@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import VakaWorkspace, { CompletedAttempt } from "@/components/vaka/VakaWorkspace";
+import { HastaTipiSecici, tipEmoji, type HastaTipiSecim } from "@/components/vaka/HastaTipiSecici";
 import { Vaka } from "@/lib/types";
 import { AttemptResumeSnapshot, publicAttemptToVaka, resumableAttemptToSnapshot } from "@/lib/student/public-case";
+import type { ClinicalHistory } from "@/lib/clinical-history/types";
 
 export default function PoliklinikPage() {
   const params = useParams();
@@ -13,29 +15,42 @@ export default function PoliklinikPage() {
   const poliklinikKey = params.key as string;
   const [vaka, setVaka] = useState<Vaka | null>(null);
   const [resumeSnapshot, setResumeSnapshot] = useState<AttemptResumeSnapshot | null>(null);
+  const [hastaTipi, setHastaTipi] = useState<{ id: string; ad: string } | null>(null);
+  const [tipler, setTipler] = useState<HastaTipiSecim[]>([]);
+  const [seciliTipId, setSeciliTipId] = useState<string | null>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [girisKontrol, setGirisKontrol] = useState(true);
+  const [secimAsamasi, setSecimAsamasi] = useState(false);
   const [hata, setHata] = useState("");
   const [taslakDegisti, setTaslakDegisti] = useState(false);
   const poliklinik = { ad: poliklinikKey };
 
-  const uret = useCallback(
-    async (devamEdeniYukle: boolean) => {
-      if (devamEdeniYukle) {
-        const devamEden = await fetch(`/api/student/attempts?poliklinikKey=${encodeURIComponent(poliklinikKey)}`);
-        const devamVerisi = await devamEden.json();
-        if (!devamEden.ok) throw new Error(devamVerisi?.error || "Vaka oturumu yüklenemedi.");
-        if (devamVerisi?.vaka) {
-          return {
-            vaka: publicAttemptToVaka(devamVerisi.vaka),
-            snapshot: resumableAttemptToSnapshot(devamVerisi.vaka),
-          };
-        }
-      }
+  const tipleriYukle = useCallback(async () => {
+    const res = await fetch("/api/student/hasta-tipleri");
+    const data = await res.json().catch(() => null);
+    if (Array.isArray(data?.tipler)) setTipler(data.tipler);
+  }, []);
+
+  const resumeYukle = useCallback(async () => {
+    const devamEden = await fetch(`/api/student/attempts?poliklinikKey=${encodeURIComponent(poliklinikKey)}`);
+    const devamVerisi = await devamEden.json();
+    if (!devamEden.ok) throw new Error(devamVerisi?.error || "Vaka oturumu yüklenemedi.");
+    if (devamVerisi?.vaka) {
+      return {
+        vaka: publicAttemptToVaka(devamVerisi.vaka),
+        snapshot: resumableAttemptToSnapshot(devamVerisi.vaka),
+        hastaTipi: devamVerisi.vaka.hastaTipi ?? null,
+      };
+    }
+    return null;
+  }, [poliklinikKey]);
+
+  const yeniBaslat = useCallback(
+    async (tipId: string | null) => {
       const response = await fetch("/api/student/attempts", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ poliklinikKey }),
+        body: JSON.stringify({ poliklinikKey, hastaTipiId: tipId }),
       });
       if (!response.ok) {
         const errorData = await response.json().catch(() => null);
@@ -43,14 +58,14 @@ export default function PoliklinikPage() {
       }
       const { vaka: remote } = await response.json();
       if (!remote) throw new Error("Vaka hazırlanamadı.");
-      return { vaka: publicAttemptToVaka(remote), snapshot: null };
+      return { vaka: publicAttemptToVaka(remote), hastaTipi: remote.hastaTipi ?? null };
     },
     [poliklinikKey]
   );
 
   useEffect(() => {
     let cancelled = false;
-    const baslat = async () => {
+    const hazirla = async () => {
       try {
         const oturum = await fetch("/api/student/me");
         if (cancelled) return;
@@ -59,14 +74,17 @@ export default function PoliklinikPage() {
           return;
         }
         setGirisKontrol(false);
-        setYukleniyor(true);
         setHata("");
-        const yuklenen = await uret(true);
-        if (!cancelled) {
-          setVaka(yuklenen.vaka);
-          setResumeSnapshot(yuklenen.snapshot);
-          setYukleniyor(false);
+        const [devam] = await Promise.all([resumeYukle(), tipleriYukle()]);
+        if (cancelled) return;
+        if (devam) {
+          setVaka(devam.vaka);
+          setResumeSnapshot(devam.snapshot);
+          setHastaTipi(devam.hastaTipi);
+        } else {
+          setSecimAsamasi(true);
         }
+        setYukleniyor(false);
       } catch (error) {
         if (!cancelled) {
           setGirisKontrol(false);
@@ -75,27 +93,40 @@ export default function PoliklinikPage() {
         }
       }
     };
-    void baslat();
+    void hazirla();
     return () => {
       cancelled = true;
     };
-  }, [poliklinikKey, router, uret]);
+  }, [poliklinikKey, router, resumeYukle, tipleriYukle]);
 
-  const yeniVakaAl = async () => {
+  const baslat = async () => {
     if (yukleniyor) return;
-    if (taslakDegisti && !window.confirm("Tanı veya tedavi taslağınız bu cihazda kaydedildi. Yine de vakayı değiştirmek istiyor musunuz?")) return;
     setYukleniyor(true);
     setHata("");
     try {
-      const yeni = await uret(false);
+      const yeni = await yeniBaslat(seciliTipId);
       setVaka(yeni.vaka);
       setResumeSnapshot(null);
+      setHastaTipi(yeni.hastaTipi);
+      setSecimAsamasi(false);
       setTaslakDegisti(false);
     } catch (error) {
-      setHata(error instanceof Error ? error.message : "Yeni vaka hazırlanamadı.");
+      setHata(error instanceof Error ? error.message : "Vaka hazırlanamadı.");
     } finally {
       setYukleniyor(false);
     }
+  };
+
+  const yeniVakaAl = () => {
+    if (yukleniyor) return;
+    if (taslakDegisti && !window.confirm("Tanı veya tedavi taslağınız bu cihazda kaydedildi. Yine de vakayı değiştirmek istiyor musunuz?")) return;
+    setSeciliTipId(null);
+    setSecimAsamasi(true);
+    setVaka(null);
+    setResumeSnapshot(null);
+    setHastaTipi(null);
+    setTaslakDegisti(false);
+    setHata("");
   };
 
   async function attemptAction(type: "ask" | "test" | "reasoning" | "complete", payload: Record<string, unknown>) {
@@ -112,6 +143,16 @@ export default function PoliklinikPage() {
     return response.json();
   }
 
+  async function clinicalHistoryRequest(): Promise<ClinicalHistory> {
+    if (!vaka) throw new Error("Vaka oturumu bulunamadı.");
+    const response = await fetch(`/api/student/attempts/${vaka.id}/history`, { cache: "no-store" });
+    const data = await response.json().catch(() => null);
+    if (!response.ok || !data?.history) {
+      throw new Error(data?.error || "Klinik geçmiş alınamadı.");
+    }
+    return data.history as ClinicalHistory;
+  }
+
   if (girisKontrol) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-canvas">
@@ -123,13 +164,46 @@ export default function PoliklinikPage() {
     );
   }
 
+  if (secimAsamasi) {
+    return (
+      <div className="flex min-h-[100dvh] flex-col bg-canvas">
+        <header className="flex min-h-14 items-center gap-3 border-b border-hairline bg-canvas px-4 py-2">
+          <Link href="/vakalar" className="inline-flex min-h-11 shrink-0 items-center text-sm text-steel transition-colors hover:text-ink">
+            <span className="sm:hidden">← Geri</span>
+            <span className="hidden sm:inline">← Poliklinikler</span>
+          </Link>
+          <span className="text-muted" aria-hidden="true">/</span>
+          <span className="truncate text-sm font-medium text-ink">{poliklinik.ad}</span>
+        </header>
+        <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:py-14">
+          <h1 className="text-3xl font-semibold tracking-tight text-ink">Hasta Tipi Seç</h1>
+          <p className="mt-3 text-steel">
+            Bu vaka için hastanın konuşma tarzını seçin. Seçmezseniz sistem rastgele bir tip atar.
+          </p>
+          <div className="mt-6">
+            <HastaTipiSecici tipler={tipler} seciliTipId={seciliTipId} onSelect={setSeciliTipId} />
+          </div>
+          {hata && <p role="alert" className="mt-4 text-sm text-clinical-red">{hata}</p>}
+          <button
+            type="button"
+            onClick={() => void baslat()}
+            disabled={yukleniyor}
+            className="btn-primary mt-6 w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {yukleniyor ? "Hazırlanıyor…" : "Vakayı Başlat →"}
+          </button>
+        </main>
+      </div>
+    );
+  }
+
   if (yukleniyor || !vaka) {
     if (hata) {
       return (
         <div className="flex min-h-screen items-center justify-center bg-canvas px-4">
           <div className="max-w-sm text-center">
             <p role="alert" className="text-lg font-medium text-clinical-red">{hata}</p>
-            <button type="button" onClick={() => void yeniVakaAl()} className="btn-primary mt-5">
+            <button type="button" onClick={() => yeniVakaAl()} className="btn-primary mt-5">
               Tekrar dene
             </button>
           </div>
@@ -163,8 +237,13 @@ export default function PoliklinikPage() {
           <span className="truncate text-sm font-medium text-ink">
             {poliklinik.ad}
           </span>
+          {hastaTipi && (
+            <span className="badge badge-brand shrink-0" title="Bu vaka için atanan hasta tipi">
+              {tipEmoji(hastaTipi.id)} {hastaTipi.ad}
+            </span>
+          )}
         </div>
-        <button type="button" onClick={() => void yeniVakaAl()} disabled={yukleniyor} className="btn-secondary shrink-0 px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60 sm:px-5">
+        <button type="button" onClick={yeniVakaAl} disabled={yukleniyor} className="btn-secondary shrink-0 px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60 sm:px-5">
           <span className="sm:hidden">Değiştir</span>
           <span className="hidden sm:inline">Vakayı değiştir</span>
         </button>
@@ -191,6 +270,7 @@ export default function PoliklinikPage() {
           onReasoningSave={async (reasoning) => {
             await attemptAction("reasoning", { reasoning });
           }}
+          onClinicalHistoryRequest={clinicalHistoryRequest}
           onEvaluate={async (attempt: CompletedAttempt) => {
             const sonuc = (await attemptAction("complete", { taniGirildi: attempt.taniGirildi, tedaviGirildi: attempt.tedaviGirildi, reasoning: attempt.clinicalReasoning }))?.sonuc;
             if (!sonuc) throw new Error("Değerlendirme alınamadı.");

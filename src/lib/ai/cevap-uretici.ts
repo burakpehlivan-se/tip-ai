@@ -16,6 +16,9 @@ import { CHIP_HAVUZU } from "@/lib/data/case-generator";
 import { buildDefaultYanitlar } from "@/lib/data/hasta-yanit-enrich";
 import { deepseekChat, deepseekYapilandirilmisMi, jsonCikar } from "./deepseek";
 import { KISILIK_TIPLERI, KisilikTipiKey } from "./kisilik-tipleri";
+import { hastaDilineCevir, yuksekTibbiTerimVarMi } from "./hasta-dili";
+import { auditSyntheaClinicalHistoryAccess, getSyntheaClinicalHistory } from "@/lib/clinical-history/synthea-history";
+import type { ClinicalHistory } from "@/lib/clinical-history/types";
 
 export interface UretimRaporu {
   toplamSoru: number;
@@ -53,6 +56,8 @@ export interface UretimSecenekleri {
   kisilikTipi?: KisilikTipiKey;
   /** Seçilirse hastanın kişiliği + demografisi bu tipten gelir. */
   hastaTipi?: HastaTipi;
+  /** Geçmiş erişiminin denetlenmesi için yalnızca sunucuda kullanılan aktör. */
+  actor?: string;
 }
 
 const GRUP_BOYU = 45;
@@ -135,8 +140,30 @@ export function profilOlustur(vaka: AdminVaka): string {
   return satirlar.join("\n");
 }
 
-/** AdminVaka + isteğe bağlı HastaTipi → tüm alanları içeren JSON profil (AI girdisi). */
-export function profilJson(vaka: AdminVaka, tip?: HastaTipi): Record<string, unknown> {
+function testleriPromptIcinHazirla(testler: Record<string, AdminVaka["statikTestler"][string]>): Record<string, unknown> {
+  return Object.fromEntries(Object.entries(testler).map(([key, test]) => [key, {
+    ad: test.testAdi,
+    tip: test.tip,
+    sonuc: test.sonuc,
+    birim: test.birim,
+    referans: test.referansAralik || test.referans,
+    yorum: test.yorum,
+  }]));
+}
+
+function gecmisPromptIcinHazirla(history: ClinicalHistory | null): Record<string, unknown> | undefined {
+  if (!history) return undefined;
+  return {
+    zamanCizelgesi: history.timeline,
+    alerjiler: history.allergies,
+    asilar: history.immunizations,
+    laboratuvarEgilimleri: history.labTrends,
+  };
+}
+
+/** Kimliksiz vaka bağlamı; isim, adres, telefon, kaynak hasta kimliği veya ham FHIR gövdesi içermez. */
+export function profilJson(vaka: AdminVaka, tip?: HastaTipi, history: ClinicalHistory | null = null): Record<string, unknown> {
+  const tumTestler = { ...vaka.statikTestler, ...(vaka.generatedTests || {}), ...(vaka.testOverrides || {}) };
   return {
     hastalik: {
       ad: vaka.hastalikAdi,
@@ -149,7 +176,16 @@ export function profilJson(vaka: AdminVaka, tip?: HastaTipi): Record<string, unk
       komorbiditeler: vaka.patientProfil?.komorbiditeler || [],
       sigara: vaka.patientProfil?.sigara,
       vitals: vaka.vitals || {},
-      ilaclar: (vaka.tedavi?.ilaclar || []).map((i) => `${i.ad}${i.doz ? " " + i.doz : ""}`),
+      tedavi: {
+        aciklama: vaka.tedavi?.aciklama,
+        ilaclar: vaka.tedavi?.ilaclar || [],
+        prosedurler: vaka.tedavi?.prosedurler || [],
+        notlar: vaka.tedavi?.onemliNotlar || [],
+      },
+      testSonuclari: testleriPromptIcinHazirla(tumTestler),
+      dahaOnceKaydedilmisHastaYanitlari: vaka.hastaYanitlari || {},
+      idealIzlemYolu: vaka.idealYol || [],
+      egitimNotu: vaka.egitimNotu,
       beklenenSorular: (vaka.rubric?.beklenenSorular || []).map((s) => ({
         key: s.key,
         etiket: s.etiket,
@@ -158,6 +194,7 @@ export function profilJson(vaka: AdminVaka, tip?: HastaTipi): Record<string, unk
       beklenenTestler: (vaka.rubric?.beklenenTestler || []).map((t) => t.etiket),
       gereksizTestler: (vaka.rubric?.gereksizTestler || []).map((t) => t.etiket),
       redFlagler: (vaka.rubric?.redFlagler || []).map((r) => r.etiket),
+      klinikGecmis: gecmisPromptIcinHazirla(history),
     },
     hastaTipi: tip
       ? {
@@ -166,6 +203,7 @@ export function profilJson(vaka: AdminVaka, tip?: HastaTipi): Record<string, unk
           yasAraligi: tip.yasAraligi,
           cinsiyetTercih: tip.cinsiyetTercih,
           komorbiditeler: tip.komorbiditeler || [],
+          kisilikTipi: tip.kisilikTipi,
           konusmaKurallari: tip.konusmaKurallari,
           konusmaOrnekleri: tip.konusmaOrnekleri,
           ornekCumleler: tip.ornekCumleler,
@@ -184,18 +222,18 @@ interface KonusmaProfili {
 
 /** Hasta tipi (öncelikli) veya kişilik anahtarından konuşma profili çıkarır. */
 function konusmaProfili(tip?: HastaTipi, kisilikKey?: KisilikTipiKey): KonusmaProfili {
+  const kisilik = kisilikKey ? KISILIK_TIPLERI[kisilikKey] : undefined;
   if (tip && (tip.konusmaKurallari || tip.konusmaOrnekleri)) {
     return {
-      ad: tip.ad,
-      aciklama: tip.aciklama,
-      kurallar: tip.konusmaKurallari,
-      ornekler: tip.konusmaOrnekleri,
+      ad: kisilik ? `${tip.ad} · ${kisilik.ad}` : tip.ad,
+      aciklama: [tip.aciklama, kisilik?.aciklama].filter(Boolean).join("\n"),
+      kurallar: [kisilik?.konusmaKurallari, tip.konusmaKurallari].filter(Boolean).join("\n"),
+      ornekler: tip.konusmaOrnekleri || kisilik?.ornekCevaplar,
       cumleler: tip.ornekCumleler,
     };
   }
-  if (kisilikKey) {
-    const k = KISILIK_TIPLERI[kisilikKey];
-    return { ad: k.ad, aciklama: k.aciklama, kurallar: k.konusmaKurallari, ornekler: k.ornekCevaplar };
+  if (kisilik) {
+    return { ad: kisilik.ad, aciklama: kisilik.aciklama, kurallar: kisilik.konusmaKurallari, ornekler: kisilik.ornekCevaplar };
   }
   return {};
 }
@@ -241,12 +279,13 @@ KONUŞMA PROFİLİ: Doğal, sakin ve işbirlikçi bir hasta. Kısa, net cevaplar
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CEVAP KURALLARI
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. HASTA GİBİ KONUŞ: Tıbbi terim kullanma. "Dispne" değil "nefes darlığı", "sefalji" değil "baş ağrısı". Halk dilinde konuş.
-2. TUTARLI OL: Profilde var olan semptomlar için pozitif, olmayanlar için negatif cevap ver. Belirsiz olanlar için "bilmiyorum" tarzında.
-3. HASTALIK + HASTA TİPİ: Hastalığın yaş/cinsiyet beklentisiyle hasta tipinin yaş/cinsiyetini birlikte değerlendir; çelişki varsa hastalık bilgisi önceliklidir.
-4. ANA ŞİKAYET AĞRI İSE: Genel ağrı sorularını ana şikayete göre, spesifik bölge sorularını o bölgede ağrı yoksa "yok" diyerek cevapla.
-5. VİTAL BULGULAR: Sorulunca yukarıdaki değerleri söyle, sadece sayıyı ver.
-6. Her cevap 1-3 cümle olsun.
+1. HASTA GİBİ KONUŞ: Yalnızca gündelik Türkçe kullan. Tanı, işlem, test, laboratuvar, kod, kısaltma veya yüksek tıbbi terim kullanma. "Dispne" değil "nefes darlığı", "hipertansiyon" değil "yüksek tansiyon", "diyabet" değil "şeker hastalığı" de.
+2. TIBBİ AD SORULURSA: Hastanın tıbbi adı bilmediğini söyle; bildiği günlük belirtiyi veya doktorun sade biçimde anlattığını ifade et. Örneğin "Kalp damarlarımla ilgili bir sorun olduğu söylenmişti, tam adını bilmiyorum." de.
+3. TUTARLI OL: Profilde var olan semptomlar için pozitif, olmayanlar için negatif cevap ver. Belirsiz olanlar için "bilmiyorum" tarzında. Profilden bilgiyi kendiliğinden sıralama; yalnızca sorulan bilgiyi ver.
+4. HASTALIK + HASTA TİPİ: Hastalığın yaş/cinsiyet beklentisiyle hasta tipinin yaş/cinsiyetini birlikte değerlendir; çelişki varsa hastalık bilgisi önceliklidir.
+5. ANA ŞİKAYET AĞRI İSE: Genel ağrı sorularını ana şikayete göre, spesifik bölge sorularını o bölgede ağrı yoksa "yok" diyerek cevapla.
+6. VİTAL BULGULAR: Sorulunca yukarıdaki değeri sade biçimde söyle; referans aralığı veya test yorumu yapma.
+7. Her cevap 1-3 cümle olsun.
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 FORMAT
@@ -301,7 +340,7 @@ async function grupUret(
     const kaynak = parsed.cevaplar && typeof parsed.cevaplar === "object" ? parsed.cevaplar : (parsed as Record<string, unknown>);
     const cikti: Record<string, string> = {};
     for (const [k, v] of Object.entries(kaynak)) {
-      if (typeof v === "string" && v.trim()) cikti[k] = v.trim();
+      if (typeof v === "string" && v.trim()) cikti[k] = hastaDilineCevir(v);
     }
     return { cevaplar: cikti, debug };
   } catch (hata) {
@@ -325,7 +364,20 @@ export async function vakaCevaplariniUret(
   secenekler: UretimSecenekleri = {},
   onProgress?: (ilerleme: UretimIlerleme) => void
 ): Promise<CevapUretimSonucu> {
-  const profil = JSON.stringify(profilJson(vaka, secenekler.hastaTipi), null, 2);
+  // Klinik geçmiş yalnızca yönetici tarafından başlatılan üretimde okunur ve
+  // de-kimliklendirilmiş projeksiyon halinde harici modele gider. Kaynak hasta
+  // kimliği/iletişim bilgisi veya ham FHIR hiçbir koşulda prompta eklenmez.
+  let history: ClinicalHistory | null = null;
+  if (secenekler.actor) {
+    try {
+      history = await getSyntheaClinicalHistory(vaka.id);
+      if (history) await auditSyntheaClinicalHistoryAccess(vaka.id, secenekler.actor);
+    } catch {
+      // Geçmiş bağlamı eklenemese de vaka yanıtı üretimi çalışmaya devam eder.
+      history = null;
+    }
+  }
+  const profil = JSON.stringify(profilJson(vaka, secenekler.hastaTipi, history), null, 2);
 
   if (!deepseekYapilandirilmisMi()) {
     return {
@@ -343,7 +395,7 @@ export async function vakaCevaplariniUret(
 
   const konusma = konusmaProfili(
     secenekler.hastaTipi,
-    secenekler.kisilik ? secenekler.kisilikTipi || "sakin" : undefined
+    secenekler.hastaTipi?.kisilikTipi || (secenekler.kisilik ? secenekler.kisilikTipi || "sakin" : undefined)
   );
   const anahtarlar = chipKeyKumesi();
   const gruplar = chipGruplari(CHIP_HAVUZU);
@@ -379,13 +431,19 @@ export async function vakaCevaplariniUret(
   }
 
   // Varsayılan negatif yanıtlarla birleştir + vitalleri garantile
-  const birlestirilmis = { ...buildDefaultYanitlar(CHIP_HAVUZU), ...cevaplar, ...vitalsHaritasi(vaka) };
+  const birlestirilmis = Object.fromEntries(
+    Object.entries({ ...buildDefaultYanitlar(CHIP_HAVUZU), ...cevaplar, ...vitalsHaritasi(vaka) })
+      .map(([key, value]) => [key, hastaDilineCevir(value)])
+  );
   if (!birlestirilmis.OZEL) {
     birlestirilmis.OZEL = "Bunu tam anlayamadım; başka şekilde sorabilir misiniz?";
   }
 
   const eksikSoru = CHIP_HAVUZU.filter((c) => !birlestirilmis[c.aksiyon]).map((c) => c.aksiyon);
   const uyarilar = guvenlikKontrolu(birlestirilmis, vaka);
+  for (const [key, value] of Object.entries(birlestirilmis)) {
+    if (yuksekTibbiTerimVarMi(value)) uyarilar.push(`${key}: yüksek tıbbi terim filtresinden geçemedi.`);
+  }
 
   return {
     basarili: eksikSoru.length === 0,

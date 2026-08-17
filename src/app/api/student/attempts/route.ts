@@ -51,10 +51,11 @@ export async function POST(req: NextRequest) {
   if (!session && !guest) return NextResponse.json({ error: "Giriş yapmalısınız." }, { status: 401 });
   const poliklinikKey = poliklinikKeyFrom(typeof body?.poliklinikKey === "string" ? body.poliklinikKey : null);
   if (!poliklinikKey) return NextResponse.json({ error: "Geçersiz poliklinik." }, { status: 400 });
+  const hastaTipiId = typeof body?.hastaTipiId === "string" && body.hastaTipiId ? body.hastaTipiId : null;
   const guestId = req.cookies.get(GUEST_COOKIE)?.value || crypto.randomUUID();
   let vaka;
   try {
-    vaka = await startStudentAttempt(session?.username || `guest:${guestId}`, poliklinikKey, session?.userId);
+    vaka = await startStudentAttempt(session?.username || `guest:${guestId}`, poliklinikKey, session?.userId, hastaTipiId);
   } catch (error) {
     if (error instanceof JsonStoreReadError) return attemptStoreUnavailable(req, error);
     throw error;

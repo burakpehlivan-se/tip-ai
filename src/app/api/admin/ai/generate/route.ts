@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
             {
               kisilik: body.kisilik === true,
               kisilikTipi: typeof body.kisilikTipi === "string" ? body.kisilikTipi : undefined,
+              actor: session!.username,
             },
             (ilerleme) => gonder({ tip: "ilerleme", tur: ilerleme.tip, tamamlanan: ilerleme.tamamlanan, toplam: ilerleme.toplam })
           );
@@ -76,7 +77,7 @@ export async function POST(req: NextRequest) {
             gonder({ tip: "tip-basla", tipId: tip.id, tipAd: tip.ad });
             const sonuc = await vakaCevaplariniUret(
               vaka,
-              { hastaTipi: tip },
+              { hastaTipi: tip, actor: session!.username },
               (ilerleme) =>
                 gonder({ tip: "ilerleme", tur: ilerleme.tip, tamamlanan: ilerleme.tamamlanan, toplam: ilerleme.toplam })
             );

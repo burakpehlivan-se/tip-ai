@@ -6,6 +6,7 @@
 import { HastaTipi } from "@/lib/admin/types";
 import { deepseekChat, deepseekYapilandirilmisMi, jsonCikar } from "./deepseek";
 import { KISILIK_TIPLERI, KisilikTipiKey } from "./kisilik-tipleri";
+import { hastaDilineCevir } from "./hasta-dili";
 
 /** Hasta tipi AI penceresi için sabit standart soru listesi. */
 export const ORNEK_SORULAR: Array<{ key: string; soru: string }> = [
@@ -73,7 +74,7 @@ KİŞİLİK TİPİ: Doğal, sakin ve işbirlikçi bir hasta. Kısa, net cevaplar
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 CEVAP KURALLARI
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-1. HASTA GİBİ KONUŞ: Tıbbi terim kullanma, halk dilinde konuş.
+1. HASTA GİBİ KONUŞ: Yalnızca gündelik Türkçe kullan. Tanı, test, işlem, kod, kısaltma veya yüksek tıbbi terim kullanma; tıbbi adı bilmediğini, doktorun günlük dille anlattığını söyle.
 2. TUTARLI OL: Komorbiditelere ve yaş/cinsiyete uygun cevap ver.
 3. Her cevap 1-3 cümle olsun.
 
@@ -133,7 +134,7 @@ export async function hastaTipiOrnekCevaplariniUret(tip: HastaTipi): Promise<Has
     const cevaplar: Record<string, string> = {};
     if (kaynak) {
       for (const [k, v] of Object.entries(kaynak)) {
-        if (typeof v === "string" && v.trim()) cevaplar[k] = v.trim();
+        if (typeof v === "string" && v.trim()) cevaplar[k] = hastaDilineCevir(v);
       }
     }
 

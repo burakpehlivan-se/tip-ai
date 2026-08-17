@@ -2,11 +2,13 @@ import { and, desc, eq } from "drizzle-orm";
 import { getDb } from "@/lib/auth/db";
 import { learningAttempts } from "@/lib/auth/schema";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
-import { recordPlaySession } from "@/lib/admin/store";
+import { getHastaTipiById, loadHastaTipleriStore, recordPlaySession } from "@/lib/admin/store";
+import { uslupDonustur } from "@/lib/ai/uslup-donusturucu";
 import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import type { AdminVaka } from "@/lib/admin/types";
 import { getLabResult } from "@/lib/lab-motor";
 import { degerlendir } from "@/lib/scoring/degerlendir";
+import { hastaDilineCevir } from "@/lib/ai/hasta-dili";
 import type { DegerlendirmeSonuc, TestSonucu, Vaka } from "@/lib/types";
 import type { PublicAttemptCase, ResumableAttemptCase } from "./attempt-store";
 import {
@@ -21,8 +23,11 @@ type AttemptRow = typeof learningAttempts.$inferSelect;
 interface StoredAttempt {
   id: string;
   vaka: Vaka;
+  hastaTipiId?: string;
   askedActions: string[];
   requestedTests: string[];
+  /** Aksiyon → dönüştürülmüş cevap (devam eden oturumun birebir tekrarı). */
+  answers?: Record<string, string>;
   clinicalReasoning: ClinicalReasoningInput | null;
 }
 
@@ -38,13 +43,16 @@ function fromRow(row: AttemptRow): StoredAttempt {
   return {
     id: row.id,
     vaka,
+    hastaTipiId: row.hastaTipiId ?? undefined,
     askedActions: stringList(row.askedActions),
     requestedTests: stringList(row.requestedTests),
+    answers: row.answers ? Object.fromEntries(Object.entries(row.answers).filter(([, v]) => typeof v === "string")) : undefined,
     clinicalReasoning: normalizeClinicalReasoning(row.clinicalReasoning),
   };
 }
 
 function publicAttempt(record: StoredAttempt): PublicAttemptCase {
+  const tip = record.hastaTipiId ? getHastaTipiById(record.hastaTipiId) : undefined;
   return {
     id: record.id,
     semptom: record.vaka.semptom,
@@ -53,11 +61,35 @@ function publicAttempt(record: StoredAttempt): PublicAttemptCase {
     hasta: record.vaka.hasta,
     soruChipleri: record.vaka.soruChipleri,
     testler: Object.values(record.vaka.statikTestler).map((test) => ({ testKey: test.testKey, testAdi: test.testAdi })),
+    hastaTipi: record.hastaTipiId ? { id: record.hastaTipiId, ad: tip?.ad || record.hastaTipiId } : null,
   };
 }
 
+function baseAnswer(record: StoredAttempt, action: string): string {
+  return hastaDilineCevir(record.vaka.hastaYanitlari[action] || record.vaka.hastaYanitlari.OZEL || "Bu konuda ek bilgi veremiyorum.");
+}
+
 function answer(record: StoredAttempt, action: string): string {
-  return record.vaka.hastaYanitlari[action] || record.vaka.hastaYanitlari.OZEL || "Bu konuda ek bilgi veremiyorum.";
+  return record.answers?.[action] || baseAnswer(record, action);
+}
+
+/** Taban cevabı hasta tipi üslubuna dönüştürür ve kayda yazar. */
+async function computeAnswer(record: StoredAttempt, action: string): Promise<string> {
+  const tip = record.hastaTipiId ? getHastaTipiById(record.hastaTipiId) : undefined;
+  const yanit = await uslupDonustur({
+    vakaId: record.vaka.sourceCaseId || record.vaka.id,
+    tip,
+    actionKey: action,
+    baseCevap: baseAnswer(record, action),
+    baglam: {
+      yas: record.vaka.hasta.yas != null ? String(record.vaka.hasta.yas) : undefined,
+      cinsiyet: record.vaka.hasta.cinsiyet === "E" ? "Erkek" : record.vaka.hasta.cinsiyet === "K" ? "Kadın" : undefined,
+      anaSikayet: record.vaka.hasta.anaSikayet,
+    },
+  });
+  record.answers = record.answers || {};
+  record.answers[action] = yanit;
+  return yanit;
 }
 
 function testResult(record: StoredAttempt, testKey: string): TestSonucu | null {
@@ -76,24 +108,25 @@ function resumableAttempt(record: StoredAttempt): ResumableAttemptCase {
   };
 }
 
-export async function startPostgresStudentAttempt(studentId: string, poliklinikKey: string): Promise<PublicAttemptCase | null> {
+export async function startPostgresStudentAttempt(studentId: string, poliklinikKey: string, hastaTipiId?: string): Promise<PublicAttemptCase | null> {
   const candidates = (await loadRuntimeCasesStore()).cases.filter(
     (item) => item.durum === "aktif" && (poliklinikKey === "*" || item.poliklinikKey === poliklinikKey)
   );
   const template = candidates[Math.floor(Math.random() * candidates.length)];
   if (!template) return null;
-  return insertAttempt(studentId, template);
+  return insertAttempt(studentId, template, undefined, hastaTipiId);
 }
 
 export async function startPostgresAssignedAttempt(
   studentId: string,
   assignmentId: string,
-  template: AdminVaka
+  template: AdminVaka,
+  hastaTipiId?: string
 ): Promise<PublicAttemptCase | null> {
-  return insertAttempt(studentId, template, assignmentId);
+  return insertAttempt(studentId, template, assignmentId, hastaTipiId);
 }
 
-async function insertAttempt(studentId: string, template: AdminVaka, assignmentId?: string) {
+async function insertAttempt(studentId: string, template: AdminVaka, assignmentId?: string, hastaTipiId?: string) {
   const vaka = adminVakaToPlayable(template);
   const now = new Date();
   const db = getDb();
@@ -105,9 +138,11 @@ async function insertAttempt(studentId: string, template: AdminVaka, assignmentI
       caseId: template.id,
       caseVersion: vaka.sourceCaseVersion ? String(vaka.sourceCaseVersion) : null,
       poliklinikKey: template.poliklinikKey,
+      hastaTipiId: hastaTipiId ?? null,
       caseSnapshot: vaka,
       askedActions: [],
       requestedTests: [],
+      answers: null,
       clinicalReasoning: null,
       startedAt: now,
       updatedAt: now,
@@ -138,6 +173,18 @@ export async function getPostgresAssignedAttempt(studentId: string, assignmentId
   return row ? resumableAttempt(fromRow(row)) : null;
 }
 
+/** Kaynak vaka kimliği tarayıcıya gönderilmeden, sahiplik filtresi altında okunur. */
+export async function getPostgresAttemptSourceCaseId(id: string, studentId: string): Promise<string | null> {
+  const [row] = await getDb()
+    .select({ caseSnapshot: learningAttempts.caseSnapshot })
+    .from(learningAttempts)
+    .where(and(eq(learningAttempts.id, id), eq(learningAttempts.studentId, studentId), eq(learningAttempts.status, "active")))
+    .limit(1);
+  if (!row) return null;
+  const snapshot = row.caseSnapshot as Partial<Vaka> | null;
+  return typeof snapshot?.sourceCaseId === "string" ? snapshot.sourceCaseId : null;
+}
+
 export async function answerPostgresAttempt(id: string, studentId: string, action: string): Promise<string | null> {
   return getDb().transaction(async (tx) => {
     // Aynı denemeye gelen paralel istekler, read-modify-write yarışında
@@ -153,8 +200,9 @@ export async function answerPostgresAttempt(id: string, studentId: string, actio
 
     const record = fromRow(row);
     const askedActions = record.askedActions.includes(action) ? record.askedActions : [...record.askedActions, action];
-    await tx.update(learningAttempts).set({ askedActions, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
-    return answer(record, action);
+    const yanit = await computeAnswer(record, action);
+    await tx.update(learningAttempts).set({ askedActions, answers: record.answers ?? null, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
+    return yanit;
   });
 }
 
