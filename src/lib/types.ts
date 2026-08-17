@@ -78,6 +78,8 @@ export interface Vaka {
   /** Öğrenci denemesi başlarken kaynak şablonun sürüm-kilitli kimliği. */
   sourceCaseVersion?: number;
   sourceCaseChecksum?: string;
+  /** Sunucu içi sentetik geçmiş eşlemesi için vaka şablonu kimliği. İstemciye hasta kimliği gönderilmez. */
+  sourceCaseId?: string;
 }
 
 export interface TedaviPlani {

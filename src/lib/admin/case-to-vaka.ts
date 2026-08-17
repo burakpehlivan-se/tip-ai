@@ -126,5 +126,6 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {
     ],
     sourceCaseVersion: source.version,
     sourceCaseChecksum: source.checksum,
+    sourceCaseId: av.id,
   };
 }
