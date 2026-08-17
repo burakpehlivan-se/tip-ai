@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, type MouseEvent } from "react";
+import { useState, useRef, useEffect, useMemo, type MouseEvent, type ReactNode, type RefObject } from "react";
 import {
   Vaka,
   ChatMesaj,
@@ -25,6 +25,7 @@ import Link from "next/link";
 import {
   type ClinicalReasoningInput,
 } from "@/lib/student/clinical-reasoning";
+import { clinicalHistoryChatSummary, type ClinicalHistory } from "@/lib/clinical-history/types";
 
 export type WorkspaceFaz = "anamnez" | "test" | "tani" | "tedavi";
 
@@ -89,6 +90,8 @@ interface Props {
   onDirtyChange?: (isDirty: boolean) => void;
   /** Admin debug: konuşma/hasta/beklenen/tüm sorular JSON'ını parent'a bildirir. */
   onDebugSnapshot?: (snapshot: DebugJson) => void;
+  /** Kullanıcı isterse, sahip olduğu vaka oturumunun kimliksiz klinik geçmişini getirir. */
+  onClinicalHistoryRequest?: () => Promise<ClinicalHistory>;
 }
 
 function defaultMesajlar(vaka: Vaka): ChatMesaj[] {
@@ -158,6 +161,7 @@ export default function VakaWorkspace({
   onboarding = false,
   onDirtyChange,
   onDebugSnapshot,
+  onClinicalHistoryRequest,
 }: Props) {
   // Debug modda sonuçlar her zaman açık
   const effectiveRaporHazir = debugMode ? true : raporHazir;
@@ -198,6 +202,10 @@ export default function VakaWorkspace({
   const completionConfirmRef = useRef<HTMLDialogElement>(null);
   const completionCancelRef = useRef<HTMLButtonElement>(null);
   const completionTetikleyiciRef = useRef<HTMLButtonElement>(null);
+  const [showClinicalHistory, setShowClinicalHistory] = useState(false);
+  const [clinicalHistory, setClinicalHistory] = useState<ClinicalHistory | null>(null);
+  const [clinicalHistoryLoading, setClinicalHistoryLoading] = useState(false);
+  const clinicalHistoryDialogRef = useRef<HTMLDialogElement>(null);
   const [showKatDropdown, setShowKatDropdown] = useState(false);
   const [mobilPanel, setMobilPanel] = useState<"hasta" | "sohbet" | "testler">("sohbet");
   const [debugDetayAcik, setDebugDetayAcik] = useState(false);
@@ -385,6 +393,13 @@ export default function VakaWorkspace({
   }, [showCompletionConfirm]);
 
   useEffect(() => {
+    const dialog = clinicalHistoryDialogRef.current;
+    if (!showClinicalHistory || !dialog) return;
+    dialog.showModal();
+    return () => dialog.close();
+  }, [showClinicalHistory]);
+
+  useEffect(() => {
     if (onboarding) {
       setOnboardingKapatildi(window.localStorage.getItem("tip-ai-ilk-vaka-rehberi-kapatildi") === "1");
     }
@@ -419,6 +434,25 @@ export default function VakaWorkspace({
       setIslemHatasi("Hasta yanıtı alınamadı. Bağlantınızı kontrol edip soruyu yeniden deneyin.");
     } finally {
       setIslemYukleniyor(false);
+    }
+  };
+
+  const klinikGecmisiIste = async () => {
+    if (!onClinicalHistoryRequest || clinicalHistoryLoading) return;
+    setClinicalHistoryLoading(true);
+    setIslemHatasi("");
+    try {
+      const history = await onClinicalHistoryRequest();
+      setClinicalHistory(history);
+      setShowClinicalHistory(true);
+      setMesajlar((prev) => [
+        ...prev,
+        { id: `${Date.now()}-history`, rol: "sistem", metin: clinicalHistoryChatSummary(history), zaman: Date.now() },
+      ]);
+    } catch (error) {
+      setIslemHatasi(error instanceof Error ? error.message : "Klinik geçmiş alınamadı. Lütfen tekrar deneyin.");
+    } finally {
+      setClinicalHistoryLoading(false);
     }
   };
 
@@ -833,6 +867,15 @@ export default function VakaWorkspace({
         </div>
       )}
 
+      {showClinicalHistory && clinicalHistory && (
+        <KlinikGecmisDialog
+          dialogRef={clinicalHistoryDialogRef}
+          history={clinicalHistory}
+          attemptId={vaka.id}
+          onClose={() => setShowClinicalHistory(false)}
+        />
+      )}
+
       {/* 3-Panel Layout */}
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <VakaHastaPanel
@@ -840,6 +883,8 @@ export default function VakaWorkspace({
           mobilGorunur={mobilPanel === "hasta"}
           sorulanAksiyonSayisi={sorulanAksiyonlar.length}
           istenenTestSayisi={testIstekleri.length}
+          onClinicalHistoryRequest={onClinicalHistoryRequest ? klinikGecmisiIste : undefined}
+          clinicalHistoryLoading={clinicalHistoryLoading}
         />
 
         {/* Orta Panel — aktif klinik görev */}
@@ -1397,6 +1442,101 @@ export default function VakaWorkspace({
       </div>
     </div>
   );
+}
+
+function KlinikGecmisDialog({
+  dialogRef,
+  history,
+  attemptId,
+  onClose,
+}: {
+  dialogRef: RefObject<HTMLDialogElement | null>;
+  history: ClinicalHistory;
+  attemptId: string;
+  onClose: () => void;
+}) {
+  return (
+    <dialog
+      ref={dialogRef}
+      onCancel={(event) => {
+        event.preventDefault();
+        onClose();
+      }}
+      aria-labelledby="klinik-gecmis-baslik"
+      className="fixed inset-0 z-50 m-auto max-h-[88dvh] w-[min(42rem,calc(100%-2rem))] overflow-hidden rounded-lg border border-hairline bg-canvas p-0 shadow-xl backdrop:bg-black/20"
+    >
+      <div className="flex max-h-[88dvh] flex-col">
+        <header className="flex items-start justify-between gap-4 border-b border-hairline px-4 py-4 sm:px-6">
+          <div>
+            <h2 id="klinik-gecmis-baslik" className="text-heading-5 text-ink">Klinik geçmiş</h2>
+            <p className="mt-1 text-xs leading-5 text-steel">Bu görünüm kimlik bilgisi içermez; yalnızca eğitim amaçlı sentetik klinik kayıtlardan oluşur.</p>
+          </div>
+          <button type="button" onClick={onClose} className="btn-ghost min-h-11 min-w-11 shrink-0 text-sm" aria-label="Klinik geçmişi kapat">Kapat</button>
+        </header>
+        <div className="overflow-y-auto px-4 py-5 sm:px-6 scrollbar-thin">
+          <HistorySection title="Klinik zaman çizelgesi">
+            {history.timeline.length ? (
+              <ul className="space-y-3">
+                {history.timeline.map((item, index) => <HistoryRow key={`${item.kind}-${item.title}-${index}`} date={item.date} label={item.kind} title={item.title} detail={item.detail} code={item.code} codeSystem={item.codeSystem} />)}
+              </ul>
+            ) : <EmptyHistory />}
+          </HistorySection>
+          <HistorySection title="Alerjiler">
+            {history.allergies.length ? <ul className="space-y-2">{history.allergies.map((item, index) => <HistoryRow key={`${item.title}-${index}`} date={item.date} title={item.title} detail={item.detail} code={item.code} codeSystem={item.codeSystem} />)}</ul> : <EmptyHistory />}
+          </HistorySection>
+          <HistorySection title="Aşılar">
+            {history.immunizations.length ? <ul className="space-y-2">{history.immunizations.map((item, index) => <HistoryRow key={`${item.title}-${index}`} date={item.date} title={item.title} detail={item.detail} code={item.code} codeSystem={item.codeSystem} />)}</ul> : <EmptyHistory />}
+          </HistorySection>
+          <HistorySection title="Laboratuvar eğilimleri">
+            {history.labTrends.length ? (
+              <div className="space-y-2">
+                {history.labTrends.map((trend) => (
+                  <div key={`${trend.title}-${trend.unit || ""}`} className="rounded-lg border border-hairline bg-surface-soft px-3 py-3">
+                    <p className="text-sm font-medium text-ink">{trend.title}{trend.unit ? <span className="ml-1 font-normal text-steel">({trend.unit})</span> : null}{trend.code ? <span className="ml-2 align-middle rounded bg-surface px-1.5 py-0.5 text-[10px] font-normal text-muted">{trend.codeSystem ? `${trend.codeSystem} ` : ""}{trend.code}</span> : null}</p>
+                    <p className="mt-1 text-xs leading-5 text-steel">{trend.values.map((value) => `${value.date || "Tarih yok"}: ${value.value}`).join(" · ")}</p>
+                  </div>
+                ))}
+              </div>
+            ) : <EmptyHistory />}
+          </HistorySection>
+          <HistorySection title="Radyoloji">
+            {history.radiology ? (
+              <figure className="rounded-lg border border-hairline bg-surface-soft p-3">
+                {/* Dinamik API rotasından gelen ikili görüntü; next/image optimizasyonu uygulanmaz. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={`/api/student/attempts/${attemptId}/radiology-image`}
+                  alt={`Göğüs röntgeni — ${history.radiology.findingLabel}`}
+                  className="mx-auto w-full max-w-md rounded border border-hairline"
+                  loading="lazy"
+                />
+                <figcaption className="mt-2 text-center text-xs text-steel">
+                  Ön-arka göğüs röntgeni · {history.radiology.findingLabel}
+                </figcaption>
+              </figure>
+            ) : <EmptyHistory />}
+          </HistorySection>
+        </div>
+      </div>
+    </dialog>
+  );
+}
+
+function HistorySection({ title, children }: { title: string; children: ReactNode }) {
+  return <section className="mb-6"><h3 className="mb-3 text-xs font-semibold uppercase tracking-wide text-muted">{title}</h3>{children}</section>;
+}
+
+function HistoryRow({ date, label, title, detail, code, codeSystem }: { date: string | null; label?: string; title: string; detail?: string; code?: string; codeSystem?: string }) {
+  return (
+    <li className="rounded-lg border border-hairline bg-canvas px-3 py-3">
+      <p className="text-sm font-medium text-ink">{label ? <span className="mr-2 text-xs font-medium text-brand-deep">{label}</span> : null}{title}{code ? <span className="ml-2 align-middle rounded bg-surface px-1.5 py-0.5 text-[10px] font-normal text-muted">{codeSystem ? `${codeSystem} ` : ""}{code}</span> : null}</p>
+      <p className="mt-1 text-xs text-steel">{[date, detail].filter(Boolean).join(" · ") || "Ek tarih veya durum bilgisi yok"}</p>
+    </li>
+  );
+}
+
+function EmptyHistory() {
+  return <p className="rounded-lg bg-surface px-3 py-3 text-sm text-steel">Gösterilebilir kayıt bulunamadı.</p>;
 }
 
 function ClinicalReasoningFields({

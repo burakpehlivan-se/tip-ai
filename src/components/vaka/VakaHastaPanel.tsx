@@ -8,6 +8,8 @@ interface Props {
   mobilGorunur: boolean;
   sorulanAksiyonSayisi: number;
   istenenTestSayisi: number;
+  onClinicalHistoryRequest?: () => void;
+  clinicalHistoryLoading?: boolean;
 }
 
 export default function VakaHastaPanel({
@@ -15,6 +17,8 @@ export default function VakaHastaPanel({
   mobilGorunur,
   sorulanAksiyonSayisi,
   istenenTestSayisi,
+  onClinicalHistoryRequest,
+  clinicalHistoryLoading = false,
 }: Props) {
   const [kaynaklarAcik, setKaynaklarAcik] = useState(false);
 
@@ -58,6 +62,21 @@ export default function VakaHastaPanel({
             </div>
           </div>
         </div>
+
+        {onClinicalHistoryRequest && (
+          <div className="mt-4 border-t border-hairline pt-4">
+            <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">Klinik geçmiş</h4>
+            <p className="mt-2 text-xs leading-5 text-steel">Kimlik bilgileri olmadan önceki tanı, işlem, ilaç ve laboratuvar kayıtlarını görüntüleyin.</p>
+            <button
+              type="button"
+              onClick={onClinicalHistoryRequest}
+              disabled={clinicalHistoryLoading}
+              className="btn-secondary mt-3 min-h-11 w-full justify-center text-xs disabled:cursor-not-allowed disabled:opacity-60"
+            >
+              {clinicalHistoryLoading ? "Geçmiş yükleniyor…" : "Klinik geçmişi görüntüle"}
+            </button>
+          </div>
+        )}
 
         {vaka.kaynaklar && vaka.kaynaklar.length > 0 && (
           <div className="mt-4 border-t border-hairline pt-4">
