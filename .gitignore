@@ -28,14 +28,22 @@ yarn-error.log*
 next-env.d.ts
 
 # project
-/.opencode/
-/reports/
+.opencode/
 /soruces/
 
 # DB + runtime data (root level only)
-/data/
 /prisma/data/
 !/src/lib/data/
+
+# Local source datasets, generated reports, and runtime JSON stores
+/data/
+/reports/
+
+# Local development artifacts
+/.playwright-mcp/
+/.next.pid
+/.tmp_test_generate.mts
+/docs/*.pdf
 
 # browser E2E artifacts
 /playwright-report/
