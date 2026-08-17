@@ -3,9 +3,10 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getStudentSessionFromRequest } from "@/lib/student/auth";
-import { getActiveStudentAttempt, startStudentAttempt } from "@/lib/student/attempt-store";
+import { getActiveStudentAttempt, getStudentAttemptSourceCaseId, startStudentAttempt, type PublicAttemptCase } from "@/lib/student/attempt-store";
 import { JsonStoreReadError } from "@/lib/admin/json-store";
 import { getRequestId, logger } from "@/lib/logger";
+import { hasRadiologyTest, RADIOLOGY_TEST_KEY, RADIOLOGY_TEST_NAME } from "@/lib/student/radiology-test";
 
 const GUEST_COOKIE = "tip_ai_guest_attempt";
 
@@ -20,6 +21,18 @@ function attemptStoreUnavailable(req: NextRequest, error: unknown) {
 function poliklinikKeyFrom(value: string | null) {
   if (!value) return "*";
   return value === "*" || /^[a-z0-9-]{2,80}$/.test(value) ? value : null;
+}
+
+async function exposeRadiologyTest(
+  vaka: PublicAttemptCase | null,
+  actor: string,
+  studentId?: string
+): Promise<PublicAttemptCase | null> {
+  if (!vaka) return null;
+  const caseId = await getStudentAttemptSourceCaseId(vaka.id, actor, studentId);
+  if (!caseId || !(await hasRadiologyTest(caseId))) return vaka;
+  if (vaka.testler.some((test) => test.testKey === RADIOLOGY_TEST_KEY)) return vaka;
+  return { ...vaka, testler: [...vaka.testler, { testKey: RADIOLOGY_TEST_KEY, testAdi: RADIOLOGY_TEST_NAME }] };
 }
 
 export async function GET(req: NextRequest) {
@@ -37,7 +50,8 @@ export async function GET(req: NextRequest) {
 
   const actor = session?.username || `guest:${guestId}`;
   try {
-    return NextResponse.json({ vaka: await getActiveStudentAttempt(actor, poliklinikKey, session?.userId) });
+    const vaka = await getActiveStudentAttempt(actor, poliklinikKey, session?.userId);
+    return NextResponse.json({ vaka: await exposeRadiologyTest(vaka, actor, session?.userId) });
   } catch (error) {
     if (error instanceof JsonStoreReadError) return attemptStoreUnavailable(req, error);
     throw error;
@@ -56,6 +70,7 @@ export async function POST(req: NextRequest) {
   let vaka;
   try {
     vaka = await startStudentAttempt(session?.username || `guest:${guestId}`, poliklinikKey, session?.userId, hastaTipiId);
+    vaka = await exposeRadiologyTest(vaka, session?.username || `guest:${guestId}`, session?.userId);
   } catch (error) {
     if (error instanceof JsonStoreReadError) return attemptStoreUnavailable(req, error);
     throw error;

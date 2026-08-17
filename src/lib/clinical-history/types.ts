@@ -33,19 +33,12 @@ export interface ClinicalHistoryLabTrend {
   values: Array<{ date: string | null; value: string }>;
 }
 
-/** Eşleştirilmiş göğüs röntgeni görüntüsü (gerçek, kimliksiz). */
-export interface ClinicalHistoryRadiology {
-  imageIndex: string;
-  findingLabel: string;
-}
-
 /** İstemciye yalnızca kimliksiz klinik projeksiyon gönderilir. */
 export interface ClinicalHistory {
   timeline: ClinicalHistoryEvent[];
   allergies: ClinicalHistoryItem[];
   immunizations: ClinicalHistoryItem[];
   labTrends: ClinicalHistoryLabTrend[];
-  radiology?: ClinicalHistoryRadiology;
 }
 
 export function clinicalHistoryChatSummary(history: ClinicalHistory): string {
@@ -54,7 +47,6 @@ export function clinicalHistoryChatSummary(history: ClinicalHistory): string {
   if (history.allergies.length) parts.push(`${history.allergies.length} alerji kaydı`);
   if (history.immunizations.length) parts.push(`${history.immunizations.length} aşı kaydı`);
   if (history.labTrends.length) parts.push(`${history.labTrends.length} laboratuvar eğilimi`);
-  if (history.radiology) parts.push(`1 göğüs röntgeni görüntüsü (${history.radiology.findingLabel})`);
   return parts.length
     ? `Klinik geçmiş istendi ve sohbet bağlamına eklendi: ${parts.join(", ")}. Ayrıntılar “Klinik geçmiş” penceresinde görüntülenebilir.`
     : "Klinik geçmiş istendi; bu vaka için gösterilebilir ek kayıt bulunamadı.";

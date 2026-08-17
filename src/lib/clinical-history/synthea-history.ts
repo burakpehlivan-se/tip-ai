@@ -14,7 +14,6 @@ import {
   syntheaMedications,
   syntheaObservations,
   syntheaProcedures,
-  radiologySources,
 } from "@/lib/auth/schema";
 import type { ClinicalHistory, ClinicalHistoryEvent, ClinicalHistoryItem, ClinicalHistoryLabTrend } from "./types";
 
@@ -104,18 +103,11 @@ export async function getSyntheaClinicalHistory(caseId: string): Promise<Clinica
     trendMap.set(key, trend);
   }
 
-  const [radiology] = await db
-    .select({ imageIndex: radiologySources.imageIndex, findingLabel: radiologySources.findingLabel })
-    .from(radiologySources)
-    .where(eq(radiologySources.caseId, caseId))
-    .limit(1);
-
   return {
     timeline,
     allergies: allergyItems,
     immunizations: immunizationItems,
     labTrends: Array.from(trendMap.values()).slice(0, 12),
-    radiology: radiology ? { imageIndex: radiology.imageIndex, findingLabel: radiology.findingLabel } : undefined,
   };
 }
 

@@ -92,7 +92,25 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
         {sonuc.tip === "image" && (
           <div>
             <div className={`${fsSm} uppercase tracking-wider text-muted mb-1`}>RADYOLOJİK BULGU</div>
-            <div className="text-ink whitespace-pre-line leading-relaxed">{String(sonuc.sonuc)}</div>
+            {typeof sonuc.sonuc === "object" && sonuc.sonuc !== null && "imageUrl" in sonuc.sonuc ? (
+              <figure>
+                {/* API rotasından gelen dinamik görüntü; next/image burada uygun değil. */}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={String((sonuc.sonuc as Record<string, unknown>).imageUrl)}
+                  alt={`Göğüs röntgeni: ${String((sonuc.sonuc as Record<string, unknown>).findingLabel || sonuc.testAdi)}`}
+                  className="mx-auto h-auto max-h-[28rem] w-full rounded border border-hairline object-contain"
+                  loading="lazy"
+                />
+                {(sonuc.sonuc as Record<string, unknown>).findingLabel ? (
+                  <figcaption className="mt-2 text-center text-xs text-steel">
+                    Bulgu etiketi: {String((sonuc.sonuc as Record<string, unknown>).findingLabel)}
+                  </figcaption>
+                ) : null}
+              </figure>
+            ) : (
+              <div className="text-ink whitespace-pre-line leading-relaxed">{String(sonuc.sonuc)}</div>
+            )}
           </div>
         )}
 

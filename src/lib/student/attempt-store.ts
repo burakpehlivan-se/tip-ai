@@ -11,6 +11,7 @@ import { hastaDilineCevir } from "@/lib/ai/hasta-dili";
 import { getLabResult } from "@/lib/lab-motor";
 import { getHastaTipiById, loadHastaTipleriStore, recordPlaySession } from "@/lib/admin/store";
 import { uslupDonustur } from "@/lib/ai/uslup-donusturucu";
+import { getRadiologyTestResult, RADIOLOGY_TEST_KEY } from "@/lib/student/radiology-test";
 import { assertSupportedAttemptStore } from "./attempt-store-mode";
 import { shouldUsePostgresAttemptStore } from "./attempt-store-mode";
 import {
@@ -226,7 +227,7 @@ export function startAssignedStudentAttempt(
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return startPostgresAssignedAttempt(studentId, assignmentId, template, hastaTipiId ?? undefined);
   }
-  return withJsonStoreLock(() => {
+  return withJsonStoreLock(async () => {
     return createAttemptFromTemplate(actor, template, template.poliklinikKey, assignmentId, hastaTipiId ?? undefined);
   });
 }
@@ -311,10 +312,12 @@ export function requestStudentAttemptTest(id: string, actor: string, testKey: st
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return requestPostgresAttemptTest(id, studentId, testKey);
   }
-  return withJsonStoreLock(() => {
+  return withJsonStoreLock(async () => {
     const found = ownAttempt(id, actor);
     if (!found) return null;
-    const result = attemptTest(found.attempt, testKey);
+    const result = testKey === RADIOLOGY_TEST_KEY
+      ? await getRadiologyTestResult(id, found.attempt.vaka.sourceCaseId || found.attempt.vaka.id) || attemptTest(found.attempt, testKey)
+      : attemptTest(found.attempt, testKey);
     if (!result) return null;
     if (!found.attempt.istenenTestler.includes(testKey)) found.attempt.istenenTestler.push(testKey);
     found.attempt.updatedAt = Date.now();

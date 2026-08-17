@@ -871,7 +871,6 @@ export default function VakaWorkspace({
         <KlinikGecmisDialog
           dialogRef={clinicalHistoryDialogRef}
           history={clinicalHistory}
-          attemptId={vaka.id}
           onClose={() => setShowClinicalHistory(false)}
         />
       )}
@@ -1447,12 +1446,10 @@ export default function VakaWorkspace({
 function KlinikGecmisDialog({
   dialogRef,
   history,
-  attemptId,
   onClose,
 }: {
   dialogRef: RefObject<HTMLDialogElement | null>;
   history: ClinicalHistory;
-  attemptId: string;
   onClose: () => void;
 }) {
   return (
@@ -1497,23 +1494,6 @@ function KlinikGecmisDialog({
                   </div>
                 ))}
               </div>
-            ) : <EmptyHistory />}
-          </HistorySection>
-          <HistorySection title="Radyoloji">
-            {history.radiology ? (
-              <figure className="rounded-lg border border-hairline bg-surface-soft p-3">
-                {/* Dinamik API rotasından gelen ikili görüntü; next/image optimizasyonu uygulanmaz. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={`/api/student/attempts/${attemptId}/radiology-image`}
-                  alt={`Göğüs röntgeni — ${history.radiology.findingLabel}`}
-                  className="mx-auto w-full max-w-md rounded border border-hairline"
-                  loading="lazy"
-                />
-                <figcaption className="mt-2 text-center text-xs text-steel">
-                  Ön-arka göğüs röntgeni · {history.radiology.findingLabel}
-                </figcaption>
-              </figure>
             ) : <EmptyHistory />}
           </HistorySection>
         </div>
