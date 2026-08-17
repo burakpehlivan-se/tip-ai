@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { FormEvent, useEffect, useState } from "react";
 
 export default function AdminAyarlarPage() {
@@ -66,6 +67,19 @@ export default function AdminAyarlarPage() {
       <p className="mt-1 text-sm text-steel">
         Çemiçgezek acil akışı ve kurum profili parametreleri.
       </p>
+
+      <section className="mt-6 grid gap-3 sm:grid-cols-2" aria-label="Yönetim kısayolları">
+        <Link href="/admin/panel/tibbi-goruntuler" className="rounded-xl border border-hairline bg-canvas p-4 transition-colors hover:border-brand hover:bg-surface-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+          <h2 className="text-sm font-semibold text-ink">Tıbbi Görüntüler</h2>
+          <p className="mt-1 text-xs leading-5 text-steel">Eşleşmiş radyoloji görüntülerini, bulgu etiketlerini ve bağlı vakaları incele.</p>
+          <span className="mt-3 inline-flex text-xs font-medium text-brand-deep">Yönet →</span>
+        </Link>
+        <Link href="/admin/panel/test-durumu" className="rounded-xl border border-hairline bg-canvas p-4 transition-colors hover:border-brand hover:bg-surface-soft focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+          <h2 className="text-sm font-semibold text-ink">Test Durumu</h2>
+          <p className="mt-1 text-xs leading-5 text-steel">Vaka test kapsamını ve eksik sonuçları kontrol et.</p>
+          <span className="mt-3 inline-flex text-xs font-medium text-brand-deep">Kontrol et →</span>
+        </Link>
+      </section>
 
       <form onSubmit={save} className="mt-6 space-y-4 rounded-xl border border-hairline bg-canvas p-5">
         <h2 className="text-sm font-semibold text-ink">Çemiçgezek</h2>
