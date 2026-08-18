@@ -372,6 +372,7 @@ export function createBackup(reason: string, actor: string): BackupMeta {
     changeCountAtBackup: cases.changeCount,
     caseCount: cases.cases.length,
     filename,
+    actor,
   };
   const index = loadBackupsIndex();
   index.backups.unshift(meta);
@@ -646,8 +647,15 @@ export function recordPlaySession(
 }
 
 /** Vaka kaynağı runtime adapter'dan verilebildiği için içerik hesabı depodan ayrıdır. */
-export function computeAnalyticsSummary(cases = loadCasesStore().cases) {
-  const sessions = loadAnalytics().sessions;
+export function computeAnalyticsSummary(
+  cases = loadCasesStore().cases,
+  window?: { from?: number; to?: number }
+) {
+  const sessions = loadAnalytics().sessions.filter((s) => {
+    if (window?.from && s.createdAt < window.from) return false;
+    if (window?.to && s.createdAt > window.to) return false;
+    return true;
+  });
   const byCase = new Map<
     string,
     {
@@ -714,6 +722,23 @@ export function computeAnalyticsSummary(cases = loadCasesStore().cases) {
     p.avgPuan += s.maxPuan > 0 ? (s.toplamPuan / s.maxPuan) * 100 : 0;
   }
 
+  const dailySeries = (() => {
+    const from = window?.from ?? Math.min(...sessions.map((s) => s.createdAt), Date.now());
+    const to = window?.to ?? Date.now();
+    const gunMs = 24 * 60 * 60 * 1000;
+    const days = new Map<string, number>();
+    for (const s of sessions) {
+      const g = new Date(s.createdAt).toISOString().slice(0, 10);
+      days.set(g, (days.get(g) || 0) + 1);
+    }
+    const result: { gun: string; n: number }[] = [];
+    for (let t = from; t <= to; t += gunMs) {
+      const g = new Date(t).toISOString().slice(0, 10);
+      result.push({ gun: g, n: days.get(g) || 0 });
+    }
+    return result;
+  })();
+
   return {
     totalSessions: sessions.length,
     caseStats: caseStats.sort((a, b) => b.n - a.n),
@@ -724,5 +749,6 @@ export function computeAnalyticsSummary(cases = loadCasesStore().cases) {
       }))
       .sort((a, b) => b.n - a.n),
     recent: sessions.slice(0, 20),
+    dailySeries,
   };
 }

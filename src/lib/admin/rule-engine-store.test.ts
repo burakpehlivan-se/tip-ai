@@ -38,6 +38,10 @@ describe("rule engine store", () => {
     expect(store.updateRule(rule.id, { active: false, factor: 3 }).factor).toBe(3);
     expect(store.getActiveRules().some((entry) => entry.testKey === "TEST_KURAL")).toBe(false);
 
+    expect(store.updateRule(rule.id, { active: true }).factor).toBe(3);
+    expect(store.updateRule(rule.id, { active: true }).description).toBe("Test kuralı");
+    expect(store.updateRule(rule.id, { active: true }).tendency).toBe("yuksek");
+
     store.addAlias({ alias: "test-alias", target: "test-hastalik" });
     expect(store.getActiveAliases()["test-alias"]).toBe("test-hastalik");
     store.deleteAlias("test-alias");

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 
 interface RadiologyItem {
   caseId: string;
@@ -41,8 +41,10 @@ export default function AdminTibbiGoruntulerPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  useEffect(() => {
+  const load = useCallback(() => {
     let cancelled = false;
+    setLoading(true);
+    setError("");
     fetch("/api/admin/radiology-sources")
       .then(async (response) => {
         const body = await response.json();
@@ -60,6 +62,8 @@ export default function AdminTibbiGoruntulerPage() {
     };
   }, []);
 
+  useEffect(load, [load]);
+
   const filtered = useMemo(() => {
     const normalized = query.trim().toLocaleLowerCase("tr");
     return (data?.items || []).filter((item) => {
@@ -72,6 +76,8 @@ export default function AdminTibbiGoruntulerPage() {
     });
   }, [data, label, poliklinik, query]);
 
+  const hasRecords = Boolean(data && data.items.length > 0);
+
   return (
     <div className="space-y-6 pb-16">
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -81,10 +87,26 @@ export default function AdminTibbiGoruntulerPage() {
             Vakalara yaş, cinsiyet ve bulgu etiketiyle eşleştirilen NIH ChestX-ray14 görüntülerini yönetin ve vaka bağlamını inceleyin.
           </p>
         </div>
-        <Link href="/admin/panel/ayarlar" className="btn-secondary text-sm">Ayarlar</Link>
+        <Link href="/admin/panel/ayarlar" className="btn-secondary text-sm">Kaynak Ayarları</Link>
       </div>
 
-      {error && <div role="alert" className="rounded-lg border border-clinical-red/30 bg-clinical-red/5 px-4 py-3 text-sm text-clinical-red">{error}</div>}
+      {error && (
+        <div role="alert" className="rounded-xl border border-clinical-red/30 bg-clinical-red/5 px-5 py-4">
+          <div className="text-sm font-semibold text-clinical-red">Görüntü kayıtları yüklenemedi</div>
+          <p className="mt-1 text-sm text-steel">
+            Sunucudaki tıbbi görüntü volume'üne erişilemiyor. Bu durum genellikle şu sebeplerden kaynaklanır:
+          </p>
+          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-steel">
+            <li>Dosya yolu hatalı (config: <code className="font-mono">/data/images</code>)</li>
+            <li>Volume mount edilmemiş</li>
+            <li>İzin sorunu</li>
+          </ul>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button type="button" className="btn-secondary text-xs" onClick={load}>Tekrar Dene</button>
+            <Link href="/admin/panel/ayarlar" className="btn-secondary text-xs">Ayarları Kontrol Et</Link>
+          </div>
+        </div>
+      )}
 
       <section aria-label="Görüntüleme özeti" className="grid gap-3 sm:grid-cols-3">
         <SummaryCard label="Eşleşmiş vaka" value={loading ? "—" : data?.summary.total ?? 0} hint="Radyoloji kaynağı bulunan vaka" />
@@ -92,33 +114,47 @@ export default function AdminTibbiGoruntulerPage() {
         <SummaryCard label="Bulgu etiketi" value={loading ? "—" : Object.keys(data?.summary.labels || {}).length} hint="Benzersiz ChestX-ray etiketi" />
       </section>
 
-      <section className="rounded-xl border border-hairline bg-canvas p-4 sm:p-5" aria-labelledby="goruntu-filtre-baslik">
-        <div className="flex flex-wrap items-end gap-3">
-          <div className="min-w-56 flex-1">
-            <label htmlFor="goruntu-arama" className="mb-1 block text-xs font-medium text-muted">Vaka veya görüntü ara</label>
-            <input id="goruntu-arama" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Pneumonia, vaka adı, dosya…" />
+      {!loading && !error && hasRecords && (
+        <section className="rounded-xl border border-hairline bg-canvas p-4 sm:p-5" aria-labelledby="goruntu-filtre-baslik">
+          <div className="flex flex-wrap items-end gap-3">
+            <div className="min-w-56 flex-1">
+              <label htmlFor="goruntu-arama" className="mb-1 block text-xs font-medium text-muted">Vaka veya görüntü ara</label>
+              <input id="goruntu-arama" className="input" value={query} onChange={(event) => setQuery(event.target.value)} placeholder="Pneumonia, vaka adı, dosya…" />
+            </div>
+            <div className="min-w-48">
+              <label htmlFor="goruntu-label" className="mb-1 block text-xs font-medium text-muted">Bulgu etiketi</label>
+              <select id="goruntu-label" className="input" value={label} onChange={(event) => setLabel(event.target.value)}>
+                <option value="all">Tüm etiketler</option>
+                {Object.keys(data?.summary.labels || {}).sort((a, b) => a.localeCompare(b, "tr")).map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </div>
+            <div className="min-w-52">
+              <label htmlFor="goruntu-poliklinik" className="mb-1 block text-xs font-medium text-muted">Poliklinik</label>
+              <select id="goruntu-poliklinik" className="input" value={poliklinik} onChange={(event) => setPoliklinik(event.target.value)}>
+                <option value="all">Tüm poliklinikler</option>
+                {Object.keys(data?.summary.poliklinikler || {}).sort((a, b) => a.localeCompare(b, "tr")).map((item) => <option key={item} value={item}>{item}</option>)}
+              </select>
+            </div>
           </div>
-          <div className="min-w-48">
-            <label htmlFor="goruntu-label" className="mb-1 block text-xs font-medium text-muted">Bulgu etiketi</label>
-            <select id="goruntu-label" className="input" value={label} onChange={(event) => setLabel(event.target.value)}>
-              <option value="all">Tüm etiketler</option>
-              {Object.keys(data?.summary.labels || {}).sort((a, b) => a.localeCompare(b, "tr")).map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </div>
-          <div className="min-w-52">
-            <label htmlFor="goruntu-poliklinik" className="mb-1 block text-xs font-medium text-muted">Poliklinik</label>
-            <select id="goruntu-poliklinik" className="input" value={poliklinik} onChange={(event) => setPoliklinik(event.target.value)}>
-              <option value="all">Tüm poliklinikler</option>
-              {Object.keys(data?.summary.poliklinikler || {}).sort((a, b) => a.localeCompare(b, "tr")).map((item) => <option key={item} value={item}>{item}</option>)}
-            </select>
-          </div>
-        </div>
-        <p id="goruntu-filtre-baslik" className="mt-3 text-xs text-muted" aria-live="polite">{loading ? "Kayıtlar yükleniyor…" : `${filtered.length} görüntü kaydı gösteriliyor.`}</p>
-      </section>
+          <p id="goruntu-filtre-baslik" className="mt-3 text-xs text-muted" aria-live="polite">{`${filtered.length} görüntü kaydı gösteriliyor.`}</p>
+        </section>
+      )}
 
       {loading ? (
         <div className="grid gap-4 md:grid-cols-2" aria-busy="true">
           {[1, 2, 3, 4].map((item) => <div key={item} className="h-72 animate-pulse rounded-xl bg-surface" />)}
+        </div>
+      ) : error ? null : !hasRecords ? (
+        <div className="rounded-xl border border-dashed border-hairline bg-surface-soft px-4 py-12 text-center">
+          <div className="text-4xl">🖼️</div>
+          <h2 className="mt-3 text-lg font-semibold text-ink">Henüz görüntü kaynağı bağlı değil</h2>
+          <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-steel">
+            Vakalarınıza radyolojik görüntü ve EKG eklemek için önce kaynak ayarlarını yapılandırın. NIH ChestX-ray14 gibi bir dış kaynak bağlandığında eşleşen görüntüler burada listelenir.
+          </p>
+          <div className="mt-5 flex flex-wrap justify-center gap-3">
+            <Link href="/admin/panel/ayarlar" className="btn-accent text-sm">⚙️ Kaynak Ayarlarını Yapılandır</Link>
+          </div>
+          <p className="mt-4 text-xs text-muted">Görüntü yükleme rehberi için <Link href="/admin/panel/ayarlar" className="underline">yardım</Link> bölümüne bakın.</p>
         </div>
       ) : filtered.length === 0 ? (
         <div className="rounded-xl border border-dashed border-hairline bg-surface-soft px-4 py-10 text-center text-sm text-steel">Filtrelerle eşleşen görüntü kaydı bulunamadı.</div>

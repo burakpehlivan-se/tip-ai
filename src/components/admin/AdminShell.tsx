@@ -6,21 +6,41 @@ import { ReactNode, useEffect, useMemo, useRef, useState } from "react";
 
 type Role = "admin" | "doktor";
 
-const NAV: { href: string; label: string; roles: Role[] }[] = [
-  { href: "/admin/panel", label: "Özet", roles: ["admin", "doktor"] },
-  { href: "/admin/panel/vakalar", label: "Vakalar", roles: ["admin", "doktor"] },
-  { href: "/admin/panel/oyna/karisik", label: "Karışık Oyna", roles: ["admin", "doktor"] },
-  { href: "/admin/panel/hasta-tipleri", label: "Hasta Tipleri", roles: ["admin", "doktor"] },
-  { href: "/admin/panel/dogrulama", label: "Doğrulama", roles: ["admin", "doktor"] },
-  { href: "/admin/panel/test-durumu", label: "Test Durumu", roles: ["admin", "doktor"] },
-  { href: "/admin/panel/tibbi-goruntuler", label: "Tıbbi Görüntüler", roles: ["admin", "doktor"] },
-  { href: "/admin/panel/kural-motoru", label: "Kural Motoru", roles: ["admin"] },
-  { href: "/admin/panel/analitik", label: "Analitik", roles: ["admin"] },
-  { href: "/admin/panel/kullanicilar", label: "Kullanıcılar", roles: ["admin"] },
-  { href: "/admin/panel/ayarlar", label: "Ayarlar", roles: ["admin"] },
-  { href: "/admin/panel/logs", label: "Loglar", roles: ["admin"] },
-  { href: "/admin/panel/yedekler", label: "Yedekler", roles: ["admin"] },
-  { href: "/admin/panel/diagnostics", label: "Sistem", roles: ["admin"] },
+type NavGroup = {
+  title: string;
+  items: { href: string; label: string; roles: Role[] }[];
+};
+
+const NAV_GROUPS: NavGroup[] = [
+  {
+    title: "İçerik",
+    items: [
+      { href: "/admin/panel", label: "Özet", roles: ["admin", "doktor"] },
+      { href: "/admin/panel/vakalar", label: "Vakalar", roles: ["admin", "doktor"] },
+      { href: "/admin/panel/oyna/karisik", label: "Oyna", roles: ["admin", "doktor"] },
+      { href: "/admin/panel/hasta-tipleri", label: "Hasta Tipleri", roles: ["admin", "doktor"] },
+      { href: "/admin/panel/tibbi-goruntuler", label: "Görüntüler", roles: ["admin", "doktor"] },
+      { href: "/admin/panel/kural-motoru", label: "Kurallar", roles: ["admin"] },
+    ],
+  },
+  {
+    title: "Kalite",
+    items: [
+      { href: "/admin/panel/dogrulama", label: "Doğrulama", roles: ["admin", "doktor"] },
+      { href: "/admin/panel/test-durumu", label: "Testler", roles: ["admin", "doktor"] },
+      { href: "/admin/panel/analitik", label: "Analitik", roles: ["admin"] },
+    ],
+  },
+  {
+    title: "Sistem",
+    items: [
+      { href: "/admin/panel/kullanicilar", label: "Kullanıcılar", roles: ["admin"] },
+      { href: "/admin/panel/ayarlar", label: "Ayarlar", roles: ["admin"] },
+      { href: "/admin/panel/logs", label: "Loglar", roles: ["admin"] },
+      { href: "/admin/panel/yedekler", label: "Yedekler", roles: ["admin"] },
+      { href: "/admin/panel/diagnostics", label: "Sistem Tanısı", roles: ["admin"] },
+    ],
+  },
 ];
 
 export default function AdminShell({ children }: { children: ReactNode }) {
@@ -29,14 +49,21 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   const [username, setUsername] = useState<string | null>(null);
   const [role, setRole] = useState<Role>("admin");
   const [ready, setReady] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
 
   const isPlayMode = pathname.includes("/oyna/");
 
-  const navItems = useMemo(
-    () => NAV.filter((n) => n.roles.includes(role)),
+  const navGroups = useMemo(
+    () =>
+      NAV_GROUPS.map((group) => ({
+        ...group,
+        items: group.items.filter((n) => n.roles.includes(role)),
+      })).filter((group) => group.items.length > 0),
     [role]
   );
+  const allNav = useMemo(() => navGroups.flatMap((g) => g.items), [navGroups]);
   const isActiveNav = (href: string) =>
     href === "/admin/panel" ? pathname === href : pathname.startsWith(href);
 
@@ -58,7 +85,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
   // Rolün erişemediği sayfaya gelirse yönlendir
   useEffect(() => {
     if (!ready) return;
-    const restricted = NAV.find(
+    const restricted = allNav.find(
       (n) =>
         n.href !== "/admin/panel" &&
         pathname.startsWith(n.href) &&
@@ -67,12 +94,27 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     if (restricted) {
       router.replace("/admin/panel/vakalar");
     }
-  }, [ready, pathname, role, router]);
+  }, [ready, pathname, role, router, allNav]);
+
+  // Dış tıklamada açılır menüleri kapat
+  useEffect(() => {
+    function handleClick(event: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(event.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, []);
 
   useEffect(() => {
     const activeItem = mobileNavRef.current?.querySelector<HTMLElement>('[aria-current="page"]');
     activeItem?.scrollIntoView({ block: "nearest", inline: "center" });
   }, [pathname, ready]);
+
+  useEffect(() => {
+    setUserMenuOpen(false);
+  }, [pathname]);
 
   async function logout() {
     await fetch("/api/admin/logout", { method: "POST" });
@@ -93,16 +135,110 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     </a>
   );
 
-  const roleBadge =
-    role === "admin" ? (
-      <span className="rounded-full bg-ink/10 px-2 py-0.5 text-[10px] font-semibold text-ink">
-        Admin
-      </span>
-    ) : (
-      <span className="rounded-full bg-brand/15 px-2 py-0.5 text-[10px] font-semibold text-brand-deep">
-        Doktor
-      </span>
-    );
+  const roleBadge = (
+    <span
+      className={`rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+        role === "admin" ? "bg-ink/10 text-ink" : "bg-brand/15 text-brand-deep"
+      }`}
+    >
+      {role === "admin" ? "Admin" : "Doktor"}
+    </span>
+  );
+
+  const userMenu = (
+    <div className="relative" ref={userMenuRef}>
+      <button
+        type="button"
+        onClick={() => setUserMenuOpen((open) => !open)}
+        aria-haspopup="menu"
+        aria-expanded={userMenuOpen}
+        aria-label="Kullanıcı menüsü"
+        className="flex min-h-11 items-center gap-2 rounded-full border border-hairline bg-canvas px-2 py-1 hover:bg-surface"
+      >
+        <span className="flex h-7 w-7 items-center justify-center rounded-full bg-ink text-xs font-semibold text-white">
+          {(username || "A").slice(0, 1).toLocaleUpperCase("tr")}
+        </span>
+        <span className="hidden max-w-24 truncate text-xs font-medium text-ink sm:block">
+          {username}
+        </span>
+        {roleBadge}
+        <svg className="h-3 w-3 text-muted" viewBox="0 0 12 12" fill="none" aria-hidden="true">
+          <path d="M2.5 4.5L6 8l3.5-3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </button>
+      {userMenuOpen && (
+        <div
+          role="menu"
+          className="absolute right-0 mt-1 w-44 rounded-lg border border-hairline bg-canvas p-1 shadow-lg"
+        >
+          <div className="border-b border-hairline-soft px-3 py-2 text-xs text-muted">
+            {username}
+          </div>
+          <button
+            type="button"
+            role="menuitem"
+            onClick={logout}
+            className="mt-1 flex w-full items-center gap-2 rounded-md px-3 py-2 text-left text-xs font-medium text-clinical-red hover:bg-clinical-red/5"
+          >
+            Çıkış yap
+          </button>
+        </div>
+      )}
+    </div>
+  );
+
+  const desktopNav = (
+    <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto lg:flex" aria-label="Panel gezinme">
+      {navGroups.map((group) => (
+        <div key={group.title} className="flex shrink-0 items-center gap-1 border-r border-hairline-soft pr-2 last:border-r-0 last:pr-0">
+          {group.items.map((n) => {
+            const active = isActiveNav(n.href);
+            return (
+              <Link
+                key={n.href}
+                href={n.href}
+                aria-current={active ? "page" : undefined}
+                className={`relative inline-flex min-h-11 items-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                  active
+                    ? "text-ink"
+                    : "text-steel hover:bg-surface hover:text-ink"
+                }`}
+              >
+                {n.label}
+                {active && (
+                  <span className="absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-brand" aria-hidden="true" />
+                )}
+              </Link>
+            );
+          })}
+        </div>
+      ))}
+    </nav>
+  );
+
+  const mobileNav = (
+    <nav
+      ref={mobileNavRef}
+      className="flex gap-1 overflow-x-auto border-t border-hairline-soft px-2 py-1.5 lg:hidden"
+      aria-label="Mobil panel gezinme"
+    >
+      {allNav.map((n) => {
+        const active = isActiveNav(n.href);
+        return (
+          <Link
+            key={n.href}
+            href={n.href}
+            aria-current={active ? "page" : undefined}
+            className={`inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-xs font-medium ${
+              active ? "bg-ink text-white" : "bg-surface text-steel"
+            }`}
+          >
+            {n.label}
+          </Link>
+        );
+      })}
+    </nav>
+  );
 
   if (isPlayMode) {
     return (
@@ -119,7 +255,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                 <span className="text-muted font-normal">panel</span>
               </Link>
               <nav className="hidden items-center gap-0.5 md:flex" aria-label="Panel gezinme">
-                {navItems.map((n) => {
+                {allNav.map((n) => {
                   const active = isActiveNav(n.href);
                   return (
                     <Link
@@ -138,16 +274,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
                 })}
               </nav>
             </div>
-            <div className="flex shrink-0 items-center gap-2">
-              {roleBadge}
-              <span className="hidden text-[11px] text-muted sm:inline">{username}</span>
-              <button
-                onClick={logout}
-                className="btn-secondary inline-flex min-h-11 items-center px-2.5 text-[11px]"
-              >
-                Çıkış
-              </button>
-            </div>
+            <div className="flex shrink-0 items-center gap-2">{userMenu}</div>
           </div>
         </header>
         <main id="panel-icerik" tabIndex={-1} className="flex min-h-0 flex-1 flex-col overflow-hidden">
@@ -162,60 +289,16 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       {skipLink}
       <header className="sticky top-0 z-40 border-b border-hairline bg-canvas/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
-          <div className="flex items-center gap-6">
-            <Link href="/admin/panel" className="text-sm font-semibold tracking-tight">
+          <div className="flex items-center gap-4">
+            <Link href="/admin/panel" className="shrink-0 text-sm font-semibold tracking-tight">
               tıp<span className="text-brand">_ai</span>{" "}
               <span className="text-muted font-normal">panel</span>
             </Link>
-            <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto lg:flex" aria-label="Panel gezinme">
-              {navItems.map((n) => {
-                const active = isActiveNav(n.href);
-                return (
-                  <Link
-                    key={n.href}
-                    href={n.href}
-                    aria-current={active ? "page" : undefined}
-                    className={`inline-flex min-h-11 items-center rounded-full px-3 py-1.5 text-sm font-medium transition-colors ${
-                      active
-                        ? "bg-ink text-white"
-                        : "text-steel hover:bg-surface hover:text-ink"
-                    }`}
-                  >
-                    {n.label}
-                  </Link>
-                );
-              })}
-            </nav>
+            {desktopNav}
           </div>
-          <div className="flex items-center gap-3">
-            {roleBadge}
-            <span className="hidden text-xs text-muted sm:inline">{username}</span>
-            <button onClick={logout} className="btn-secondary inline-flex min-h-11 items-center text-xs px-3">
-              Çıkış
-            </button>
-          </div>
+          <div className="flex shrink-0 items-center gap-2">{userMenu}</div>
         </div>
-        <nav
-          ref={mobileNavRef}
-          className="flex gap-1 overflow-x-auto border-t border-hairline-soft px-2 py-1.5 lg:hidden"
-          aria-label="Mobil panel gezinme"
-        >
-          {navItems.map((n) => {
-            const active = isActiveNav(n.href);
-            return (
-              <Link
-                key={n.href}
-                href={n.href}
-                aria-current={active ? "page" : undefined}
-                className={`inline-flex min-h-11 shrink-0 items-center rounded-full px-3 text-xs font-medium ${
-                  active ? "bg-ink text-white" : "bg-surface text-steel"
-                }`}
-              >
-                {n.label}
-              </Link>
-            );
-          })}
-        </nav>
+        {mobileNav}
       </header>
       <main id="panel-icerik" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-8">{children}</main>
     </div>

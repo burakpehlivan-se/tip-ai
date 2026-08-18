@@ -77,6 +77,7 @@ export default function TestDurumuPage() {
   const [overrideMsg, setOverrideMsg] = useState<string | null>(null);
   const [overrideApplying, setOverrideApplying] = useState(false);
   const [error, setError] = useState("");
+  const [problemFilter, setProblemFilter] = useState<"all" | "motor" | "statik" | "gecersiz">("all");
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -169,6 +170,13 @@ export default function TestDurumuPage() {
       )
     : [];
 
+  const filteredProblems = problems.filter((c) => {
+    if (problemFilter === "motor") return c.needsGenerated.length > 0;
+    if (problemFilter === "statik") return c.staticRequired.length > 0;
+    if (problemFilter === "gecersiz") return c.invalidKeys.length > 0;
+    return true;
+  });
+
   return (
     <div>
       <h1 className="text-2xl font-semibold tracking-tight text-ink">
@@ -188,8 +196,8 @@ export default function TestDurumuPage() {
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card label="Toplam vaka" value={data?.scan.totalCases ?? "—"} hint="Tarama kapsamındaki vaka kaydı." />
-        <Card label="Eksiksiz vaka" value={data ? `${data.scan.totalCasesComplete}/${data.scan.totalCases}` : "—"} hint="Rubrikteki tüm test girdileri sonuçlu." />
-        <Card label="Test kapsamı" value={data ? `%${data.scan.coveragePercent}` : "—"} hint={data ? `${data.scan.totalOkTests}/${data.scan.totalExpectedTests} test girdisi sonuçlu.` : "OK sonuç / beklenen test"} accent={data && data.scan.coveragePercent < 100 ? "orange" : "brand"} />
+        <Card label="Eksiksiz vaka" value={data ? `${data.scan.totalCasesComplete}/${data.scan.totalCases}` : "—"} hint="Rubrikteki tüm test girdileri sonuçlu. Geri kalan aşağıda listelenir." />
+        <Card label="Test kapsamı" value={data ? `%${data.scan.coveragePercent}` : "—"} hint={data ? `Beklenen ${data.scan.totalExpectedTests} test girdisinin ${data.scan.totalOkTests} tanesi sonuçlu.` : "OK sonuç / beklenen test"} accent={data && data.scan.coveragePercent < 100 ? "orange" : "brand"} />
         <Card
           label="Dikkat gereken vaka"
           value={data?.scan.totalCasesWithProblems ?? "—"}
@@ -211,8 +219,9 @@ export default function TestDurumuPage() {
           {filling ? "Dolduruluyor…" : "Eksik testleri doldur"}
         </button>
         <span className="text-sm text-steel">
-          Statik gerekli: {data?.scan.totalStaticRequired ?? "—"} (görüntüleme/patoloji —
-          yazar eklemeli)
+          {data && data.scan.totalStaticRequired > 0
+            ? `Statik gerekli: ${data.scan.totalStaticRequired} (görüntüleme/patoloji — yazar eklemeli)`
+            : "Statik gerekli: 0 — lab motoru otomatik doldurabileceği tüm testleri üretebiliyor."}
         </span>
       </div>
 
@@ -243,47 +252,81 @@ export default function TestDurumuPage() {
       ) : null}
 
       <div className="mt-8">
-        <h2 className="text-heading-4 font-semibold text-ink">
-          Sorunlu Vakalar ({problems.length})
-        </h2>
+        <div className="flex flex-wrap items-end justify-between gap-3">
+          <div>
+            <h2 className="text-heading-4 font-semibold text-ink">
+              İnceleme Bekleyen Vakalar ({problems.length})
+            </h2>
+            <p className="mt-1 text-sm text-steel">
+              Otomatik dolduramayan veya geçersiz test içeren vakalar. Satırdaki "Vakayı düzenle" ile tek tek girebilirsiniz.
+            </p>
+          </div>
+          <div className="flex gap-2 text-xs" aria-label="Sorun kategorisi filtresi">
+            {([
+              ["all", "Tümü"],
+              ["motor", "Lab doldurulabilir"],
+              ["statik", "Manuel gerekli"],
+              ["gecersiz", "Geçersiz"],
+            ] as const).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                className={`rounded-full px-3 py-1.5 border ${problemFilter === value ? "border-brand bg-brand/10 text-brand-deep font-medium" : "border-hairline text-steel hover:bg-surface"}`}
+                onClick={() => setProblemFilter(value)}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+        </div>
         {loading ? (
           <p className="mt-3 text-sm text-steel">Yükleniyor…</p>
-        ) : problems.length === 0 ? (
+        ) : filteredProblems.length === 0 ? (
           <p className="mt-3 text-sm text-steel">
-            Tüm vakalarda beklenen testlerin sonucu mevcut.
+            {problems.length === 0
+              ? "Tüm vakalarda beklenen testlerin sonucu mevcut."
+              : "Bu kategoride bekleyen vaka yok."}
           </p>
         ) : (
           <div className="mt-3 space-y-3">
-            {problems.map((c) => (
+            {filteredProblems.map((c) => (
               <div
                 key={c.vakaId}
                 className="rounded-xl border border-hairline bg-canvas p-4"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div className="min-w-0">
+                    <Link
+                      href={`/admin/panel/vakalar/${encodeURIComponent(c.vakaId)}`}
+                      className="font-mono text-sm font-medium text-ink hover:text-brand-deep"
+                    >
+                      {c.vakaId}
+                    </Link>
+                    <span className="ml-2 text-xs text-steel">
+                      {c.hastalikAdi}
+                    </span>
+                  </div>
                   <Link
                     href={`/admin/panel/vakalar/${encodeURIComponent(c.vakaId)}`}
-                    className="font-mono text-sm font-medium text-ink hover:text-brand-deep"
+                    className="btn-secondary text-xs"
                   >
-                    {c.vakaId}
+                    Vakayı düzenle
                   </Link>
-                  <span className="text-xs text-steel">
-                    {c.hastalikAdi}
-                  </span>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-2 text-xs">
                   {c.needsGenerated.length > 0 && (
                     <Badge tone="orange">
-                      Motor→ {c.needsGenerated.join(", ")}
+                      🔬 Lab doldurulabilir → {c.needsGenerated.join(", ")}
                     </Badge>
                   )}
                   {c.staticRequired.length > 0 && (
                     <Badge tone="steel">
-                      Statik→ {c.staticRequired.join(", ")}
+                      🖼️ Manuel gerekli → {c.staticRequired.join(", ")}
                     </Badge>
                   )}
                   {c.invalidKeys.length > 0 && (
                     <Badge tone="red">
-                      Geçersiz→ {c.invalidKeys.join(", ")}
+                      ⚠️ Geçersiz → {c.invalidKeys.join(", ")}
                     </Badge>
                   )}
                 </div>

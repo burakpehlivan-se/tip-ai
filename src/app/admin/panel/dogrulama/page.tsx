@@ -100,6 +100,8 @@ export default function DogrulamaPage() {
   const [pedagogicReport, setPedagogicReport] = useState<PedagogicReport | null>(null);
   const [pedagogicLoading, setPedagogicLoading] = useState(false);
   const [pedagogicFilter, setPedagogicFilter] = useState<"all" | "critical" | "warning">("critical");
+  const [queueFilter, setQueueFilter] = useState<"all" | "critical" | "high" | "medium" | "low">("all");
+  const [expandedQueue, setExpandedQueue] = useState<string | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -181,31 +183,31 @@ export default function DogrulamaPage() {
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">
-            Vaka doğrulama raporu
+            ✅ Vaka doğrulama raporu
           </h1>
           <p className="mt-1 text-sm text-steel">
-            TIP-AI CDM v1 · zorunlu alan, lab/rubrik uyumu, vitals, klinik tutarlılık
+            Vakaların tıbbi tutarlılığını ve içerik eksikliklerini kontrol eder.
           </p>
           <p className="text-[11px] text-muted mt-0.5">
-            {report.cdmVersion} · {new Date(report.generatedAt).toLocaleString("tr-TR")}
+            {report.cdmVersion} · Son tarama {new Date(report.generatedAt).toLocaleString("tr-TR")}
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <button type="button" className="btn-secondary text-sm" onClick={load}>
-            Yenile
+            🔄 Tekrar Tara
           </button>
           <button type="button" className="btn-secondary text-sm" onClick={downloadText}>
-            📄 Metin rapor
+            📄 Metin rapor indir
           </button>
         </div>
       </div>
 
       {/* Özet kartlar */}
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Toplam" value={s.total} />
-        <StatCard label="Geçerli" value={s.valid} tone="good" />
-        <StatCard label="Uyarılı" value={s.validWithWarnings} tone="warn" />
-        <StatCard label="Geçersiz" value={s.invalid} tone="bad" />
+        <StatCard label="Taranan vaka" value={s.total} hint="Bu rapor kapsamında denetlenen vaka sayısı." />
+        <StatCard label="Sorunsuz" value={s.valid} hint="Denetimde hata veya uyarı çıkmayan vaka." tone="good" />
+        <StatCard label="Uyarılı" value={s.validWithWarnings} hint="Düzeltme önerisi bulunan ama öğrenci deneyimini bozmayan vaka." tone="warn" />
+        <StatCard label="Geçersiz" value={s.invalid} hint="Denetimde hata bulunan, düzeltilmesi gereken vaka." tone="bad" />
       </div>
 
       <section className="card" aria-labelledby="quality-queue-title">
@@ -223,34 +225,91 @@ export default function DogrulamaPage() {
           </p>
         </div>
 
+        <div className="mt-3 flex flex-wrap gap-2" aria-label="Seviye filtresi">
+          {(
+            [
+              ["all", "Tümü"],
+              ["critical", "Kritik"],
+              ["high", "Yüksek"],
+              ["medium", "Orta"],
+              ["low", "Düşük"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
+                queueFilter === id
+                  ? "bg-ink text-white"
+                  : "border border-hairline bg-canvas text-steel"
+              }`}
+              onClick={() => setQueueFilter(id)}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
         {report.qualityQueue.items.length === 0 ? (
           <p className="mt-4 text-sm text-steel">İyileştirme gerektiren vaka bulunmuyor.</p>
         ) : (
           <ol className="mt-4 space-y-3">
-            {report.qualityQueue.items.slice(0, 8).map((item) => {
-              const firstCase = item.cases[0];
-              return (
-                <li key={item.code} className="rounded-lg border border-hairline bg-surface-soft p-3">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="flex min-w-0 items-center gap-2">
-                      <QualityPriorityBadge priority={item.priority} />
-                      <code className="truncate text-xs text-steel">{item.code}</code>
+            {report.qualityQueue.items
+              .filter((item) => queueFilter === "all" || item.priority === queueFilter)
+              .slice(0, 8)
+              .map((item) => {
+                const firstCase = item.cases[0];
+                const expanded = expandedQueue === item.code;
+                return (
+                  <li key={item.code} className="rounded-lg border border-hairline bg-surface-soft p-3">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="flex min-w-0 items-center gap-2">
+                        <QualityPriorityBadge priority={item.priority} />
+                        <code className="truncate text-xs text-steel">{item.code}</code>
+                      </div>
+                      <span className="text-xs text-steel">Etkilenen: {item.affectedCaseCount} vaka</span>
                     </div>
-                    <span className="text-xs text-steel">{item.affectedCaseCount} vaka</span>
-                  </div>
-                  <p className="mt-2 text-sm text-ink">{item.action}</p>
-                  {firstCase && (
-                    <Link
-                      href={`/admin/panel/vakalar/${encodeURIComponent(firstCase.id)}`}
-                      className="mt-2 inline-block text-sm font-medium text-brand-deep hover:underline"
-                    >
-                      {firstCase.hastalikAdi || firstCase.id} vakasını düzenle
-                    </Link>
-                  )}
-                </li>
-              );
-            })}
+                    <p className="mt-2 text-sm text-ink">{item.action}</p>
+                    {firstCase && (
+                      <div className="mt-2 flex flex-wrap items-center gap-3">
+                        <Link
+                          href={`/admin/panel/vakalar/${encodeURIComponent(firstCase.id)}`}
+                          className="text-sm font-medium text-brand-deep hover:underline"
+                        >
+                          {firstCase.hastalikAdi || firstCase.id} vakasını düzenle
+                        </Link>
+                        {item.cases.length > 1 && (
+                          <button
+                            type="button"
+                            className="text-xs text-steel hover:text-ink"
+                            onClick={() => setExpandedQueue(expanded ? null : item.code)}
+                          >
+                            {expanded ? "Gizle" : `Tümünü göster (${item.cases.length})`}
+                          </button>
+                        )}
+                      </div>
+                    )}
+                    {expanded && (
+                      <ul className="mt-3 space-y-1 border-t border-hairline pt-2">
+                        {item.cases.map((c) => (
+                          <li key={c.id}>
+                            <Link
+                              href={`/admin/panel/vakalar/${encodeURIComponent(c.id)}`}
+                              className="text-xs text-steel hover:text-brand-deep"
+                            >
+                              {c.hastalikAdi || c.id}
+                            </Link>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </li>
+                );
+              })}
           </ol>
+        )}
+        {report.qualityQueue.items.filter((item) => queueFilter === "all" || item.priority === queueFilter).length === 0 && queueFilter !== "all" && (
+          <p className="mt-4 text-sm text-steel">Bu seviyede iyileştirme bulunmuyor.</p>
         )}
       </section>
 
@@ -547,10 +606,12 @@ export default function DogrulamaPage() {
 function StatCard({
   label,
   value,
+  hint,
   tone,
 }: {
   label: string;
   value: number;
+  hint?: string;
   tone?: "good" | "warn" | "bad";
 }) {
   const color =
@@ -565,6 +626,7 @@ function StatCard({
     <div className="rounded-xl border border-hairline bg-canvas p-4">
       <div className="text-[11px] uppercase tracking-wide text-muted">{label}</div>
       <div className={`mt-1 text-3xl font-semibold ${color}`}>{value}</div>
+      {hint && <p className="mt-1 text-xs leading-5 text-steel">{hint}</p>}
     </div>
   );
 }

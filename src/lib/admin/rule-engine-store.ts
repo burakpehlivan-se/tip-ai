@@ -87,7 +87,13 @@ export function updateRule(
   const idx = store.rules.findIndex((r) => r.id === id);
   if (idx === -1) throw new Error(`Kural bulunamadı: ${id}`);
 
-  store.rules[idx] = { ...store.rules[idx], ...patch, updatedAt: Date.now() };
+  const clean: Partial<RuleEntry> = {};
+  if (patch.tendency !== undefined) clean.tendency = patch.tendency;
+  if (patch.factor !== undefined) clean.factor = patch.factor;
+  if (patch.description !== undefined) clean.description = patch.description;
+  if (patch.active !== undefined) clean.active = patch.active;
+
+  store.rules[idx] = { ...store.rules[idx], ...clean, updatedAt: Date.now() };
   saveRuleEngineStore(store);
   return store.rules[idx];
 }

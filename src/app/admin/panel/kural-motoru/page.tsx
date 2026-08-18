@@ -63,6 +63,7 @@ export default function KuralMotoruPage() {
   const [msg, setMsg] = useState("");
   const [filterTest, setFilterTest] = useState("");
   const [filterDisease, setFilterDisease] = useState("");
+  const [selected, setSelected] = useState<Set<string>>(new Set());
   const [showAdd, setShowAdd] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(emptyForm());
@@ -135,6 +136,46 @@ export default function KuralMotoruPage() {
   async function handleToggle(id: string, currentActive: boolean) {
     try {
       await api("update-rule", { id, active: !currentActive });
+      load();
+    } catch (e) {
+      setError(String(e));
+    }
+  }
+
+  function toggleSelected(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function toggleAllSelected(ids: string[]) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allPicked = ids.length > 0 && ids.every((id) => next.has(id));
+      if (allPicked) for (const id of ids) next.delete(id);
+      else for (const id of ids) next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulk(action: "activate" | "deactivate" | "delete") {
+    if (selected.size === 0) return;
+    if (action === "delete" && !confirm(`${selected.size} kuralı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.`)) return;
+    setError("");
+    setMsg("");
+    const label = action === "activate" ? "aktifleştirildi" : action === "deactivate" ? "pasifleştirildi" : "silindi";
+    try {
+      const ops = Array.from(selected).map((id) =>
+        action === "delete"
+          ? api("delete-rule", { id })
+          : api("update-rule", { id, active: action === "activate" })
+      );
+      await Promise.all(ops);
+      setMsg(`${selected.size} kural ${label}.`);
+      setSelected(new Set());
       load();
     } catch (e) {
       setError(String(e));
@@ -325,6 +366,11 @@ export default function KuralMotoruPage() {
                 <option value="yuksek">yuksek (artmış)</option>
                 <option value="dusuk">dusuk (azalmış)</option>
               </select>
+              <p className="mt-1 text-[10px] text-steel">
+                {form.tendency === "yuksek"
+                  ? `Faktör ≥5 → Belirgin yüksek · <5 → Hafif yüksek`
+                  : `Faktör ≤0.5 → Belirgin düşük · >0.5 → Hafif düşük`}
+              </p>
             </div>
             <div>
               <label className="text-xs text-muted">Faktör (çarpan)</label>
@@ -363,72 +409,114 @@ export default function KuralMotoruPage() {
       )}
 
       {/* Kural tablosu */}
-      <div className="mt-4 overflow-x-auto rounded-xl border border-hairline bg-canvas">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-hairline bg-surface-soft text-left">
-              <th className="px-3 py-2 text-xs font-medium text-muted">Test</th>
-              <th className="px-3 py-2 text-xs font-medium text-muted">Hastalık</th>
-              <th className="px-3 py-2 text-xs font-medium text-muted">Yön</th>
-              <th className="px-3 py-2 text-xs font-medium text-muted">Faktör</th>
-              <th className="px-3 py-2 text-xs font-medium text-muted">Açıklama</th>
-              <th className="px-3 py-2 text-xs font-medium text-muted">Durum</th>
-              <th className="px-3 py-2 text-xs font-medium text-muted w-28">İşlem</th>
-            </tr>
-          </thead>
-          <tbody>
-            {filteredRules.map((r) => (
-              <tr key={r.id} className={`border-b border-hairline-soft ${!r.active ? "opacity-50" : ""}`}>
-                <td className="px-3 py-2 font-mono text-xs">{r.testKey}</td>
-                <td className="px-3 py-2">{r.diseaseKey}</td>
-                <td className="px-3 py-2">
-                  <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
-                    r.tendency === "yuksek"
-                      ? "bg-clinical-red/10 text-clinical-red"
-                      : "bg-brand/10 text-brand-deep"
-                  }`}>
-                    {r.tendency === "yuksek" ? "↑ YÜKSEK" : "↓ DÜŞÜK"}
-                  </span>
-                </td>
-                <td className="px-3 py-2 font-mono text-xs">×{r.factor}</td>
-                <td className="px-3 py-2 text-xs text-steel max-w-xs truncate">{r.description}</td>
-                <td className="px-3 py-2">
-                  <button
-                    className={`rounded-full px-2 py-0.5 text-[10px] font-medium cursor-pointer ${
-                      r.active ? "bg-brand/10 text-brand-deep" : "bg-surface text-steel"
-                    }`}
-                    onClick={() => handleToggle(r.id, r.active)}
-                  >
-                    {r.active ? "aktif" : "pasif"}
-                  </button>
-                </td>
-                <td className="px-3 py-2">
-                  <div className="flex gap-1">
-                    <button
-                      className="text-xs text-brand-deep hover:underline"
-                      onClick={() => startEdit(r)}
-                    >
-                      Düzenle
-                    </button>
-                    <button
-                      className="text-xs text-clinical-red hover:underline"
-                      onClick={() => handleDelete(r.id)}
-                    >
-                      Sil
-                    </button>
-                  </div>
-                </td>
+      <div className="mt-4 rounded-xl border border-hairline bg-canvas">
+        <div className="flex flex-wrap items-center justify-between gap-2 border-b border-hairline px-3 py-2">
+          <div className="flex items-center gap-2 text-xs text-muted">
+            <span className="text-muted">Yön:</span>
+            <span className="rounded-full bg-clinical-red/10 px-2 py-0.5 text-[10px] text-clinical-red">↑↑ Belirgin yüksek</span>
+            <span className="rounded-full bg-clinical-orange/10 px-2 py-0.5 text-[10px] text-clinical-orange">↑ Hafif yüksek</span>
+            <span className="rounded-full bg-brand/10 px-2 py-0.5 text-[10px] text-brand-deep">↓ Hafif / ↓↓ Belirgin düşük</span>
+          </div>
+          {selected.size > 0 && (
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-steel">{selected.size} kural seçili</span>
+              <button className="btn-secondary px-2 py-1 text-[11px]" onClick={() => handleBulk("activate")}>
+                Aktifleştir
+              </button>
+              <button className="btn-secondary px-2 py-1 text-[11px]" onClick={() => handleBulk("deactivate")}>
+                Pasifleştir
+              </button>
+              <button className="px-2 py-1 text-[11px] text-clinical-red hover:underline" onClick={() => handleBulk("delete")}>
+                Sil
+              </button>
+              <button className="px-2 py-1 text-[11px] text-muted hover:underline" onClick={() => setSelected(new Set())}>
+                Temizle
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-hairline bg-surface-soft text-left">
+                <th className="w-8 px-3 py-2">
+                  <input
+                    type="checkbox"
+                    aria-label="Tümünü seç"
+                    checked={filteredRules.length > 0 && filteredRules.every((r) => selected.has(r.id))}
+                    onChange={() => toggleAllSelected(filteredRules.map((r) => r.id))}
+                  />
+                </th>
+                <th className="px-3 py-2 text-xs font-medium text-muted">Test</th>
+                <th className="px-3 py-2 text-xs font-medium text-muted">Hastalık</th>
+                <th className="px-3 py-2 text-xs font-medium text-muted">Yön</th>
+                <th className="px-3 py-2 text-xs font-medium text-muted">Faktör</th>
+                <th className="px-3 py-2 text-xs font-medium text-muted">Açıklama</th>
+                <th className="px-3 py-2 text-xs font-medium text-muted">Durum</th>
+                <th className="px-3 py-2 text-xs font-medium text-muted w-28">İşlem</th>
               </tr>
-            ))}
-            {filteredRules.length === 0 && (
-              <tr>
-                <td colSpan={7} className="px-3 py-6 text-center text-sm text-steel">
-                  Bu filtrede kural yok.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
+            </thead>
+            <tbody>
+              {filteredRules.map((r) => {
+                const yon = yonEtiketi(r.tendency, r.factor);
+                return (
+                  <tr key={r.id} className={`border-b border-hairline-soft ${!r.active ? "opacity-50" : ""}`}>
+                    <td className="px-3 py-2">
+                      <input
+                        type="checkbox"
+                        aria-label={`${r.testKey} ${r.diseaseKey} kuralını seç`}
+                        checked={selected.has(r.id)}
+                        onChange={() => toggleSelected(r.id)}
+                      />
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs">{r.testKey}</td>
+                    <td className="px-3 py-2">{r.diseaseKey}</td>
+                    <td className="px-3 py-2">
+                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${yon.sinif}`}>
+                        {yon.kisa}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 font-mono text-xs">×{r.factor}</td>
+                    <td className="px-3 py-2 text-xs text-steel max-w-xs truncate">{r.description}</td>
+                    <td className="px-3 py-2">
+                      <button
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-medium cursor-pointer ${
+                          r.active ? "bg-brand/10 text-brand-deep" : "bg-surface text-steel"
+                        }`}
+                        onClick={() => handleToggle(r.id, r.active)}
+                      >
+                        {r.active ? "aktif" : "pasif"}
+                      </button>
+                    </td>
+                    <td className="px-3 py-2">
+                      <div className="flex gap-1">
+                        <button
+                          className="text-xs text-brand-deep hover:underline"
+                          onClick={() => startEdit(r)}
+                        >
+                          Düzenle
+                        </button>
+                        <button
+                          className="text-xs text-clinical-red hover:underline"
+                          onClick={() => handleDelete(r.id)}
+                        >
+                          Sil
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+              {filteredRules.length === 0 && (
+                <tr>
+                  <td colSpan={8} className="px-3 py-6 text-center text-sm text-steel">
+                    Bu filtrede kural yok.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
 
       {/* Alias yönetimi */}
@@ -950,6 +1038,18 @@ export default function KuralMotoruPage() {
       </div>
     </div>
   );
+}
+
+function yonEtiketi(tendency: "yuksek" | "dusuk", factor: number) {
+  const belirgin = tendency === "yuksek" ? factor >= 5 : factor <= 0.5;
+  if (tendency === "yuksek") {
+    return belirgin
+      ? { kisa: "↑↑ Belirgin yüksek", sinif: "bg-clinical-red/10 text-clinical-red" }
+      : { kisa: "↑ Hafif yüksek", sinif: "bg-clinical-orange/10 text-clinical-orange" };
+  }
+  return belirgin
+    ? { kisa: "↓↓ Belirgin düşük", sinif: "bg-brand/10 text-brand-deep" }
+    : { kisa: "↓ Hafif düşük", sinif: "bg-brand/10 text-brand-deep" };
 }
 
 function StatCard({

@@ -13,8 +13,16 @@ export async function GET(req: NextRequest) {
   const denied = requirePermission(session, "analytics.read");
   if (denied) return denied;
 
+  const daysRaw = Number(req.nextUrl.searchParams.get("days"));
+  const days = Number.isFinite(daysRaw) && daysRaw > 0 ? Math.round(daysRaw) : null;
+  const offsetRaw = Number(req.nextUrl.searchParams.get("offset"));
+  const offset = Number.isFinite(offsetRaw) && offsetRaw >= 0 ? Math.round(offsetRaw) : 0;
+  const window = days
+    ? { from: Date.now() - (offset + days) * 24 * 60 * 60 * 1000, to: Date.now() - offset * 24 * 60 * 60 * 1000 }
+    : undefined;
+
   const cases = await loadRuntimeCasesStore();
-  const summary = computeAnalyticsSummary(cases.cases);
+  const summary = computeAnalyticsSummary(cases.cases, window);
   const feedbacks = listFeedbacks();
   return NextResponse.json({
     ...summary,
@@ -22,5 +30,6 @@ export async function GET(req: NextRequest) {
     activeCount: cases.cases.filter((c) => c.durum === "aktif").length,
     draftCount: cases.cases.filter((c) => c.durum === "taslak").length,
     feedbackCount: feedbacks.length,
+    days,
   });
 }

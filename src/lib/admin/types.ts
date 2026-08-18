@@ -328,6 +328,7 @@ export interface BackupMeta {
   changeCountAtBackup: number;
   caseCount: number;
   filename: string;
+  actor?: string;
 }
 
 export interface BackupsIndex {

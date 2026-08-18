@@ -1,3 +1,4 @@
+import { deepseekYapilandirilmisMi, DEEPSEEK_MODEL } from "@/lib/ai/deepseek";
 import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
 import { attemptStoreMode } from "@/lib/student/attempt-store-mode";
 import { rateLimitStoreMode } from "@/lib/security/rate-limit";
@@ -14,6 +15,10 @@ export type AdminDiagnostics = {
     auth: "json" | "postgres" | "invalid";
     attempts: "json" | "postgres" | "invalid";
     rateLimit: "memory" | "postgres" | "invalid";
+  };
+  ai: {
+    configured: boolean;
+    model: string;
   };
 };
 
@@ -43,6 +48,10 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnostics> {
       auth: safeMode(authUserStoreMode),
       attempts: safeMode(attemptStoreMode),
       rateLimit: safeMode(rateLimitStoreMode),
+    },
+    ai: {
+      configured: deepseekYapilandirilmisMi(),
+      model: DEEPSEEK_MODEL,
     },
   };
 }
