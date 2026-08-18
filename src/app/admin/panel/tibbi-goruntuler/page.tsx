@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-interface RadiologyItem {
+interface GoruntuItem {
   caseId: string;
   imageIndex: string;
   findingLabel: string;
@@ -23,8 +23,24 @@ interface RadiologyItem {
   };
 }
 
-interface RadiologyResponse {
-  items: RadiologyItem[];
+type GoruntuTip = "radyoloji" | "ekg";
+
+interface GoruntuKaydi extends GoruntuItem {
+  tip: GoruntuTip;
+}
+
+interface GoruntuKaynakResponse {
+  items: GoruntuItem[];
+  summary: {
+    total: number;
+    imageAvailable: number;
+    labels: Record<string, number>;
+    poliklinikler: Record<string, number>;
+  };
+}
+
+interface GoruntuResponse {
+  items: GoruntuKaydi[];
   summary: {
     total: number;
     imageAvailable: number;
@@ -34,7 +50,7 @@ interface RadiologyResponse {
 }
 
 export default function AdminTibbiGoruntulerPage() {
-  const [data, setData] = useState<RadiologyResponse | null>(null);
+  const [data, setData] = useState<GoruntuResponse | null>(null);
   const [query, setQuery] = useState("");
   const [label, setLabel] = useState("all");
   const [poliklinik, setPoliklinik] = useState("all");
@@ -45,11 +61,34 @@ export default function AdminTibbiGoruntulerPage() {
     let cancelled = false;
     setLoading(true);
     setError("");
-    fetch("/api/admin/radiology-sources")
-      .then(async (response) => {
+    Promise.all([
+      fetch("/api/admin/radiology-sources").then(async (response) => {
         const body = await response.json();
-        if (!response.ok) throw new Error(body.error || "Tıbbi görüntüler yüklenemedi.");
-        if (!cancelled) setData(body as RadiologyResponse);
+        if (!response.ok) throw new Error(body.error || "Radyoloji kayıtları yüklenemedi.");
+        return body as GoruntuKaynakResponse;
+      }),
+      fetch("/api/admin/ekg-sources").then(async (response) => {
+        const body = await response.json();
+        if (!response.ok) throw new Error(body.error || "EKG kayıtları yüklenemedi.");
+        return body as GoruntuKaynakResponse;
+      }),
+    ])
+      .then(([radiology, ekg]) => {
+        if (cancelled) return;
+        const combined: GoruntuKaydi[] = [
+          ...radiology.items.map((item) => ({ ...item, tip: "radyoloji" as const })),
+          ...ekg.items.map((item) => ({ ...item, tip: "ekg" as const })),
+        ];
+        const labels = combined.reduce<Record<string, number>>((result, item) => {
+          result[item.findingLabel] = (result[item.findingLabel] || 0) + 1;
+          return result;
+        }, {});
+        const poliklinikler = combined.reduce<Record<string, number>>((result, item) => {
+          const key = item.vaka.poliklinikAd || item.vaka.poliklinikKey || "Bilinmiyor";
+          result[key] = (result[key] || 0) + 1;
+          return result;
+        }, {});
+        setData({ items: combined, summary: { total: combined.length, imageAvailable: combined.filter((item) => item.imageAvailable).length, labels, poliklinikler } });
       })
       .catch((cause) => {
         if (!cancelled) setError(cause instanceof Error ? cause.message : "Tıbbi görüntüler yüklenemedi.");
@@ -84,7 +123,7 @@ export default function AdminTibbiGoruntulerPage() {
         <div>
           <h1 className="text-2xl font-semibold tracking-tight text-ink">Tıbbi Görüntüler</h1>
           <p className="mt-1 max-w-2xl text-sm leading-6 text-steel">
-            Vakalara yaş, cinsiyet ve bulgu etiketiyle eşleştirilen NIH ChestX-ray14 görüntülerini yönetin ve vaka bağlamını inceleyin.
+            Vakalara yaş, cinsiyet ve bulgu etiketiyle eşleştirilen NIH ChestX-ray14 ve PTB-XL görüntülerini yönetin ve vaka bağlamını inceleyin.
           </p>
         </div>
         <Link href="/admin/panel/ayarlar" className="btn-secondary text-sm">Kaynak Ayarları</Link>
@@ -109,9 +148,9 @@ export default function AdminTibbiGoruntulerPage() {
       )}
 
       <section aria-label="Görüntüleme özeti" className="grid gap-3 sm:grid-cols-3">
-        <SummaryCard label="Eşleşmiş vaka" value={loading ? "—" : data?.summary.total ?? 0} hint="Radyoloji kaynağı bulunan vaka" />
+        <SummaryCard label="Eşleşmiş vaka" value={loading ? "—" : data?.summary.total ?? 0} hint="Radyoloji + EKG kaynağı bulunan vaka" />
         <SummaryCard label="Dosyası hazır" value={loading ? "—" : data?.summary.imageAvailable ?? 0} hint="Sunucu volume'ünde bulunan PNG" accent="brand" />
-        <SummaryCard label="Bulgu etiketi" value={loading ? "—" : Object.keys(data?.summary.labels || {}).length} hint="Benzersiz ChestX-ray etiketi" />
+        <SummaryCard label="Bulgu etiketi" value={loading ? "—" : Object.keys(data?.summary.labels || {}).length} hint="Benzersiz tanı etiketi" />
       </section>
 
       {!loading && !error && hasRecords && (
@@ -149,7 +188,7 @@ export default function AdminTibbiGoruntulerPage() {
           <div className="text-4xl">🖼️</div>
           <h2 className="mt-3 text-lg font-semibold text-ink">Henüz görüntü kaynağı bağlı değil</h2>
           <p className="mx-auto mt-2 max-w-lg text-sm leading-6 text-steel">
-            Vakalarınıza radyolojik görüntü ve EKG eklemek için önce kaynak ayarlarını yapılandırın. NIH ChestX-ray14 gibi bir dış kaynak bağlandığında eşleşen görüntüler burada listelenir.
+            Vakalarınıza radyolojik görüntü ve EKG eklemek için önce kaynak ayarlarını yapılandırın. NIH ChestX-ray14 veya PTB-XL gibi bir dış kaynak bağlandığında eşleşen görüntüler burada listelenir.
           </p>
           <div className="mt-5 flex flex-wrap justify-center gap-3">
             <Link href="/admin/panel/ayarlar" className="btn-accent text-sm">⚙️ Kaynak Ayarlarını Yapılandır</Link>
@@ -160,7 +199,7 @@ export default function AdminTibbiGoruntulerPage() {
         <div className="rounded-xl border border-dashed border-hairline bg-surface-soft px-4 py-10 text-center text-sm text-steel">Filtrelerle eşleşen görüntü kaydı bulunamadı.</div>
       ) : (
         <div className="grid gap-4 md:grid-cols-2">
-          {filtered.map((item) => <RadiologyCard key={item.caseId} item={item} />)}
+          {filtered.map((item) => <GoruntuCard key={`${item.tip}:${item.caseId}`} item={item} />)}
         </div>
       )}
     </div>
@@ -177,7 +216,10 @@ function SummaryCard({ label, value, hint, accent = "ink" }: { label: string; va
   );
 }
 
-function RadiologyCard({ item }: { item: RadiologyItem }) {
+function GoruntuCard({ item }: { item: GoruntuKaydi }) {
+  const goruntuUrl = item.tip === "ekg"
+    ? `/api/admin/cases/${encodeURIComponent(item.caseId)}/ekg-image`
+    : `/api/admin/cases/${encodeURIComponent(item.caseId)}/radiology-image`;
   return (
     <article className="overflow-hidden rounded-xl border border-hairline bg-canvas">
       <div className="grid gap-4 p-4 sm:grid-cols-[minmax(0,13rem)_1fr] sm:p-5">
@@ -186,7 +228,7 @@ function RadiologyCard({ item }: { item: RadiologyItem }) {
             <>
               {/* Dinamik admin endpoint'i görüntüyü vaka yetkisiyle servis eder. */}
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={`/api/admin/cases/${encodeURIComponent(item.caseId)}/radiology-image`} alt={`${item.vaka.hastalikAdi} — ${item.findingLabel}`} className="aspect-square w-full object-contain" loading="lazy" />
+              <img src={goruntuUrl} alt={`${item.vaka.hastalikAdi} — ${item.findingLabel}`} className="aspect-square w-full object-contain" loading="lazy" />
             </>
           ) : <div className="flex aspect-square items-center justify-center px-4 text-center text-xs text-clinical-orange">Görüntü dosyası volume'de yok</div>}
         </div>
@@ -202,6 +244,7 @@ function RadiologyCard({ item }: { item: RadiologyItem }) {
           <dl className="mt-4 grid gap-x-4 gap-y-2 text-xs sm:grid-cols-2">
             <div><dt className="text-muted">Görüntü</dt><dd className="mt-0.5 break-all font-mono text-ink">{item.imageIndex}</dd></div>
             <div><dt className="text-muted">Kaynak</dt><dd className="mt-0.5 text-ink">{item.source}</dd></div>
+            <div><dt className="text-muted">Tür</dt><dd className="mt-0.5 text-ink">{item.tip === "ekg" ? "EKG (PTB-XL)" : "Radyoloji (ChestX-ray)"}</dd></div>
             <div><dt className="text-muted">Vaka anahtarı</dt><dd className="mt-0.5 break-all font-mono text-ink">{item.vaka.hastalikKey || "—"}</dd></div>
             <div><dt className="text-muted">Yaş / cinsiyet</dt><dd className="mt-0.5 text-ink">{item.vaka.yasAraligi.join("–")} · {item.vaka.cinsiyetTercih || "—"}</dd></div>
           </dl>

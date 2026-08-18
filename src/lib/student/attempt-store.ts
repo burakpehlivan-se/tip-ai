@@ -12,8 +12,8 @@ import { getLabResult } from "@/lib/lab-motor";
 import { getHastaTipiById, loadHastaTipleriStore, recordPlaySession } from "@/lib/admin/store";
 import { uslupDonustur } from "@/lib/ai/uslup-donusturucu";
 import { getRadiologyTestResult, RADIOLOGY_TEST_KEY } from "@/lib/student/radiology-test";
-import { assertSupportedAttemptStore } from "./attempt-store-mode";
-import { shouldUsePostgresAttemptStore } from "./attempt-store-mode";
+import { getEkgTestResult, EKG_TEST_KEY } from "@/lib/student/ekg-test";
+import { shouldUsePostgresStore } from "@/lib/store-mode";
 import {
   clinicalReasoningFeedback,
   type ClinicalReasoningInput,
@@ -171,9 +171,8 @@ function rastgeleHastaTipiId(): string | null {
 export function startStudentAttempt(actor: string, poliklinikKey: string, studentId?: string, hastaTipiId?: string | null): Promise<PublicAttemptCase | null> {
   // PostgreSQL adapter'ı cutover sırasında bu çağrı sınırına bağlanacaktır.
   // Şimdiden açıkça doğrulamak, yanlış env ile sessiz JSON yazımını engeller.
-  assertSupportedAttemptStore(actor);
   const seciliTip = hastaTipiId && getHastaTipiById(hastaTipiId) ? hastaTipiId : rastgeleHastaTipiId();
-  if (shouldUsePostgresAttemptStore(actor)) {
+  if (shouldUsePostgresStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return startPostgresStudentAttempt(studentId, poliklinikKey, seciliTip ?? undefined);
   }
@@ -221,9 +220,8 @@ export function startAssignedStudentAttempt(
   template: AdminVaka,
   studentId?: string
 ): Promise<PublicAttemptCase | null> {
-  assertSupportedAttemptStore(actor);
   const hastaTipiId = rastgeleHastaTipiId();
-  if (shouldUsePostgresAttemptStore(actor)) {
+  if (shouldUsePostgresStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return startPostgresAssignedAttempt(studentId, assignmentId, template, hastaTipiId ?? undefined);
   }
@@ -234,8 +232,7 @@ export function startAssignedStudentAttempt(
 
 /** Aynı kullanıcı ve poliklinik için son 12 saatte güncellenmiş vakayı döndürür. */
 export function getActiveStudentAttempt(actor: string, poliklinikKey: string, studentId?: string): Promise<ResumableAttemptCase | null> {
-  assertSupportedAttemptStore(actor);
-  if (shouldUsePostgresAttemptStore(actor)) {
+  if (shouldUsePostgresStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return getPostgresActiveAttempt(studentId, poliklinikKey);
   }
@@ -259,8 +256,7 @@ export function getActiveStudentAttemptForAssignment(
   assignmentId: string,
   studentId?: string
 ): Promise<ResumableAttemptCase | null> {
-  assertSupportedAttemptStore(actor);
-  if (shouldUsePostgresAttemptStore(actor)) {
+  if (shouldUsePostgresStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return getPostgresAssignedAttempt(studentId, assignmentId);
   }
@@ -278,8 +274,7 @@ export async function getStudentAttemptSourceCaseId(
   actor: string,
   studentId?: string
 ): Promise<string | null> {
-  assertSupportedAttemptStore(actor);
-  if (shouldUsePostgresAttemptStore(actor)) {
+  if (shouldUsePostgresStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return getPostgresAttemptSourceCaseId(id, studentId);
   }
@@ -290,8 +285,7 @@ export async function getStudentAttemptSourceCaseId(
 }
 
 export function answerStudentAttempt(id: string, actor: string, action: string, studentId?: string): Promise<string | null> {
-  assertSupportedAttemptStore(actor);
-  if (shouldUsePostgresAttemptStore(actor)) {
+  if (shouldUsePostgresStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return answerPostgresAttempt(id, studentId, action);
   }
@@ -307,8 +301,7 @@ export function answerStudentAttempt(id: string, actor: string, action: string, 
 }
 
 export function requestStudentAttemptTest(id: string, actor: string, testKey: string, studentId?: string): Promise<TestSonucu | null> {
-  assertSupportedAttemptStore(actor);
-  if (shouldUsePostgresAttemptStore(actor)) {
+  if (shouldUsePostgresStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return requestPostgresAttemptTest(id, studentId, testKey);
   }
@@ -317,7 +310,9 @@ export function requestStudentAttemptTest(id: string, actor: string, testKey: st
     if (!found) return null;
     const result = testKey === RADIOLOGY_TEST_KEY
       ? await getRadiologyTestResult(id, found.attempt.vaka.sourceCaseId || found.attempt.vaka.id) || attemptTest(found.attempt, testKey)
-      : attemptTest(found.attempt, testKey);
+      : testKey === EKG_TEST_KEY
+        ? await getEkgTestResult(id, found.attempt.vaka.sourceCaseId || found.attempt.vaka.id) || attemptTest(found.attempt, testKey)
+        : attemptTest(found.attempt, testKey);
     if (!result) return null;
     if (!found.attempt.istenenTestler.includes(testKey)) found.attempt.istenenTestler.push(testKey);
     found.attempt.updatedAt = Date.now();
@@ -332,8 +327,7 @@ export function saveStudentAttemptClinicalReasoning(
   reasoning: ClinicalReasoningInput,
   studentId?: string
 ): Promise<boolean> {
-  assertSupportedAttemptStore(actor);
-  if (shouldUsePostgresAttemptStore(actor)) {
+  if (shouldUsePostgresStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return savePostgresAttemptClinicalReasoning(id, studentId, reasoning);
   }
@@ -356,8 +350,7 @@ export function completeStudentAttempt(
   studentId?: string
 ): Promise<DegerlendirmeSonuc | null> {
   if (!taniGirildi.trim() || !tedaviGirildi.trim()) return Promise.resolve(null);
-  assertSupportedAttemptStore(actor);
-  if (shouldUsePostgresAttemptStore(actor)) {
+  if (shouldUsePostgresStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
     return completePostgresAttempt(id, studentId, actor, taniGirildi, reasoning);
   }

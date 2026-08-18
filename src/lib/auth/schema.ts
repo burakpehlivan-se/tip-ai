@@ -681,6 +681,35 @@ export const radiologySources = pgTable(
 
 export type RadiologySource = typeof radiologySources.$inferSelect;
 
+/**
+ * EKG kaynağı (PTB-XL). Sentetik vakayı, tanı (SCP kodu) + yaş + cinsiyet
+ * üzerinden deterministik eşleştirilmiş gerçek bir 12-derivasyonlu EKG
+ * kaydına bağlar. Ham sinyal DB'de tutulmaz; render edilmiş PNG dosya indeksi.
+ *
+ * Not: case_id, clinical_cases'a FK bağlamaz — EKG vakaları (kardiyoloji::stemi
+ * vb.) JSON case store'da yaşar; clinical_cases yalnızca synthea üretimi vakaları
+ * içerir. FK olsaydı JSON store vakalarına eşleme kırılırdı.
+ */
+export const ekgSources = pgTable(
+  "ekg_sources",
+  {
+    caseId: text("case_id").primaryKey(),
+    /** PTB-XL kayıt kimliği (örn. 10001). */
+    ecgId: integer("ecg_id").notNull(),
+    /** Render edilmiş EKG görüntüsü dosya adı (örn. "00001.png"). */
+    imageIndex: text("image_index").notNull(),
+    /** Kayıttaki aktif SCP tanı kodları (örn. {"IMI":100}). */
+    scpCodes: jsonb("scp_codes"),
+    /** Eşleşen bulgu etiketi (örn. "İnferior miyokard infarktüsü"). */
+    findingLabel: text("finding_label").notNull(),
+    source: text("source").notNull().default("ptbxl"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("ekg_sources_image_idx").on(table.imageIndex)]
+);
+
+export type EkgSource = typeof ekgSources.$inferSelect;
+
 /** Kullanıcı talebiyle açılan klinik geçmiş görünümünün asgari erişim denetimi. */
 export const syntheaHistoryAccessAudit = pgTable(
   "synthea_history_access_audit",

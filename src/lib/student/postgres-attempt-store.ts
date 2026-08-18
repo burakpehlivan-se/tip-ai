@@ -5,6 +5,7 @@ import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 import { getHastaTipiById, loadHastaTipleriStore, recordPlaySession } from "@/lib/admin/store";
 import { uslupDonustur } from "@/lib/ai/uslup-donusturucu";
 import { getRadiologyTestResult, RADIOLOGY_TEST_KEY } from "@/lib/student/radiology-test";
+import { getEkgTestResult, EKG_TEST_KEY } from "@/lib/student/ekg-test";
 import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import type { AdminVaka } from "@/lib/admin/types";
 import { getLabResult } from "@/lib/lab-motor";
@@ -220,7 +221,9 @@ export async function requestPostgresAttemptTest(id: string, studentId: string, 
     const record = fromRow(row);
     const result = testKey === RADIOLOGY_TEST_KEY
       ? await getRadiologyTestResult(id, record.vaka.sourceCaseId || record.vaka.id) || testResult(record, testKey)
-      : testResult(record, testKey);
+      : testKey === EKG_TEST_KEY
+        ? await getEkgTestResult(id, record.vaka.sourceCaseId || record.vaka.id) || testResult(record, testKey)
+        : testResult(record, testKey);
     if (!result) return null;
     const requestedTests = record.requestedTests.includes(testKey) ? record.requestedTests : [...record.requestedTests, testKey];
     await tx.update(learningAttempts).set({ requestedTests, updatedAt: new Date() }).where(eq(learningAttempts.id, id));

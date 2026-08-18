@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/admin/permissions";
 import { getRuntimeCaseById } from "@/lib/admin/runtime-case-store";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 import { getAdminRadiologyTestResult, RADIOLOGY_TEST_KEY } from "@/lib/student/radiology-test";
+import { getAdminEkgTestResult, EKG_TEST_KEY } from "@/lib/student/ekg-test";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionFromRequest(req);
@@ -18,5 +19,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const playable = adminVakaToPlayable(vaka);
   const radiology = await getAdminRadiologyTestResult(vaka.id);
   if (radiology) playable.statikTestler[RADIOLOGY_TEST_KEY] = radiology;
+  const ekg = await getAdminEkgTestResult(vaka.id);
+  if (ekg) playable.statikTestler[EKG_TEST_KEY] = ekg;
   return NextResponse.json({ vaka: playable });
 }
