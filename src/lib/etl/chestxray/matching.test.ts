@@ -4,6 +4,7 @@ import {
   matchCandidates,
   matchChestXray,
   pickDeterministic,
+  primarySnomedForCaseId,
   type CxrRow,
 } from "./matching";
 
@@ -48,5 +49,28 @@ describe("chestxray matching", () => {
   it("eşleşen etiket/yaş/cinsiyet yoksa null döner", () => {
     expect(matchChestXray(rows, ["233604007"], 90, "M", "seed")).toBeNull();
     expect(matchChestXray(rows, ["87433001"], 20, "F", "seed")).toBeNull();
+  });
+
+  describe("primarySnomedForCaseId", () => {
+    it("synthea-tani-<kod> vaka kimliğinden ana tanı kodunu çıkarır", () => {
+      expect(primarySnomedForCaseId("dahiliye::synthea-tani-424132000-synthea-071d02d1879884ce")).toEqual([
+        "424132000",
+      ]);
+    });
+
+    it("hastalikKey ile eşlenen vaka kimliğinden ana tanı kodlarını türetir", () => {
+      expect(primarySnomedForCaseId("solunum::koah-synthea-004bd50a90141b80")).toContain("87433001");
+    });
+
+    it("CXR eşleşmesi olmayan ana tanıyı (diyabet) hariç tutar", () => {
+      const codes = primarySnomedForCaseId("endokrin::tip-2-diyabet-synthea-da936b58ff6b23f9");
+      expect(codes).not.toContain("87433001");
+      expect(codes).not.toContain("233604007");
+    });
+
+    it("eşleşmeyen vaka kimliği için null döner", () => {
+      expect(primarySnomedForCaseId("cocuk-cerrahisi::invajinasyon-synthea-abc")).toBeNull();
+      expect(primarySnomedForCaseId("kardiyoloji::tanimsiz-xyz-synthea-abc")).toBeNull();
+    });
   });
 });

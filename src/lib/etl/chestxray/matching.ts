@@ -5,6 +5,8 @@
  * Saf modül: dosya/DB erişimi yoktur; çağıran CxrRow[] dizisini verir.
  */
 
+import { SYNTHEA_DISEASE_MAPPINGS } from "../synthea/mappings";
+
 export const SNOMED_TO_CXR_LABEL: Record<string, string> = {
   "233604007": "Pneumonia",
   "87433001": "Emphysema",
@@ -21,6 +23,26 @@ export const SNOMED_TO_CXR_LABEL: Record<string, string> = {
   "67831000119107": "Mass",
   "67841000119103": "Mass",
 };
+
+/**
+ * Vaka kimliğinden ana tanı SNOMED kodlarını türetir.
+ *
+ * Vaka kimliği formatları:
+ *   `endokrin::tip-2-diyabet-synthea-<token>`            → hastalikKey ile eşleşir
+ *   `solunum::synthea-tani-87433001-synthea-<token>`     → kod doğrudan verilir
+ *
+ * Komorbidite kodları kasıtlı olarak hariç tutulur; bir diyabet hastasında
+ * eşlik eden amfizem, vakanın radyoloji bulgusunu belirlememelidir.
+ */
+export function primarySnomedForCaseId(caseId: string): string[] | null {
+  const afterPrefix = caseId.split("::").pop() || "";
+  const match = /^synthea-tani-([0-9]+)/.exec(afterPrefix);
+  if (match) return [match[1]];
+
+  const hastalikKey = afterPrefix.replace(/-synthea-[0-9a-f]{16}$/i, "");
+  const mapping = SYNTHEA_DISEASE_MAPPINGS.find((m) => m.hastalikKey === hastalikKey);
+  return mapping?.snomedCodes ?? null;
+}
 
 export interface CxrRow {
   imageIndex: string;

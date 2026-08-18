@@ -12,17 +12,16 @@
 
 import fs from "node:fs";
 import process from "node:process";
-import { inArray } from "drizzle-orm";
+import { notInArray } from "drizzle-orm";
 import { getDb } from "../src/lib/auth/db";
 import {
   radiologySources,
   syntheaCaseSources,
-  syntheaConditions,
   syntheaPatients,
 } from "../src/lib/auth/schema";
 import {
   matchChestXray,
-  SNOMED_TO_CXR_LABEL,
+  primarySnomedForCaseId,
   type CxrRow,
 } from "../src/lib/etl/chestxray/matching";
 
@@ -74,18 +73,6 @@ export async function buildRadiologySources(args: { dry: boolean }): Promise<Rad
   const patients = await db.select({ id: syntheaPatients.id, gender: syntheaPatients.gender, birthdate: syntheaPatients.birthdate }).from(syntheaPatients);
   const patientMap = new Map(patients.map((p) => [p.id, p]));
 
-  const codes = Object.keys(SNOMED_TO_CXR_LABEL);
-  const conditions = await db
-    .select({ patientId: syntheaConditions.patientId, code: syntheaConditions.code })
-    .from(syntheaConditions)
-    .where(inArray(syntheaConditions.code, codes));
-  const conditionsByPatient = new Map<string, string[]>();
-  for (const c of conditions) {
-    const list = conditionsByPatient.get(c.patientId) || [];
-    if (!list.includes(c.code)) list.push(c.code);
-    conditionsByPatient.set(c.patientId, list);
-  }
-
   const result: RadiologyBuildResult = {
     totalCases: sources.length,
     matched: 0,
@@ -95,14 +82,16 @@ export async function buildRadiologySources(args: { dry: boolean }): Promise<Rad
     byLabel: {},
   };
 
+  const matchedCaseIds: string[] = [];
+
   for (const { caseId, patientId } of sources) {
     const patient = patientMap.get(patientId);
     if (!patient) {
       result.skippedNoSource += 1;
       continue;
     }
-    const snomedCodes = conditionsByPatient.get(patientId) || [];
-    if (!snomedCodes.length) {
+    const snomedCodes = primarySnomedForCaseId(caseId);
+    if (!snomedCodes || !snomedCodes.length) {
       result.skippedNoLabel += 1;
       continue;
     }
@@ -120,6 +109,7 @@ export async function buildRadiologySources(args: { dry: boolean }): Promise<Rad
 
     result.matched += 1;
     result.byLabel[match.label] = (result.byLabel[match.label] || 0) + 1;
+    matchedCaseIds.push(caseId);
     if (!args.dry) {
       await db
         .insert(radiologySources)
@@ -128,6 +118,20 @@ export async function buildRadiologySources(args: { dry: boolean }): Promise<Rad
           target: radiologySources.caseId,
           set: { imageIndex: match.imageIndex, findingLabel: match.label },
         });
+    }
+  }
+
+  // Yeni ana-tanı eşleştirmesiyle artık eşleşmeyen eski kayıtları temizle.
+  // (Eski sürüm komorbidite kodlarını da kullanıyordu; o kayıtlar yanlış olabilir.)
+  if (!args.dry && matchedCaseIds.length) {
+    const stale = await db
+      .select({ caseId: radiologySources.caseId })
+      .from(radiologySources)
+      .where(notInArray(radiologySources.caseId, matchedCaseIds));
+    if (stale.length) {
+      await db
+        .delete(radiologySources)
+        .where(notInArray(radiologySources.caseId, matchedCaseIds));
     }
   }
 
