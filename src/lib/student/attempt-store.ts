@@ -168,13 +168,19 @@ function rastgeleHastaTipiId(): string | null {
   return tipler[Math.floor(Math.random() * tipler.length)].id;
 }
 
-export function startStudentAttempt(actor: string, poliklinikKey: string, studentId?: string, hastaTipiId?: string | null): Promise<PublicAttemptCase | null> {
+export function startStudentAttempt(
+  actor: string,
+  poliklinikKey: string,
+  studentId?: string,
+  hastaTipiId?: string | null,
+  caseId?: string | null
+): Promise<PublicAttemptCase | null> {
   // PostgreSQL adapter'ı cutover sırasında bu çağrı sınırına bağlanacaktır.
   // Şimdiden açıkça doğrulamak, yanlış env ile sessiz JSON yazımını engeller.
   const seciliTip = hastaTipiId && getHastaTipiById(hastaTipiId) ? hastaTipiId : rastgeleHastaTipiId();
   if (shouldUsePostgresStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
-    return startPostgresStudentAttempt(studentId, poliklinikKey, seciliTip ?? undefined);
+    return startPostgresStudentAttempt(studentId, poliklinikKey, seciliTip ?? undefined, caseId ?? null);
   }
   return withJsonStoreLock(async () => {
     const candidates = (await loadRuntimeCasesStore()).cases.filter(
@@ -182,8 +188,12 @@ export function startStudentAttempt(actor: string, poliklinikKey: string, studen
     );
     if (!candidates.length) return null;
 
-    const template = candidates[Math.floor(Math.random() * candidates.length)];
-    return createAttemptFromTemplate(actor, template, poliklinikKey, undefined, seciliTip ?? undefined);
+    // Paylaşım linkinden gelen belirli vaka: rastgele yerine o vaka kullanılır.
+    const template = caseId
+      ? candidates.find((item) => item.id === caseId) || null
+      : candidates[Math.floor(Math.random() * candidates.length)];
+    if (!template) return null;
+    return createAttemptFromTemplate(actor, template, template.poliklinikKey, undefined, seciliTip ?? undefined);
   });
 }
 

@@ -110,11 +110,19 @@ function resumableAttempt(record: StoredAttempt): ResumableAttemptCase {
   };
 }
 
-export async function startPostgresStudentAttempt(studentId: string, poliklinikKey: string, hastaTipiId?: string): Promise<PublicAttemptCase | null> {
+export async function startPostgresStudentAttempt(
+  studentId: string,
+  poliklinikKey: string,
+  hastaTipiId?: string,
+  caseId?: string | null
+): Promise<PublicAttemptCase | null> {
   const candidates = (await loadRuntimeCasesStore()).cases.filter(
     (item) => item.durum === "aktif" && (poliklinikKey === "*" || item.poliklinikKey === poliklinikKey)
   );
-  const template = candidates[Math.floor(Math.random() * candidates.length)];
+  if (!candidates.length) return null;
+  const template = caseId
+    ? candidates.find((item) => item.id === caseId) || null
+    : candidates[Math.floor(Math.random() * candidates.length)];
   if (!template) return null;
   return insertAttempt(studentId, template, undefined, hastaTipiId);
 }

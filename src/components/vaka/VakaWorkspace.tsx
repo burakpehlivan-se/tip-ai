@@ -903,7 +903,7 @@ export default function VakaWorkspace({
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6 lg:px-8">
             <div className="mx-auto max-w-2xl space-y-4" role="log" aria-label="Vaka sohbeti" aria-live="polite" aria-relevant="additions text">
               {mesajlar.map((msg) => (
-                <MesajBalonu key={msg.id} msg={msg} vaka={vaka} hastaneAdi={hastaneAdi} />
+                <MesajBalonu key={msg.id} msg={msg} vaka={vaka} hastaneAdi={hastaneAdi} debugMode={debugMode} />
               ))}
               <div ref={chatEndRef} />
             </div>
@@ -1320,6 +1320,7 @@ export default function VakaWorkspace({
                           hasta={vaka.hasta}
                           hastaneAdi={hastaneAdi}
                           defaultOpen={item.hasSonuc && debugTestFiltre !== "hepsi"}
+                          debugMode={debugMode}
                         />
                       ))}
                       {debugGosterilenTestler.length === 0 && (
@@ -1345,7 +1346,7 @@ export default function VakaWorkspace({
               ) : (
                 <div className="space-y-3">
                   {testIstekleri.map((istek) => (
-                    <TestSonucKarti key={istek.testKey} istek={istek} hasta={vaka.hasta} hastaneAdi="ÇEMİÇGEZEK DEVLET HASTANESİ" />
+                    <TestSonucKarti key={istek.testKey} istek={istek} hasta={vaka.hasta} hastaneAdi="ÇEMİÇGEZEK DEVLET HASTANESİ" debugMode={debugMode} />
                   ))}
                 </div>
               )}
@@ -1677,7 +1678,7 @@ function FazGorevYuzeyi({
   );
 }
 
-function MesajBalonu({ msg, vaka, hastaneAdi }: { msg: ChatMesaj; vaka: Vaka; hastaneAdi: string }) {
+function MesajBalonu({ msg, vaka, hastaneAdi, debugMode }: { msg: ChatMesaj; vaka: Vaka; hastaneAdi: string; debugMode?: boolean }) {
   if (msg.rol === "sistem") {
     const isWarning = msg.metin.startsWith("⚠️");
     const isComplete = msg.metin.startsWith("✅");
@@ -1694,7 +1695,7 @@ function MesajBalonu({ msg, vaka, hastaneAdi }: { msg: ChatMesaj; vaka: Vaka; ha
         </div>
         {msg.testSonucu && (
           <div className="mt-2 w-full max-w-[85%]">
-            <ResmiRapor sonuc={msg.testSonucu} hasta={vaka.hasta} hastaneAdi={hastaneAdi} />
+            <ResmiRapor sonuc={msg.testSonucu} hasta={vaka.hasta} hastaneAdi={hastaneAdi} debugMode={debugMode} />
           </div>
         )}
       </div>

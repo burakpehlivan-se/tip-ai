@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Hasta, TestIstegi, TestSonucu, humanizeKey } from "@/lib/types";
 import ResmiRapor from "./ResmiRapor";
 
-export function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi; hasta: Hasta; hastaneAdi?: string }) {
+export function TestSonucKarti({ istek, hasta, hastaneAdi, debugMode }: { istek: TestIstegi; hasta: Hasta; hastaneAdi?: string; debugMode?: boolean }) {
   const { sonuc } = istek;
   const [expanded, setExpanded] = useState(false);
 
@@ -44,7 +44,7 @@ export function TestSonucKarti({ istek, hasta, hastaneAdi }: { istek: TestIstegi
 
       {expanded && (
         <div className="bg-surface-soft p-2">
-          <ResmiRapor sonuc={sonuc} hasta={hasta} hastaneAdi={hastaneAdi} compact />
+          <ResmiRapor sonuc={sonuc} hasta={hasta} hastaneAdi={hastaneAdi} compact debugMode={debugMode} />
         </div>
       )}
     </div>
@@ -66,11 +66,13 @@ export function DebugTestKarti({
   hasta,
   hastaneAdi,
   defaultOpen = false,
+  debugMode,
 }: {
   item: DebugTestItem;
   hasta: Hasta;
   hastaneAdi?: string;
   defaultOpen?: boolean;
+  debugMode?: boolean;
 }) {
   const [expanded, setExpanded] = useState(defaultOpen);
 
@@ -134,7 +136,7 @@ export function DebugTestKarti({
       {expanded && (
         <div className="border-t border-hairline-soft bg-surface-soft p-2">
           {item.hasSonuc && item.sonuc ? (
-            <ResmiRapor sonuc={item.sonuc} hasta={hasta} hastaneAdi={hastaneAdi} compact />
+            <ResmiRapor sonuc={item.sonuc} hasta={hasta} hastaneAdi={hastaneAdi} compact debugMode={debugMode} />
           ) : (
             <div className="rounded-md border border-dashed border-clinical-orange/30 bg-canvas px-3 py-3 text-xs text-steel">
               <div className="font-medium text-clinical-orange">Sonuç yok</div>

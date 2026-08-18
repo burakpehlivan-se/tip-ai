@@ -6,7 +6,11 @@ import type { TestSonucu } from "@/lib/types";
 export const RADIOLOGY_TEST_KEY = "AKCIGER_GRAFISI";
 export const RADIOLOGY_TEST_NAME = "PA Akciğer Grafisi";
 
-async function getRadiologyTestResultForUrl(caseId: string, imageUrl: string): Promise<TestSonucu | null> {
+async function getRadiologyTestResultForUrl(
+  caseId: string,
+  imageUrl: string,
+  includeFindingLabel: boolean
+): Promise<TestSonucu | null> {
   const [source] = await getDb()
     .select({ imageIndex: radiologySources.imageIndex, findingLabel: radiologySources.findingLabel })
     .from(radiologySources)
@@ -14,13 +18,18 @@ async function getRadiologyTestResultForUrl(caseId: string, imageUrl: string): P
     .limit(1);
   if (!source) return null;
 
+  const sonuc: Record<string, unknown> = { imageUrl, imageIndex: source.imageIndex };
+  if (includeFindingLabel) sonuc.findingLabel = source.findingLabel;
+
   return {
     testKey: RADIOLOGY_TEST_KEY,
     testAdi: RADIOLOGY_TEST_NAME,
     tip: "image",
-    sonuc: { imageUrl, imageIndex: source.imageIndex, findingLabel: source.findingLabel },
+    sonuc,
     referans: "NIH ChestX-ray14",
-    yorum: `Görüntü eşleşen bulgu etiketi: ${source.findingLabel}.`,
+    yorum: includeFindingLabel
+      ? `Görüntü eşleşen bulgu etiketi: ${source.findingLabel}.`
+      : "Radyolojik inceleme tamamlandı.",
     source: "dataset",
   };
 }
@@ -38,7 +47,7 @@ export async function getRadiologyTestResult(
   attemptId: string,
   caseId: string
 ): Promise<TestSonucu | null> {
-  return getRadiologyTestResultForUrl(caseId, `/api/student/attempts/${attemptId}/radiology-image`);
+  return getRadiologyTestResultForUrl(caseId, `/api/student/attempts/${attemptId}/radiology-image`, false);
 }
 
 /** Admin debug oynatımında yetkili görüntü endpoint'ine bağlanan sonuç. */
@@ -46,6 +55,7 @@ export async function getAdminRadiologyTestResult(caseId: string): Promise<TestS
   if (!process.env.DATABASE_URL) return null;
   return getRadiologyTestResultForUrl(
     caseId,
-    `/api/admin/cases/${encodeURIComponent(caseId)}/radiology-image`
+    `/api/admin/cases/${encodeURIComponent(caseId)}/radiology-image`,
+    true
   );
 }

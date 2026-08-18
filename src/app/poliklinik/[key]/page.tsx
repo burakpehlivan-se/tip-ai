@@ -16,6 +16,7 @@ export default function PoliklinikPage() {
   const [vaka, setVaka] = useState<Vaka | null>(null);
   const [resumeSnapshot, setResumeSnapshot] = useState<AttemptResumeSnapshot | null>(null);
   const [hastaTipi, setHastaTipi] = useState<{ id: string; ad: string } | null>(null);
+  const [vakaNo, setVakaNo] = useState<string | null>(null);
   const [tipler, setTipler] = useState<HastaTipiSecim[]>([]);
   const [seciliTipId, setSeciliTipId] = useState<string | null>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
@@ -40,6 +41,7 @@ export default function PoliklinikPage() {
         vaka: publicAttemptToVaka(devamVerisi.vaka),
         snapshot: resumableAttemptToSnapshot(devamVerisi.vaka),
         hastaTipi: devamVerisi.vaka.hastaTipi ?? null,
+        vakaNo: typeof devamVerisi.vakaNo === "string" ? devamVerisi.vakaNo : null,
       };
     }
     return null;
@@ -56,9 +58,13 @@ export default function PoliklinikPage() {
         const errorData = await response.json().catch(() => null);
         throw new Error(errorData?.error || "Vaka hazırlanamadı.");
       }
-      const { vaka: remote } = await response.json();
+      const { vaka: remote, vakaNo: remoteVakaNo } = await response.json();
       if (!remote) throw new Error("Vaka hazırlanamadı.");
-      return { vaka: publicAttemptToVaka(remote), hastaTipi: remote.hastaTipi ?? null };
+      return {
+        vaka: publicAttemptToVaka(remote),
+        hastaTipi: remote.hastaTipi ?? null,
+        vakaNo: typeof remoteVakaNo === "string" ? remoteVakaNo : null,
+      };
     },
     [poliklinikKey]
   );
@@ -81,6 +87,7 @@ export default function PoliklinikPage() {
           setVaka(devam.vaka);
           setResumeSnapshot(devam.snapshot);
           setHastaTipi(devam.hastaTipi);
+          setVakaNo(devam.vakaNo);
         } else {
           setSecimAsamasi(true);
         }
@@ -108,6 +115,7 @@ export default function PoliklinikPage() {
       setVaka(yeni.vaka);
       setResumeSnapshot(null);
       setHastaTipi(yeni.hastaTipi);
+      setVakaNo(yeni.vakaNo);
       setSecimAsamasi(false);
       setTaslakDegisti(false);
     } catch (error) {
@@ -125,6 +133,7 @@ export default function PoliklinikPage() {
     setVaka(null);
     setResumeSnapshot(null);
     setHastaTipi(null);
+    setVakaNo(null);
     setTaslakDegisti(false);
     setHata("");
   };
@@ -240,6 +249,11 @@ export default function PoliklinikPage() {
           {hastaTipi && (
             <span className="badge badge-brand shrink-0" title="Bu vaka için atanan hasta tipi">
               {tipEmoji(hastaTipi.id)} {hastaTipi.ad}
+            </span>
+          )}
+          {vakaNo && (
+            <span className="badge badge-steel shrink-0" title={`Paylaşım bağlantısı: /vaka/${vakaNo}`}>
+              Vaka #{vakaNo}
             </span>
           )}
         </div>

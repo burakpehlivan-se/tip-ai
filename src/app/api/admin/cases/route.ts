@@ -15,6 +15,7 @@ import {
 import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
 import { parseCreateCaseInput } from "@/lib/admin/case-input";
 import { getRequestId, logger } from "@/lib/logger";
+import { vakaNoFromCaseId } from "@/lib/vaka-no";
 
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req);
@@ -22,8 +23,15 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
 
   const [grouped, store] = await Promise.all([listRuntimeCasesGrouped(), loadRuntimeCasesStore()]);
+  const groupedWithVakaNo = grouped.map((g) => ({
+    ...g,
+    cases: g.cases.map((c) => ({
+      ...c,
+      vakaNo: vakaNoFromCaseId(c.id),
+    })),
+  }));
   return NextResponse.json({
-    grouped,
+    grouped: groupedWithVakaNo,
     total: store.cases.length,
     changeCount: store.changeCount,
     updatedAt: store.updatedAt,

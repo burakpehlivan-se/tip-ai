@@ -8,6 +8,7 @@ import { JsonStoreReadError } from "@/lib/admin/json-store";
 import { getRequestId, logger } from "@/lib/logger";
 import { hasRadiologyTest, RADIOLOGY_TEST_KEY, RADIOLOGY_TEST_NAME } from "@/lib/student/radiology-test";
 import { hasEkgTest, EKG_TEST_KEY, EKG_TEST_NAME } from "@/lib/student/ekg-test";
+import { caseIdFromVakaNo, parseVakaNo, vakaNoFromCaseId } from "@/lib/vaka-no";
 
 const GUEST_COOKIE = "tip_ai_guest_attempt";
 
@@ -64,7 +65,13 @@ export async function GET(req: NextRequest) {
   const actor = session?.username || `guest:${guestId}`;
   try {
     const vaka = await getActiveStudentAttempt(actor, poliklinikKey, session?.userId);
-    return NextResponse.json({ vaka: await exposeEkgTest(await exposeRadiologyTest(vaka, actor, session?.userId), actor, session?.userId) });
+    const sonuc = await exposeEkgTest(await exposeRadiologyTest(vaka, actor, session?.userId), actor, session?.userId);
+    if (!sonuc) return NextResponse.json({ vaka: null });
+    const caseId = await getStudentAttemptSourceCaseId(sonuc.id, actor, session?.userId);
+    return NextResponse.json({
+      vaka: sonuc,
+      vakaNo: caseId ? await vakaNoFromCaseId(caseId) : null,
+    });
   } catch (error) {
     if (error instanceof JsonStoreReadError) return attemptStoreUnavailable(req, error);
     throw error;
@@ -76,20 +83,33 @@ export async function POST(req: NextRequest) {
   const session = await getStudentSessionFromRequest(req);
   const guest = body?.guest === true;
   if (!session && !guest) return NextResponse.json({ error: "Giriş yapmalısınız." }, { status: 401 });
-  const poliklinikKey = poliklinikKeyFrom(typeof body?.poliklinikKey === "string" ? body.poliklinikKey : null);
-  if (!poliklinikKey) return NextResponse.json({ error: "Geçersiz poliklinik." }, { status: 400 });
+
+  // Paylaşım linkinden gelen vaka numarası: poliklinik + vaka doğrudan çözülür.
+  let poliklinikKey: string | null = null;
+  let caseId: string | null = null;
+  if (typeof body?.vakaNo === "string" && parseVakaNo(body.vakaNo)) {
+    const cozumlenen = await caseIdFromVakaNo(body.vakaNo);
+    if (!cozumlenen) return NextResponse.json({ error: "Vaka bulunamadı." }, { status: 404 });
+    poliklinikKey = cozumlenen.poliklinikKey;
+    caseId = cozumlenen.caseId;
+  } else {
+    poliklinikKey = poliklinikKeyFrom(typeof body?.poliklinikKey === "string" ? body.poliklinikKey : null);
+    if (!poliklinikKey) return NextResponse.json({ error: "Geçersiz poliklinik." }, { status: 400 });
+    caseId = typeof body?.caseId === "string" && body.caseId ? body.caseId : null;
+  }
   const hastaTipiId = typeof body?.hastaTipiId === "string" && body.hastaTipiId ? body.hastaTipiId : null;
   const guestId = req.cookies.get(GUEST_COOKIE)?.value || crypto.randomUUID();
   let vaka;
   try {
-    vaka = await startStudentAttempt(session?.username || `guest:${guestId}`, poliklinikKey, session?.userId, hastaTipiId);
+    vaka = await startStudentAttempt(session?.username || `guest:${guestId}`, poliklinikKey, session?.userId, hastaTipiId, caseId);
     vaka = await exposeEkgTest(await exposeRadiologyTest(vaka, session?.username || `guest:${guestId}`, session?.userId), session?.username || `guest:${guestId}`, session?.userId);
   } catch (error) {
     if (error instanceof JsonStoreReadError) return attemptStoreUnavailable(req, error);
     throw error;
   }
   if (!vaka) return NextResponse.json({ error: "Aktif vaka bulunamadı." }, { status: 404 });
-  const response = NextResponse.json({ vaka });
+  const sourceCaseId = await getStudentAttemptSourceCaseId(vaka.id, session?.username || `guest:${guestId}`, session?.userId);
+  const response = NextResponse.json({ vaka, poliklinikKey, vakaNo: sourceCaseId ? await vakaNoFromCaseId(sourceCaseId) : null });
   if (!session) response.cookies.set(GUEST_COOKIE, guestId, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 12 });
   return response;
 }

@@ -9,9 +9,11 @@ interface Props {
   hastaneAdi?: string;
   tarih?: string;
   compact?: boolean;
+  /** Admin debug modunda bulgu etiketi görünür; öğrencide gizlenir. */
+  debugMode?: boolean;
 }
 
-export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK DEVLET HASTANESİ", tarih, compact }: Props) {
+export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK DEVLET HASTANESİ", tarih, compact, debugMode = false }: Props) {
   const [imageError, setImageError] = useState(false);
   const measured = sonuc.measuredAt ? new Date(sonuc.measuredAt) : null;
   const tarihStr = tarih || (measured
@@ -100,13 +102,15 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
                   src={String((sonuc.sonuc as Record<string, unknown>).imageUrl)}
-                  alt={`Göğüs röntgeni: ${String((sonuc.sonuc as Record<string, unknown>).findingLabel || sonuc.testAdi)}`}
+                  alt={debugMode && (sonuc.sonuc as Record<string, unknown>).findingLabel
+                    ? `Görüntü bulgusu: ${String((sonuc.sonuc as Record<string, unknown>).findingLabel)}`
+                    : sonuc.testAdi}
                   className="mx-auto h-auto max-h-[28rem] w-full rounded border border-hairline object-contain"
                   loading="lazy"
                   onLoad={() => setImageError(false)}
                   onError={() => setImageError(true)}
                 />
-                {(sonuc.sonuc as Record<string, unknown>).findingLabel ? (
+                {debugMode && (sonuc.sonuc as Record<string, unknown>).findingLabel ? (
                   <figcaption className="mt-2 text-center text-xs text-steel">
                     Bulgu etiketi: {String((sonuc.sonuc as Record<string, unknown>).findingLabel)}
                   </figcaption>

@@ -13,6 +13,7 @@ interface AdminVakaLite {
   uzmanOnayi?: boolean;
   surum?: number;
   statikTestler: Record<string, unknown>;
+  vakaNo?: string | null;
 }
 
 interface Group {
@@ -657,7 +658,18 @@ export default function AdminVakalarPage() {
                         href={`/admin/panel/vakalar/${encodeURIComponent(c.id)}`}
                         className="min-w-0 flex-1"
                       >
-                        <div className="text-sm font-medium text-ink">{c.hastalikAdi}</div>
+                        <div className="text-sm font-medium text-ink">
+                          {c.hastalikAdi}{" "}
+                          {c.vakaNo && (
+                            <Link
+                              href={`/vaka/${c.vakaNo}`}
+                              title={`Paylaşım bağlantısı: /vaka/${c.vakaNo}`}
+                              className="font-mono text-xs text-steel hover:text-brand-deep"
+                            >
+                              #{c.vakaNo}
+                            </Link>
+                          )}
+                        </div>
                         <div className="text-xs text-muted">
                           {c.hastalikKey} · {c.seviye} · {testCount} test · {c.durum || "aktif"}
                           {c.uzmanOnayi ? " · ✓" : ""} · v{c.surum ?? 1}
