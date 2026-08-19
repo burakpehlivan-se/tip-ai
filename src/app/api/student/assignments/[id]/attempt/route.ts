@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getRuntimeCaseById, getRuntimePublishedCaseVersion } from "@/lib/admin/runtime-case-store";
 import { JsonStoreReadError } from "@/lib/admin/json-store";
-import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
+import { storeMode } from "@/lib/store-mode";
 import { getAssignmentForStudent } from "@/lib/learning/cohort-store";
 import { getStudentSessionFromRequest } from "@/lib/student/auth";
 import { getActiveStudentAttemptForAssignment, startAssignedStudentAttempt } from "@/lib/student/attempt-store";
@@ -16,7 +16,7 @@ function unavailable() {
 async function assignmentForRequest(req: NextRequest, id: string) {
   const session = await getStudentSessionFromRequest(req);
   if (!session) return { response: NextResponse.json({ error: "Giriş yapmalısınız." }, { status: 401 }) };
-  if (authUserStoreMode() !== "postgres" || !session.userId) return { response: unavailable() };
+  if (storeMode() !== "postgres" || !session.userId) return { response: unavailable() };
   const assignment = await getAssignmentForStudent(id, session.userId);
   if (!assignment) return { response: NextResponse.json({ error: "Atama bulunamadı." }, { status: 404 }) };
   return { session, assignment };

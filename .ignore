@@ -1,0 +1,27 @@
+# Unignore everything for opencode (ripgrep) so every file is accessible.
+# This file only affects opencode/ripgrep tooling, NOT git.
+!.pnp
+!node_modules/
+!.next/
+!out/
+!build/
+!.DS_Store
+!*.pem
+!npm-debug.log*
+!yarn-debug.log*
+!yarn-error.log*
+!.env*.local
+!.env
+!*.tsbuildinfo
+!next-env.d.ts
+!.opencode/
+!sources/
+!prisma/data/
+!data/
+!.playwright-mcp/
+!.next.pid
+!.tmp_test_generate.mts
+!docs/*.pdf
+!playwright-report/
+!test-results/
+!/*.png

@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
 import { restoreBackup } from "@/lib/admin/store";
-import { caseStoreMode } from "@/lib/admin/postgres-case-store-mode";
+import { storeMode } from "@/lib/store-mode";
 
 export async function POST(
   req: NextRequest,
@@ -14,7 +14,7 @@ export async function POST(
   const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "backups.restore");
   if (denied) return denied;
-  if (caseStoreMode() === "postgres") {
+  if (storeMode() === "postgres") {
     return NextResponse.json(
       { error: "PostgreSQL vaka kaynağında JSON yedeği geri yüklenemez." },
       { status: 409 }

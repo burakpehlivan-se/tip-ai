@@ -54,7 +54,7 @@ const caseStoreUnavailable: CaseStoreMigrationReadiness = {
 /** `drizzle/0000`–`0007`; yeni zorunlu şema özelliği eklendiğinde artırılır. */
 export const REQUIRED_SCHEMA_MIGRATION_COUNT = 8;
 /** `0000`–`0009`; PostgreSQL vaka kaynağı için zorunlu expand şeması. */
-export const REQUIRED_CASE_STORE_MIGRATION_COUNT = 10;
+export const REQUIRED_STORE_MODE_MIGRATION_COUNT = 10;
 
 export function isAuthMigrationReady(checks: AuthMigrationReadiness): boolean {
   return (
@@ -135,7 +135,7 @@ export async function checkCaseStoreMigrationReadiness(): Promise<CaseStoreReadi
     const result = await db.execute(sql`
       SELECT
         to_regclass('drizzle.__drizzle_migrations') IS NOT NULL AS migration_journal,
-        (SELECT COUNT(*) FROM drizzle.__drizzle_migrations) >= ${REQUIRED_CASE_STORE_MIGRATION_COUNT} AS migration_applied,
+        (SELECT COUNT(*) FROM drizzle.__drizzle_migrations) >= ${REQUIRED_STORE_MODE_MIGRATION_COUNT} AS migration_applied,
         to_regclass('public.clinical_cases') IS NOT NULL AS cases_table,
         to_regclass('public.published_clinical_case_versions') IS NOT NULL AS published_versions_table,
         to_regclass('public.clinical_case_audit_logs') IS NOT NULL AS audit_log_table

@@ -1,0 +1,3 @@
+- Hemogram değerleri hastalığa göre değişmiyor sadece cinsiyete göre değişiyor.
+- Beklenen testler db sinde ekiskler var.
+- 

@@ -6,7 +6,7 @@ import { getSessionFromRequest } from "@/lib/admin/auth";
 import { appendLog } from "@/lib/admin/store";
 import { requirePermission } from "@/lib/admin/permissions";
 import { recordAuthEvent } from "@/lib/auth/audit";
-import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
+import { storeMode } from "@/lib/store-mode";
 import { getAdminDiagnostics } from "@/lib/health/diagnostics";
 
 /**
@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   const diagnostics = await getAdminDiagnostics();
   try {
-    if (authUserStoreMode() === "postgres") {
+    if (storeMode() === "postgres") {
       await recordAuthEvent({
         event: "admin_diagnostics_viewed",
         username: session!.username,

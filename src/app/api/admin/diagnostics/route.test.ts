@@ -11,8 +11,7 @@ import { GET } from "./route";
 const oldCwd = process.cwd();
 const oldPassword = process.env.ADMIN_PASSWORD;
 const oldSecret = process.env.ADMIN_SESSION_SECRET;
-const oldAuthStore = process.env.AUTH_USER_STORE;
-const oldAttemptStore = process.env.ATTEMPT_STORE;
+const oldStore = process.env.STORE_MODE;
 const oldDatabaseUrl = process.env.DATABASE_URL;
 let tmpDir = "";
 
@@ -28,8 +27,7 @@ describe("admin diagnostics API", () => {
     process.chdir(tmpDir);
     process.env.ADMIN_PASSWORD = "test-admin-password";
     process.env.ADMIN_SESSION_SECRET = "test-admin-session-secret-at-least-32-chars";
-    process.env.AUTH_USER_STORE = "json";
-    process.env.ATTEMPT_STORE = "json";
+    process.env.STORE_MODE = "json";
     process.env.DATABASE_URL = "postgresql://hidden-user:hidden-password@db.example.test/tip_ai";
   });
 
@@ -39,10 +37,8 @@ describe("admin diagnostics API", () => {
     else process.env.ADMIN_PASSWORD = oldPassword;
     if (oldSecret === undefined) delete process.env.ADMIN_SESSION_SECRET;
     else process.env.ADMIN_SESSION_SECRET = oldSecret;
-    if (oldAuthStore === undefined) delete process.env.AUTH_USER_STORE;
-    else process.env.AUTH_USER_STORE = oldAuthStore;
-    if (oldAttemptStore === undefined) delete process.env.ATTEMPT_STORE;
-    else process.env.ATTEMPT_STORE = oldAttemptStore;
+    if (oldStore === undefined) delete process.env.STORE_MODE;
+    else process.env.STORE_MODE = oldStore;
     if (oldDatabaseUrl === undefined) delete process.env.DATABASE_URL;
     else process.env.DATABASE_URL = oldDatabaseUrl;
     fs.rmSync(tmpDir, { recursive: true, force: true });

@@ -1,6 +1,6 @@
 /**
  * Vaka deposu runtime sınırı. Çağıranlar JSON dosyasına doğrudan erişmek
- * yerine bu async API'yi kullanır; böylece CASE_STORE cutover'ı tek bir
+ * yerine bu async API'yi kullanır; böylece STORE_MODE cutover'ı tek bir
  * feature flag ile, çift yazma olmadan yapılabilir.
  *
  * Eski mutasyon API'leri henüz bu sınıra taşınmadığı için PostgreSQL modu
@@ -17,12 +17,12 @@ import {
   loadPostgresCasesStore,
   recordPostgresCaseMutation,
 } from "./postgres-case-store";
-import { caseShadowReadEnabled, caseStoreMode } from "./postgres-case-store-mode";
+import { isShadowReadEnabled, storeMode } from "@/lib/store-mode";
 import type { AdminVaka, AuditLog, AuditPatch, CasesStore, PublishedCaseVersion } from "./types";
 import { logger } from "@/lib/logger";
 
 async function observeJsonCaseStore(primary: CasesStore): Promise<void> {
-  if (!caseShadowReadEnabled()) return;
+  if (!isShadowReadEnabled()) return;
   try {
     const replica = await loadPostgresCasesStore();
     const summary = compareCaseStoreShadow(primary, replica);
@@ -44,23 +44,23 @@ async function observeJsonCaseStore(primary: CasesStore): Promise<void> {
 }
 
 export async function loadRuntimeCasesStore(): Promise<CasesStore> {
-  if (caseStoreMode() === "postgres") return loadPostgresCasesStore();
+  if (storeMode() === "postgres") return loadPostgresCasesStore();
   const primary = jsonCases.loadCasesStore();
   await observeJsonCaseStore(primary);
   return primary;
 }
 
 export async function getRuntimeCaseById(caseId: string): Promise<AdminVaka | undefined> {
-  if (caseStoreMode() === "postgres") return getPostgresCaseById(caseId);
+  if (storeMode() === "postgres") return getPostgresCaseById(caseId);
   const primary = jsonCases.getCaseById(caseId);
-  if (caseShadowReadEnabled()) await observeJsonCaseStore(jsonCases.loadCasesStore());
+  if (isShadowReadEnabled()) await observeJsonCaseStore(jsonCases.loadCasesStore());
   return primary;
 }
 
 export async function listRuntimePublishedCaseVersions(caseId: string): Promise<PublishedCaseVersion[]> {
-  if (caseStoreMode() === "postgres") return listPostgresPublishedCaseVersions(caseId);
+  if (storeMode() === "postgres") return listPostgresPublishedCaseVersions(caseId);
   const primary = jsonCases.listPublishedCaseVersions(caseId);
-  if (caseShadowReadEnabled()) await observeJsonCaseStore(jsonCases.loadCasesStore());
+  if (isShadowReadEnabled()) await observeJsonCaseStore(jsonCases.loadCasesStore());
   return primary;
 }
 
@@ -68,16 +68,16 @@ export async function getRuntimePublishedCaseVersion(
   caseId: string,
   version: number
 ): Promise<PublishedCaseVersion | undefined> {
-  if (caseStoreMode() === "postgres") return getPostgresPublishedCaseVersion(caseId, version);
+  if (storeMode() === "postgres") return getPostgresPublishedCaseVersion(caseId, version);
   const primary = jsonCases.getPublishedCaseVersion(caseId, version);
-  if (caseShadowReadEnabled()) await observeJsonCaseStore(jsonCases.loadCasesStore());
+  if (isShadowReadEnabled()) await observeJsonCaseStore(jsonCases.loadCasesStore());
   return primary;
 }
 
 export async function listRuntimeCasesGrouped(): Promise<
   { poliklinikKey: string; poliklinikAd: string; poliklinikIcon: string; cases: AdminVaka[] }[]
 > {
-  if (caseStoreMode() === "postgres") return listPostgresCasesGrouped();
+  if (storeMode() === "postgres") return listPostgresCasesGrouped();
   const primary = jsonCases.loadCasesStore();
   await observeJsonCaseStore(primary);
   const groups = new Map<
@@ -103,7 +103,7 @@ export async function listRuntimeCasesGrouped(): Promise<
  * JSON ve PostgreSQL modları için tek mutation sınırı. PostgreSQL modunda
  * transaction + immutable published-version koruması uygulanır; JSON modunda
  * mevcut audit/yedek davranışı korunur. Çağıranlar bu fonksiyona geçmeden
- * CASE_STORE=postgres etkinleştirilmemelidir.
+ * STORE_MODE=postgres etkinleştirilmemelidir.
  */
 export async function recordRuntimeCaseMutation(input: {
   actor: string;
@@ -113,7 +113,7 @@ export async function recordRuntimeCaseMutation(input: {
   expectedUpdatedAt?: Record<string, number>;
   mutate: (store: CasesStore) => void;
 }): Promise<{ store: CasesStore; log: AuditLog; backup: ReturnType<typeof jsonCases.recordMutation>["backup"] | null }> {
-  if (caseStoreMode() === "postgres") return recordPostgresCaseMutation(input);
+  if (storeMode() === "postgres") return recordPostgresCaseMutation(input);
   const result = jsonCases.recordMutation(input.actor, input.action, input.message, input.patches, input.mutate);
   await observeJsonCaseStore(result.store);
   return result;

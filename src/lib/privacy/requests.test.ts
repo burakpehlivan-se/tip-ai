@@ -5,19 +5,19 @@ import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { listPrivacyRequests, resolvePrivacyRequest, submitPrivacyRequest } from "./requests";
 
 const oldCwd = process.cwd();
-const oldAuthStore = process.env.AUTH_USER_STORE;
+const oldAuthStore = process.env.STORE_MODE;
 let tmpDir = "";
 
 beforeEach(() => {
   tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tip-ai-privacy-request-test-"));
   process.chdir(tmpDir);
-  delete process.env.AUTH_USER_STORE;
+  delete process.env.STORE_MODE;
 });
 
 afterEach(() => {
   process.chdir(oldCwd);
-  if (oldAuthStore === undefined) delete process.env.AUTH_USER_STORE;
-  else process.env.AUTH_USER_STORE = oldAuthStore;
+  if (oldAuthStore === undefined) delete process.env.STORE_MODE;
+  else process.env.STORE_MODE = oldAuthStore;
   fs.rmSync(tmpDir, { recursive: true, force: true });
 });
 

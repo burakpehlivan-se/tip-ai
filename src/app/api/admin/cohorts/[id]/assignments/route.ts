@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
 import { getRuntimeCaseById } from "@/lib/admin/runtime-case-store";
-import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
+import { storeMode } from "@/lib/store-mode";
 import { createCohortCaseAssignment, parseOptionalText } from "@/lib/learning/cohort-store";
 
 function parseDueAt(value: unknown): Date | null | undefined {
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest, context: { params: Promise<{ id: st
   const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "assignments.manage");
   if (denied) return denied;
-  if (authUserStoreMode() !== "postgres") {
+  if (storeMode() !== "postgres") {
     return NextResponse.json({ error: "Grup yönetimi PostgreSQL kullanıcı deposu gerektirir." }, { status: 409 });
   }
   const { id: cohortId } = await context.params;

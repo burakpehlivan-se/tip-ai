@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
+import { storeMode } from "@/lib/store-mode";
 import { revokeAuthSessionForUser } from "@/lib/auth/session-store";
 import { getSessionPrincipal } from "@/lib/auth/session-principal";
 import { recordAuthEvent } from "@/lib/auth/audit";
@@ -22,7 +22,7 @@ function clearSessionCookie(response: NextResponse, cookieName: string) {
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const principal = await getSessionPrincipal(req);
   if (!principal) return NextResponse.json({ error: "Yetkisiz" }, { status: 401, headers: NO_STORE });
-  if (authUserStoreMode() !== "postgres") {
+  if (storeMode() !== "postgres") {
     return NextResponse.json(
       { error: "Oturum yönetimi PostgreSQL kimlik deposu etkinleştirildiğinde kullanılabilir." },
       { status: 409, headers: NO_STORE }

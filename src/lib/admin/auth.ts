@@ -1,14 +1,14 @@
 import { createHmac, randomBytes, timingSafeEqual } from "crypto";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
-import { AdminRole, AdminSessionPayload } from "./types";
+import { AdminRole, SessionPayload } from "./types";
 import { getAdminCredentials } from "./auth-env";
 import {
   authenticateUser,
-  authUserStoreMode,
   findUserById,
   findUserByUsername,
 } from "@/lib/auth/runtime-user-store";
+import { storeMode } from "@/lib/store-mode";
 import { createAuthSession, isAuthSessionActive, revokeAuthSession } from "@/lib/auth/session-store";
 import { sessionPolicyForRole } from "@/lib/auth/session-policy";
 
@@ -48,7 +48,7 @@ export function createSessionToken(
   userId?: string,
   sessionId?: string
 ): string {
-  const payload: AdminSessionPayload = {
+  const payload: SessionPayload = {
     username,
     role,
     userId,
@@ -67,19 +67,19 @@ export async function createRuntimeSessionId(
   ttlMs = sessionPolicyForRole(role).absoluteTtlMs,
   deviceLabel?: string
 ): Promise<string | undefined> {
-  if (authUserStoreMode() === "json") return undefined;
+  if (storeMode() === "json") return undefined;
   return (await createAuthSession({ userId, role, ttlMs, deviceLabel })).id;
 }
 
 /** Çıkışta merkezi kaydı iptal eder; JSON modunda eski cookie temizleme davranışı sürer. */
 export async function revokeRuntimeSession(token: string | undefined | null): Promise<void> {
-  if (authUserStoreMode() === "json") return;
+  if (storeMode() === "json") return;
   const session = verifySessionToken(token);
   if (!session?.sessionId) return;
   await revokeAuthSession(session.sessionId);
 }
 
-export function verifySessionToken(token: string | undefined | null): AdminSessionPayload | null {
+export function verifySessionToken(token: string | undefined | null): SessionPayload | null {
   if (!token) return null;
   const parts = token.split(".");
   if (parts.length !== 2) return null;
@@ -95,7 +95,7 @@ export function verifySessionToken(token: string | undefined | null): AdminSessi
   try {
     const payload = JSON.parse(
       Buffer.from(payloadB64, "base64url").toString("utf8")
-    ) as AdminSessionPayload;
+    ) as SessionPayload;
     if (!payload.exp || payload.exp < Date.now()) return null;
     if (!payload.username) return null;
     // Eski oturumlar (role yok) → admin say (bootstrap)
@@ -136,7 +136,7 @@ export function isPanelRole(role: AdminRole): role is "admin" | "doktor" {
  */
 export async function getCurrentSession(
   token: string | undefined | null
-): Promise<AdminSessionPayload | null> {
+): Promise<SessionPayload | null> {
   const session = verifySessionToken(token);
   if (!session) return null;
 
@@ -146,7 +146,7 @@ export async function getCurrentSession(
   if (!user || !user.active) return null;
   if (user.username.toLowerCase() !== session.username.toLowerCase()) return null;
   if (user.role !== session.role) return null;
-  if (authUserStoreMode() === "postgres") {
+  if (storeMode() === "postgres") {
     if (!session.sessionId) return null;
     if (!(await isAuthSessionActive({ id: session.sessionId, userId: user.id, role: user.role }))) {
       return null;
@@ -161,13 +161,13 @@ export async function getCurrentSession(
   };
 }
 
-export async function getSessionFromCookies(): Promise<AdminSessionPayload | null> {
+export async function getSessionFromCookies(): Promise<SessionPayload | null> {
   const jar = await cookies();
   const session = await getCurrentSession(jar.get(SESSION_COOKIE)?.value);
   return session && isPanelRole(session.role) ? session : null;
 }
 
-export async function getSessionFromRequest(req: NextRequest): Promise<AdminSessionPayload | null> {
+export async function getSessionFromRequest(req: NextRequest): Promise<SessionPayload | null> {
   const session = await getCurrentSession(req.cookies.get(SESSION_COOKIE)?.value);
   return session && isPanelRole(session.role) ? session : null;
 }

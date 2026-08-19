@@ -6,7 +6,7 @@ import path from "path";
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tip-ai-student-auth-test-"));
 const oldCwd = process.cwd();
 const oldPassword = process.env.ADMIN_PASSWORD;
-const oldAuthStore = process.env.AUTH_USER_STORE;
+const oldAuthStore = process.env.STORE_MODE;
 
 import {
   createStudentSessionToken,
@@ -21,13 +21,13 @@ describe("student auth", () => {
   beforeAll(() => {
     process.chdir(tmpDir);
     process.env.ADMIN_PASSWORD = "test-admin-password";
-    delete process.env.AUTH_USER_STORE;
+    delete process.env.STORE_MODE;
   });
   afterAll(() => {
     if (oldPassword === undefined) delete process.env.ADMIN_PASSWORD;
     else process.env.ADMIN_PASSWORD = oldPassword;
-    if (oldAuthStore === undefined) delete process.env.AUTH_USER_STORE;
-    else process.env.AUTH_USER_STORE = oldAuthStore;
+    if (oldAuthStore === undefined) delete process.env.STORE_MODE;
+    else process.env.STORE_MODE = oldAuthStore;
     process.chdir(oldCwd);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });

@@ -2,9 +2,7 @@ import {
   checkAuthMigrationReadiness,
   checkCaseStoreMigrationReadiness,
 } from "@/lib/auth/migration-readiness";
-import { caseShadowReadEnabled, caseStoreMode } from "@/lib/admin/postgres-case-store-mode";
-import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
-import { attemptStoreMode } from "@/lib/student/attempt-store-mode";
+import { isShadowReadEnabled, storeMode } from "@/lib/store-mode";
 import { rateLimitStoreMode, type RateLimitStoreMode } from "@/lib/security/rate-limit";
 
 export type HealthStatus = "ok" | "not_ready";
@@ -38,11 +36,11 @@ export type ReadinessPayload = {
  */
 export async function getReadiness(): Promise<{ ready: boolean; payload: ReadinessPayload }> {
   try {
-    const store = authUserStoreMode();
-    const attempts = attemptStoreMode();
+    const store = storeMode();
+    const attempts = storeMode();
     const rateLimit = rateLimitStoreMode();
-    const cases = caseStoreMode();
-    const caseShadowRead = caseShadowReadEnabled();
+    const cases = storeMode();
+    const caseShadowRead = isShadowReadEnabled();
     if (store === "json" && rateLimit === "memory" && cases === "json") {
       return {
         ready: true,

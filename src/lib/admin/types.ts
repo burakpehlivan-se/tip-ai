@@ -363,7 +363,7 @@ export interface UsersStore {
   users: AdminUser[];
 }
 
-export interface AdminSessionPayload {
+export interface SessionPayload {
   username: string;
   role: AdminRole;
   exp: number;

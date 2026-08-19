@@ -29,7 +29,15 @@ next-env.d.ts
 
 # project
 .opencode/
-/soruces/
+/sources/
+
+# root-level screenshots
+/*.png
+
+# large synthetic datasets (Synthea FHIR output, DB dumps)
+/reports/output_1/
+/reports/output_1_*.tar.gz
+/reports/Synthea DB/
 
 # DB + runtime data (root level only)
 /prisma/data/
@@ -37,7 +45,6 @@ next-env.d.ts
 
 # Local source datasets, generated reports, and runtime JSON stores
 /data/
-/reports/
 
 # Local development artifacts
 /.playwright-mcp/

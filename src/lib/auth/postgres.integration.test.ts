@@ -287,8 +287,8 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       postgresPublishedVersions: 1,
     });
 
-    const previousCaseStoreForMutation = process.env.CASE_STORE;
-    process.env.CASE_STORE = "postgres";
+    const previousCaseStoreForMutation = process.env.STORE_MODE;
+    process.env.STORE_MODE = "postgres";
     try {
       await expect(loadRuntimeCasesStore()).resolves.toMatchObject({
         cases: [expect.objectContaining({ id: content.id, surum: 2 })],
@@ -308,8 +308,8 @@ describePg("PostgreSQL 16 entegrasyon", () => {
         expect.objectContaining({ poliklinikKey: "acil", cases: [expect.objectContaining({ id: content.id })] }),
       ]);
     } finally {
-      if (previousCaseStoreForMutation === undefined) delete process.env.CASE_STORE;
-      else process.env.CASE_STORE = previousCaseStoreForMutation;
+      if (previousCaseStoreForMutation === undefined) delete process.env.STORE_MODE;
+      else process.env.STORE_MODE = previousCaseStoreForMutation;
     }
 
     fs.writeFileSync(
@@ -346,8 +346,8 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       contentChecksum: "published-checksum-v1",
     });
 
-    const previousCaseStore = process.env.CASE_STORE;
-    process.env.CASE_STORE = "postgres";
+    const previousCaseStore = process.env.STORE_MODE;
+    process.env.STORE_MODE = "postgres";
     try {
       const updatedAt = now + 1_000;
       const mutation = await recordRuntimeCaseMutation({
@@ -415,8 +415,8 @@ describePg("PostgreSQL 16 entegrasyon", () => {
         })
       ).rejects.toThrow("Vaka silme PostgreSQL kaynakta desteklenmez");
     } finally {
-      if (previousCaseStore === undefined) delete process.env.CASE_STORE;
-      else process.env.CASE_STORE = previousCaseStore;
+      if (previousCaseStore === undefined) delete process.env.STORE_MODE;
+      else process.env.STORE_MODE = previousCaseStore;
     }
 
     fs.rmSync(tmpDir, { recursive: true, force: true });

@@ -1,7 +1,7 @@
 /**
  * Runtime kimlik deposu sınırı.
  *
- * Varsayılan JSON deposudur. PostgreSQL yalnızca `AUTH_USER_STORE=postgres`
+ * Varsayılan JSON deposudur. PostgreSQL yalnızca `STORE_MODE=postgres`
  * ile, shadow-read parity gözlemi tamamlandıktan sonra seçilir. Tüm çağrılar
  * async'tir; böylece bir oturumun doğrulaması ve kullanıcı yönetimi aynı
  * depoyu kullanır. Bu katman çift yazma yapmaz.
@@ -11,15 +11,8 @@ import type { AdminRole, AdminUser } from "@/lib/admin/types";
 import * as jsonUsers from "@/lib/admin/users";
 import { appendLog } from "@/lib/admin/store";
 import { logger } from "@/lib/logger";
+import { storeMode } from "@/lib/store-mode";
 import * as postgresUsers from "./user-store";
-
-export type AuthUserStoreMode = "json" | "postgres";
-
-export function authUserStoreMode(value = process.env.AUTH_USER_STORE): AuthUserStoreMode {
-  if (value === undefined || value === "" || value === "json") return "json";
-  if (value === "postgres") return "postgres";
-  throw new Error("AUTH_USER_STORE yalnızca json veya postgres olabilir.");
-}
 
 function fromPostgres(row: postgresUsers.DbUserRow): AdminUser {
   return {
@@ -51,20 +44,20 @@ export function publicUser(user: AdminUser) {
 }
 
 export async function findUserById(id: string): Promise<AdminUser | undefined> {
-  if (authUserStoreMode() === "json") return jsonUsers.findUserById(id);
+  if (storeMode() === "json") return jsonUsers.findUserById(id);
   const row = await postgresUsers.findUserById(id);
   return row ? fromPostgres(row) : undefined;
 }
 
 /** JSON deposundaki davranışla uyumlu olarak pasif kayıtlar görünmez. */
 export async function findUserByUsername(username: string): Promise<AdminUser | undefined> {
-  if (authUserStoreMode() === "json") return jsonUsers.findUserByUsername(username);
+  if (storeMode() === "json") return jsonUsers.findUserByUsername(username);
   const row = await postgresUsers.findUserByUsername(username);
   return row?.active ? fromPostgres(row) : undefined;
 }
 
 export async function listUsersPublic() {
-  if (authUserStoreMode() === "json") return jsonUsers.listUsersPublic();
+  if (storeMode() === "json") return jsonUsers.listUsersPublic();
   return postgresUsers.listUsersPublic();
 }
 
@@ -72,7 +65,7 @@ export async function authenticateUser(
   username: string,
   password: string
 ): Promise<{ user: AdminUser } | null> {
-  if (authUserStoreMode() === "json") return jsonUsers.authenticateUser(username, password);
+  if (storeMode() === "json") return jsonUsers.authenticateUser(username, password);
   const result = await postgresUsers.authenticateUser(username, password);
   return result ? { user: fromPostgres(result.user) } : null;
 }
@@ -86,7 +79,7 @@ export async function recordSuccessfulLogin(
   user: Pick<AdminUser, "id" | "username" | "role">
 ): Promise<void> {
   try {
-    if (authUserStoreMode() === "json") {
+    if (storeMode() === "json") {
       appendLog({
         action: "user_login",
         actor: user.username,
@@ -99,7 +92,7 @@ export async function recordSuccessfulLogin(
     await postgresUsers.recordLoginSuccess(user);
   } catch {
     logger.warn("Başarılı giriş denetim kaydı yazılamadı", {
-      store: authUserStoreMode(),
+      store: storeMode(),
     });
   }
 }
@@ -111,7 +104,7 @@ export async function createUser(input: {
   displayName?: string;
   createdBy: string;
 }): Promise<AdminUser> {
-  if (authUserStoreMode() === "json") return jsonUsers.createUser(input);
+  if (storeMode() === "json") return jsonUsers.createUser(input);
   return fromPostgres(await postgresUsers.createUser(input));
 }
 
@@ -120,7 +113,7 @@ export async function registerStudent(input: {
   password: string;
   displayName?: string;
 }): Promise<AdminUser> {
-  if (authUserStoreMode() === "json") return jsonUsers.registerStudent(input);
+  if (storeMode() === "json") return jsonUsers.registerStudent(input);
   return fromPostgres(await postgresUsers.registerStudent(input));
 }
 
@@ -129,12 +122,12 @@ export async function updateUser(
   patch: { role?: AdminRole; displayName?: string; active?: boolean; password?: string },
   actor?: { username: string; userId?: string }
 ): Promise<AdminUser> {
-  if (authUserStoreMode() === "json") return jsonUsers.updateUser(id, patch, actor);
+  if (storeMode() === "json") return jsonUsers.updateUser(id, patch, actor);
   return fromPostgres(await postgresUsers.updateUser(id, patch, actor));
 }
 
 export async function deleteUser(id: string): Promise<void> {
-  if (authUserStoreMode() === "json") {
+  if (storeMode() === "json") {
     jsonUsers.deleteUser(id);
     return;
   }

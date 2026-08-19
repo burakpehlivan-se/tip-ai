@@ -1,6 +1,5 @@
 import { deepseekYapilandirilmisMi, DEEPSEEK_MODEL } from "@/lib/ai/deepseek";
-import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
-import { attemptStoreMode } from "@/lib/student/attempt-store-mode";
+import { storeMode } from "@/lib/store-mode";
 import { rateLimitStoreMode } from "@/lib/security/rate-limit";
 import { getReadiness, type ReadinessPayload } from "./readiness";
 
@@ -45,8 +44,8 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnostics> {
       uptimeSeconds: Math.floor(process.uptime()),
     },
     stores: {
-      auth: safeMode(authUserStoreMode),
-      attempts: safeMode(attemptStoreMode),
+      auth: safeMode(storeMode),
+      attempts: safeMode(storeMode),
       rateLimit: safeMode(rateLimitStoreMode),
     },
     ai: {

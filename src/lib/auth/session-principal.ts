@@ -5,10 +5,10 @@ import {
   SESSION_COOKIE,
 } from "@/lib/admin/auth";
 import { getCurrentStudentSession, STUDENT_SESSION_COOKIE } from "@/lib/student/auth";
-import type { AdminSessionPayload } from "@/lib/admin/types";
+import type { SessionPayload } from "@/lib/admin/types";
 
 export type SessionPrincipal = {
-  session: AdminSessionPayload;
+  session: SessionPayload;
   cookieName: typeof SESSION_COOKIE | typeof STUDENT_SESSION_COOKIE;
 };
 

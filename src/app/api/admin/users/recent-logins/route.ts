@@ -6,7 +6,7 @@ import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
 import { loadLogsStore } from "@/lib/admin/store";
 import { listRecentLoginEvents } from "@/lib/auth/audit";
-import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
+import { storeMode } from "@/lib/store-mode";
 import type { AdminRole, AuditLog } from "@/lib/admin/types";
 
 const ROLES: AdminRole[] = ["admin", "doktor", "ogrenci"];
@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
   const rawLimit = Number(req.nextUrl.searchParams.get("limit") || 20);
   const limit = Number.isFinite(rawLimit) ? Math.min(Math.max(Math.floor(rawLimit), 1), 100) : 20;
 
-  if (authUserStoreMode() === "json") {
+  if (storeMode() === "json") {
     return NextResponse.json({ logins: jsonRecentLogins(limit) });
   }
 

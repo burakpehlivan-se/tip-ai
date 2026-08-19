@@ -1,0 +1,11 @@
+# Taste
+- Communicates in Turkish and expects Turkish responses. Confidence: 0.95
+- Prefers PostgreSQL as the primary data store over JSON files when integrating new data. Confidence: 0.9
+- Prefers a single-command local startup (e.g. `./run.sh`) that self-manages DB/migration/bootstrap and skips already-loaded data on subsequent runs rather than requiring extra flags or manual steps. Confidence: 0.9
+- Wants Turkish localization for clinical/case content, favoring a curated, accurate mapping over free machine translation ("Hata yapma"). Confidence: 0.85
+- Prefers non-destructive, idempotent data operations; avoid re-running large imports or wiping existing data unless explicitly requested. Confidence: 0.8
+- For simulated patient dialogue, wants the patient to use plain/lay language with no high-level medical terminology; the learner should extract information through conversation. Confidence: 0.9
+- Prefers comprehensive coverage: all distinct source conditions/diseases should be represented rather than only a subset. Confidence: 0.7
+- Prefers avoiding over-engineering; favors the simplest code that meets requirements. Confidence: 0.9
+- Prioritizes keeping future code maintenance burden low when choosing solutions. Confidence: 0.85
+- Explicitly wants non-functional requirements (performance, security, maintainability, reliability) considered when creating implementation plans. Confidence: 0.85

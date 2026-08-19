@@ -4,7 +4,7 @@
  * - doktor: vaka düzenleme + onay (uzmanOnayi), oynama, doğrulama okuma
  */
 
-import { AdminRole, AdminSessionPayload } from "./types";
+import { AdminRole, SessionPayload } from "./types";
 import { NextResponse } from "next/server";
 
 export type Permission =
@@ -61,7 +61,7 @@ export function permissionsForRole(role: AdminRole): Set<Permission> {
 }
 
 export function hasPermission(
-  session: AdminSessionPayload | null | undefined,
+  session: SessionPayload | null | undefined,
   perm: Permission
 ): boolean {
   if (!session?.role) return false;
@@ -69,7 +69,7 @@ export function hasPermission(
 }
 
 export function requirePermission(
-  session: AdminSessionPayload | null,
+  session: SessionPayload | null,
   perm: Permission
 ): NextResponse | null {
   if (!session) {

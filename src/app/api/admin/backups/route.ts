@@ -6,7 +6,7 @@ import path from "node:path";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { createBackup, loadBackupsIndex, loadCasesStore } from "@/lib/admin/store";
-import { caseStoreMode } from "@/lib/admin/postgres-case-store-mode";
+import { storeMode } from "@/lib/store-mode";
 import { backupsDir } from "@/lib/admin/paths";
 
 import { requirePermission } from "@/lib/admin/permissions";
@@ -31,7 +31,7 @@ export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "backups.read");
   if (denied) return denied;
-  if (caseStoreMode() === "postgres") {
+  if (storeMode() === "postgres") {
     return NextResponse.json(
       { error: "PostgreSQL vaka kaynağında uygulama-içi JSON yedekleri kullanılamaz." },
       { status: 409 }
@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "backups.restore");
   if (denied) return denied;
-  if (caseStoreMode() === "postgres") {
+  if (storeMode() === "postgres") {
     return NextResponse.json(
       { error: "PostgreSQL vaka kaynağında uygulama-içi JSON yedekleri kullanılamaz." },
       { status: 409 }

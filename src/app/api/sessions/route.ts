@@ -2,7 +2,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
-import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
+import { storeMode } from "@/lib/store-mode";
 import { listActiveAuthSessionsForUser, revokeAllAuthSessionsForUser } from "@/lib/auth/session-store";
 import { getSessionPrincipal } from "@/lib/auth/session-principal";
 import { recordAuthEvent } from "@/lib/auth/audit";
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   // JSON modunda merkezi session tablosu bulunmadığından uydurma cihaz bilgisi
   // dönmeyiz. Cutover sonrasında aynı endpoint otomatik olarak etkinleşir.
-  if (authUserStoreMode() !== "postgres") {
+  if (storeMode() !== "postgres") {
     return NextResponse.json({ available: false, sessions: [] }, { headers: NO_STORE });
   }
 
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const principal = await getSessionPrincipal(req);
   if (!principal) return NextResponse.json({ error: "Yetkisiz" }, { status: 401, headers: NO_STORE });
-  if (authUserStoreMode() !== "postgres") return unavailable();
+  if (storeMode() !== "postgres") return unavailable();
 
   const count = await revokeAllAuthSessionsForUser(principal.session.userId!);
   await recordAuthEvent({

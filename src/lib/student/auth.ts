@@ -11,10 +11,10 @@ import {
   verifySessionToken,
   sessionCookieOptions,
 } from "@/lib/admin/auth";
-import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
+import { storeMode } from "@/lib/store-mode";
 import { isAuthSessionActive } from "@/lib/auth/session-store";
 import { sessionPolicyForRole } from "@/lib/auth/session-policy";
-import type { AdminSessionPayload } from "@/lib/admin/types";
+import type { SessionPayload } from "@/lib/admin/types";
 import { authenticateUser, findUserById, findUserByUsername } from "@/lib/auth/runtime-user-store";
 
 export const STUDENT_SESSION_COOKIE = "tip_ai_student_session";
@@ -31,7 +31,7 @@ export async function createStudentSessionToken(
 
 export function verifyStudentSessionToken(
   token: string | undefined | null
-): AdminSessionPayload | null {
+): SessionPayload | null {
   const session = verifySessionToken(token);
   if (session && session.role !== "ogrenci") return null;
   return session;
@@ -44,7 +44,7 @@ export function verifyStudentSessionToken(
  */
 export async function getCurrentStudentSession(
   token: string | undefined | null
-): Promise<AdminSessionPayload | null> {
+): Promise<SessionPayload | null> {
   const session = verifyStudentSessionToken(token);
   if (!session) return null;
 
@@ -53,7 +53,7 @@ export async function getCurrentStudentSession(
     : await findUserByUsername(session.username);
   if (!user || !user.active || user.role !== "ogrenci") return null;
   if (user.username.toLowerCase() !== session.username.toLowerCase()) return null;
-  if (authUserStoreMode() === "postgres") {
+  if (storeMode() === "postgres") {
     if (!session.sessionId) return null;
     if (!(await isAuthSessionActive({ id: session.sessionId, userId: user.id, role: user.role }))) {
       return null;
@@ -63,14 +63,14 @@ export async function getCurrentStudentSession(
   return { ...session, username: user.username, role: user.role, userId: user.id };
 }
 
-export async function getStudentSessionFromCookies(): Promise<AdminSessionPayload | null> {
+export async function getStudentSessionFromCookies(): Promise<SessionPayload | null> {
   const jar = await cookies();
   return getCurrentStudentSession(jar.get(STUDENT_SESSION_COOKIE)?.value);
 }
 
 export async function getStudentSessionFromRequest(
   req: NextRequest
-): Promise<AdminSessionPayload | null> {
+): Promise<SessionPayload | null> {
   return getCurrentStudentSession(req.cookies.get(STUDENT_SESSION_COOKIE)?.value);
 }
 

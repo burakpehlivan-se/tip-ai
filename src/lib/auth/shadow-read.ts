@@ -1,5 +1,6 @@
 import { logger } from "@/lib/logger";
 import { findUserByUsername } from "./user-store";
+import { isShadowReadEnabled } from "@/lib/store-mode";
 
 export type ShadowUser = {
   username: string;
@@ -16,10 +17,6 @@ export type ShadowParity =
   | { outcome: "postgres_missing" }
   | { outcome: "postgres_unavailable" };
 
-/** Sadece açık "1" değeri shadow-read'i başlatır; varsayılan davranış etkilenmez. */
-export function isAuthShadowReadEnabled(value = process.env.AUTH_SHADOW_READ): boolean {
-  return value === "1";
-}
 
 /**
  * Kimlik için güvenlik açısından anlamlı alanları karşılaştırır. Parola,
@@ -49,7 +46,7 @@ export async function observeAuthShadowRead(
   expected: ShadowUser,
   context: { route: string; requestId?: string }
 ): Promise<ShadowParity> {
-  if (!isAuthShadowReadEnabled()) return { outcome: "disabled" };
+  if (!isShadowReadEnabled()) return { outcome: "disabled" };
 
   try {
     const row = await findUserByUsername(expected.username);

@@ -14,7 +14,7 @@ import { PATCH as resolveAdminRequest } from "@/app/api/admin/privacy-requests/[
 const oldCwd = process.cwd();
 const oldPassword = process.env.ADMIN_PASSWORD;
 const oldSecret = process.env.ADMIN_SESSION_SECRET;
-const oldAuthStore = process.env.AUTH_USER_STORE;
+const oldAuthStore = process.env.STORE_MODE;
 let tmpDir = "";
 
 function studentRequest(method: "GET" | "POST", token?: string, body?: unknown) {
@@ -38,7 +38,7 @@ describe("student privacy request API", () => {
     process.chdir(tmpDir);
     process.env.ADMIN_PASSWORD = "test-admin-password";
     process.env.ADMIN_SESSION_SECRET = "test-admin-session-secret-at-least-32-chars";
-    delete process.env.AUTH_USER_STORE;
+    delete process.env.STORE_MODE;
     resetRateLimitsForTests();
   });
 
@@ -49,8 +49,8 @@ describe("student privacy request API", () => {
     else process.env.ADMIN_PASSWORD = oldPassword;
     if (oldSecret === undefined) delete process.env.ADMIN_SESSION_SECRET;
     else process.env.ADMIN_SESSION_SECRET = oldSecret;
-    if (oldAuthStore === undefined) delete process.env.AUTH_USER_STORE;
-    else process.env.AUTH_USER_STORE = oldAuthStore;
+    if (oldAuthStore === undefined) delete process.env.STORE_MODE;
+    else process.env.STORE_MODE = oldAuthStore;
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
 

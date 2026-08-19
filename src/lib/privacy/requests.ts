@@ -10,7 +10,7 @@
 import { randomUUID } from "node:crypto";
 import { appendLog, loadLogsStore } from "@/lib/admin/store";
 import { listAuthEventsByType, recordAuthEvent, type AuthEvent } from "@/lib/auth/audit";
-import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
+import { storeMode } from "@/lib/store-mode";
 
 export const PRIVACY_REQUEST_TYPES = ["correction", "erasure"] as const;
 export type PrivacyRequestType = (typeof PRIVACY_REQUEST_TYPES)[number];
@@ -85,7 +85,7 @@ function materializeRequests(events: PrivacyEvent[]): PrivacyRequest[] {
 }
 
 async function readPrivacyEvents(username?: string, limit = 100): Promise<PrivacyEvent[]> {
-  if (authUserStoreMode() === "postgres") {
+  if (storeMode() === "postgres") {
     const events = await listAuthEventsByType([SUBMITTED_EVENT, RESOLVED_EVENT], { username, limit: limit * 2 });
     return events.map((event) => ({
       event: event.event as PrivacyEvent["event"],
@@ -139,7 +139,7 @@ export async function submitPrivacyRequest(input: {
   };
   const metadata = { requestId: request.id, type: request.type };
 
-  if (authUserStoreMode() === "postgres") {
+  if (storeMode() === "postgres") {
     const recorded = await recordAuthEvent({
       event: SUBMITTED_EVENT,
       username: request.username,
@@ -175,7 +175,7 @@ export async function resolvePrivacyRequest(
   if (request.status === "resolved") return request;
 
   const metadata = { requestId: request.id, resolvedBy: actor };
-  if (authUserStoreMode() === "postgres") {
+  if (storeMode() === "postgres") {
     const recorded = await recordAuthEvent({
       event: RESOLVED_EVENT,
       username: request.username,

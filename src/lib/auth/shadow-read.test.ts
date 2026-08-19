@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isAuthShadowReadEnabled, userParity } from "./shadow-read";
+import { userParity } from "./shadow-read";
 
 const jsonUser = {
   username: "ogrenci.ornek",
@@ -10,14 +10,7 @@ const jsonUser = {
 };
 
 describe("auth shadow-read parity", () => {
-  it("yalnızca açık 1 değeriyle etkinleşir", () => {
-    expect(isAuthShadowReadEnabled("1")).toBe(true);
-    expect(isAuthShadowReadEnabled("true")).toBe(false);
-    expect(isAuthShadowReadEnabled("0")).toBe(false);
-    expect(isAuthShadowReadEnabled(undefined)).toBe(false);
-  });
-
-  it("eş kullanıcı kaydını match olarak sınıflar", () => {
+  it("eş kullanıcı adını match olarak sınıflar", () => {
     expect(userParity(jsonUser, { ...jsonUser })).toEqual({ outcome: "match" });
   });
 

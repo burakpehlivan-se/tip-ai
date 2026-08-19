@@ -4,7 +4,7 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
-import { authUserStoreMode } from "@/lib/auth/runtime-user-store";
+import { storeMode } from "@/lib/store-mode";
 import { createCohort, listCohorts, parseCohortName, parseOptionalText } from "@/lib/learning/cohort-store";
 
 function unavailable() {
@@ -18,7 +18,7 @@ export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "assignments.manage");
   if (denied) return denied;
-  if (authUserStoreMode() !== "postgres") return unavailable();
+  if (storeMode() !== "postgres") return unavailable();
   return NextResponse.json({ cohorts: await listCohorts() }, { headers: { "Cache-Control": "no-store" } });
 }
 
@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
   const session = await getSessionFromRequest(req);
   const denied = requirePermission(session, "assignments.manage");
   if (denied) return denied;
-  if (authUserStoreMode() !== "postgres") return unavailable();
+  if (storeMode() !== "postgres") return unavailable();
 
   const body = await req.json().catch(() => null);
   const name = parseCohortName(body?.name);

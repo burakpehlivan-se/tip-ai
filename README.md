@@ -97,7 +97,7 @@ DATABASE_URL=postgresql://... ADMIN_PASSWORD=<bootstrap şifresi> \
 
 ### Shadow-read gözlem adımı
 
-Runtime cutover öncesinde `AUTH_SHADOW_READ=1` ile başarılı öğrenci ve yönetim
+Runtime cutover öncesinde `STORE_SHADOW_READ=1` ile başarılı öğrenci ve yönetim
 girişleri JSON kaynağıyla devam ederken PostgreSQL'deki aynı kullanıcının rol ve
 aktiflik durumunu karşılaştırır. Bu aşama yazma yapmaz, giriş sonucunu değiştirmez
 ve parola, hash, kullanıcı adı veya bağlantı dizgisi loglamaz. Operasyon logları
@@ -107,17 +107,17 @@ PostgreSQL'e geçirilmemelidir.
 
 ### Runtime cutover ve geri alma
 
-Kullanıcı deposu seçiminde varsayılan `AUTH_USER_STORE=json` değeridir.
+Kullanıcı deposu seçiminde varsayılan `STORE_MODE=json` değeridir.
 Shadow-read gözlem penceresi temiz tamamlandıktan sonra, tek bir canary uygulama
-ortamında `AUTH_USER_STORE=postgres` ile gerçek öğrenci ve yönetim girişleri,
+ortamında `STORE_MODE=postgres` ile gerçek öğrenci ve yönetim girişleri,
 oturum geçersizleştirme ve kullanıcı yönetimi doğrulanır. Canary ortamı aynı
 uygulama sürümü ve PostgreSQL migration sürümünü kullanmalıdır.
 
 Bu değer iki depoya yazmaz: seçilen depo tek doğruluk kaynağıdır. Sorun halinde
-`AUTH_USER_STORE=json` ayarlayıp uygulamayı yeniden başlatın. PostgreSQL modunda
+`STORE_MODE=json` ayarlayıp uygulamayı yeniden başlatın. PostgreSQL modunda
 yeni oluşturulan ya da değiştirilen kullanıcılar JSON'a kopyalanmadığından,
 geri alma öncesinde bu değişiklikler için karar ve gerekirse dışa aktarım alın.
-Geçersiz bir `AUTH_USER_STORE` değeri sessiz fallback yerine yapılandırma hatası
+Geçersiz bir `STORE_MODE` değeri sessiz fallback yerine yapılandırma hatası
 üretir.
 
 `GET /api/health`, JSON modunda temel canlılık yanıtı döner. PostgreSQL modunda
@@ -128,7 +128,7 @@ Coolify healthcheck'i bu endpoint'e yönlendirin.
 
 ### Merkezi oturum iptali
 
-`AUTH_USER_STORE=postgres` modunda her başarılı giriş için `auth_sessions`
+`STORE_MODE=postgres` modunda her başarılı giriş için `auth_sessions`
 tablosunda yalnızca rastgele oturum kimliği, kullanıcı, rol, süre, iptal zamanı,
 son etkinlik ve ham user-agent'tan türetilmiş kısa cihaz etiketi tutulur; cookie,
 parola, IP ve tam user-agent saklanmaz. Her istek imza, kullanıcı durumu ve
@@ -189,7 +189,7 @@ otomatik olarak yeniden yayımlanmaz.
 
 Vaka kataloğu Synthea sentetik hasta verisinden üretilir. JSON'daki elle yazılmış
 60 vaka geçişte arşiv olarak kalır; runtime, PostgreSQL'deki `clinical_cases`
-tablosunu okur (`CASE_STORE=postgres`).
+tablosunu okur (`STORE_MODE=postgres`).
 
 ### Akış
 
@@ -221,7 +221,7 @@ tablosunu okur (`CASE_STORE=postgres`).
 3. Runtime'ı PostgreSQL vaka deposuna al:
 
    ```text
-   CASE_STORE=postgres
+   STORE_MODE=postgres
    ```
 
 ### SyntheticMass (büyük veri seti)
@@ -269,7 +269,7 @@ DATABASE_URL=postgresql://... npm run db:backfill-synthea-case-sources
   özet gösterilir ve erişim denetim kaydına yazılır; ad, adres, iletişim,
   kaynak hasta kimliği ve ham FHIR gövdesi tarayıcıya gönderilmez.
 
-JSON deposu rollback yolu olarak korunur; `CASE_STORE=json` ile eski 60 vaka
+JSON deposu rollback yolu olarak korunur; `STORE_MODE=json` ile eski 60 vaka
 yeniden kaynak olur. Yabancı (İngilizce) hasta/koşul/ilaç adları kaynaktan olduğu
 gibi korunur; yerelleştirme sonraki aşamadadır.
 

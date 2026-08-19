@@ -1,0 +1,2026 @@
+{
+  "generatedAt": "2026-08-09T21:27:55.158Z",
+  "totalKeys": 83,
+  "entries": {
+    "CBC": {
+      "key": "CBC",
+      "name": "Hemogram (Tam Kan Sayımı)",
+      "unit": "panel",
+      "category": "lab",
+      "resultKind": "panel",
+      "panel": "CBC",
+      "type": "json",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "GLUKOZ": {
+      "key": "GLUKOZ",
+      "name": "Açlık Kan Şekeri",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        70,
+        100
+      ],
+      "refRangeFemale": [
+        70,
+        100
+      ],
+      "pathologyDiagnoses": [
+        "tip-2-diyabet",
+        "hipoglisemi",
+        "diyabetik-noropati"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "HBA1C": {
+      "key": "HBA1C",
+      "name": "HbA1c (Glikozile Hemoglobin)",
+      "unit": "%",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        4,
+        5.7
+      ],
+      "refRangeFemale": [
+        4,
+        5.7
+      ],
+      "pathologyDiagnoses": [
+        "tip-2-diyabet",
+        "diyabetik-noropati"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "KREATININ": {
+      "key": "KREATININ",
+      "name": "Serum Kreatinin",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0.7,
+        1.3
+      ],
+      "refRangeFemale": [
+        0.7,
+        1.3
+      ],
+      "pathologyDiagnoses": [
+        "kbh",
+        "abh",
+        "nefrotik-sendrom",
+        "ckd-ev3",
+        "kalp-yetmezligi"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "URE": {
+      "key": "URE",
+      "name": "Kan Üre Azotu (BUN)",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        7,
+        20
+      ],
+      "refRangeFemale": [
+        7,
+        20
+      ],
+      "pathologyDiagnoses": [
+        "kbh",
+        "abh",
+        "ckd-ev3"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "ELEKTROLIT": {
+      "key": "ELEKTROLIT",
+      "name": "Serum Elektrolitleri (Na/K)",
+      "unit": "panel",
+      "category": "lab",
+      "resultKind": "panel",
+      "panel": "BMP",
+      "type": "json",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [
+        "kbh",
+        "abh",
+        "nefrotik-sendrom",
+        "ckd-ev3"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "AST": {
+      "key": "AST",
+      "name": "AST (SGOT)",
+      "unit": "U/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        10,
+        40
+      ],
+      "refRangeFemale": [
+        10,
+        40
+      ],
+      "pathologyDiagnoses": [
+        "hepatit-b"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "ALT": {
+      "key": "ALT",
+      "name": "ALT (SGPT)",
+      "unit": "U/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        10,
+        40
+      ],
+      "refRangeFemale": [
+        10,
+        40
+      ],
+      "pathologyDiagnoses": [
+        "hepatit-b"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "TSH": {
+      "key": "TSH",
+      "name": "TSH (Tiroid Stimülan Hormon)",
+      "unit": "mIU/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0.4,
+        4
+      ],
+      "refRangeFemale": [
+        0.4,
+        4
+      ],
+      "pathologyDiagnoses": [
+        "hipotiroidi",
+        "hipertiroidi"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "T4": {
+      "key": "T4",
+      "name": "Serbest T4",
+      "unit": "ng/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0.8,
+        1.8
+      ],
+      "refRangeFemale": [
+        0.8,
+        1.8
+      ],
+      "pathologyDiagnoses": [
+        "hipotiroidi",
+        "hipertiroidi"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "CRP": {
+      "key": "CRP",
+      "name": "C-Reaktif Protein (CRP)",
+      "unit": "mg/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        5
+      ],
+      "refRangeFemale": [
+        0,
+        5
+      ],
+      "pathologyDiagnoses": [
+        "pnomoni",
+        "koah",
+        "tbc",
+        "akut-bronsit",
+        "iye"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "TROPONIN": {
+      "key": "TROPONIN",
+      "name": "Troponin I",
+      "unit": "ng/mL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0.04
+      ],
+      "refRangeFemale": [
+        0,
+        0.04
+      ],
+      "pathologyDiagnoses": [
+        "stemi",
+        "nstemi",
+        "stabil-angina"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "BNP": {
+      "key": "BNP",
+      "name": "BNP (Beyin Natriüretik Peptid)",
+      "unit": "pg/mL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        100
+      ],
+      "refRangeFemale": [
+        0,
+        100
+      ],
+      "pathologyDiagnoses": [
+        "kalp-yetmezligi"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "KOLESTEROL": {
+      "key": "KOLESTEROL",
+      "name": "Lipid Panel",
+      "unit": "panel",
+      "category": "lab",
+      "resultKind": "panel",
+      "panel": "LIPID",
+      "type": "json",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [
+        "tip-2-diyabet"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "IDRAR": {
+      "key": "IDRAR",
+      "name": "Tam İdrar Tetkiki",
+      "unit": "panel",
+      "category": "lab",
+      "resultKind": "panel",
+      "panel": "UA",
+      "type": "json",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [
+        "tip-2-diyabet",
+        "kbh",
+        "abh",
+        "nefrotik-sendrom",
+        "iye",
+        "ckd-ev3"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "FERITIN": {
+      "key": "FERITIN",
+      "name": "Ferritin",
+      "unit": "ng/mL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        15,
+        150
+      ],
+      "refRangeFemale": [
+        15,
+        150
+      ],
+      "pathologyDiagnoses": [
+        "demir-eksikligi-anemisi"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "DEMIR": {
+      "key": "DEMIR",
+      "name": "Serum Demir + TDBK",
+      "unit": "mcg/dL",
+      "category": "lab",
+      "resultKind": "panel",
+      "panel": "DEMIR",
+      "type": "json",
+      "refRangeMale": [
+        60,
+        170
+      ],
+      "refRangeFemale": [
+        60,
+        170
+      ],
+      "pathologyDiagnoses": [
+        "demir-eksikligi-anemisi"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "D_DIMER": {
+      "key": "D_DIMER",
+      "name": "D-Dimer",
+      "unit": "ng/mL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        50,
+        450
+      ],
+      "refRangeFemale": [
+        50,
+        450
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "PT": {
+      "key": "PT",
+      "name": "PT / INR",
+      "unit": "sn",
+      "category": "lab",
+      "resultKind": "panel",
+      "panel": "KOAG",
+      "type": "json",
+      "refRangeMale": [
+        11,
+        14
+      ],
+      "refRangeFemale": [
+        11,
+        14
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "PTT": {
+      "key": "PTT",
+      "name": "aPTT",
+      "unit": "sn",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        25,
+        38
+      ],
+      "refRangeFemale": [
+        25,
+        38
+      ],
+      "pathologyDiagnoses": [
+        "hemofili-a"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "ABG": {
+      "key": "ABG",
+      "name": "Arteriyel Kan Gazı",
+      "unit": "panel",
+      "category": "lab",
+      "resultKind": "panel",
+      "panel": "ABG",
+      "type": "json",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [
+        "koah",
+        "astim",
+        "pnomoni"
+      ],
+      "generationStrategy": "depends_on_profile",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "WBC": {
+      "key": "WBC",
+      "name": "Lökosit",
+      "unit": "K/uL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        4,
+        11
+      ],
+      "refRangeFemale": [
+        4,
+        11
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "RBC": {
+      "key": "RBC",
+      "name": "Eritrosit",
+      "unit": "M/uL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        4.2,
+        5.9
+      ],
+      "refRangeFemale": [
+        4.2,
+        5.9
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "HGB": {
+      "key": "HGB",
+      "name": "Hemoglobin",
+      "unit": "g/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        12,
+        16
+      ],
+      "refRangeFemale": [
+        12,
+        16
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "HCT": {
+      "key": "HCT",
+      "name": "Hematokrit",
+      "unit": "%",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        36,
+        48
+      ],
+      "refRangeFemale": [
+        36,
+        48
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "MCV": {
+      "key": "MCV",
+      "name": "MCV",
+      "unit": "fL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        80,
+        100
+      ],
+      "refRangeFemale": [
+        80,
+        100
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "PLT": {
+      "key": "PLT",
+      "name": "Trombosit",
+      "unit": "K/uL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        150,
+        450
+      ],
+      "refRangeFemale": [
+        150,
+        450
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "NEUT": {
+      "key": "NEUT",
+      "name": "Nötrofil",
+      "unit": "%",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        40,
+        75
+      ],
+      "refRangeFemale": [
+        40,
+        75
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "LYMPH": {
+      "key": "LYMPH",
+      "name": "Lenfosit",
+      "unit": "%",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        20,
+        45
+      ],
+      "refRangeFemale": [
+        20,
+        45
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "EOS": {
+      "key": "EOS",
+      "name": "Eozinofil",
+      "unit": "%",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        6
+      ],
+      "refRangeFemale": [
+        0,
+        6
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "INR": {
+      "key": "INR",
+      "name": "INR",
+      "unit": "",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0.9,
+        1.2
+      ],
+      "refRangeFemale": [
+        0.9,
+        1.2
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "FIBRINOGEN": {
+      "key": "FIBRINOGEN",
+      "name": "Fibrinojen",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        200,
+        400
+      ],
+      "refRangeFemale": [
+        200,
+        400
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "DDIMER": {
+      "key": "DDIMER",
+      "name": "D-Dimer",
+      "unit": "ng/mL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        500
+      ],
+      "refRangeFemale": [
+        0,
+        500
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "CKMB": {
+      "key": "CKMB",
+      "name": "CK-MB",
+      "unit": "ng/mL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        5
+      ],
+      "refRangeFemale": [
+        0,
+        5
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "MYOGLOBIN": {
+      "key": "MYOGLOBIN",
+      "name": "Miyoglobin",
+      "unit": "ng/mL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        90
+      ],
+      "refRangeFemale": [
+        0,
+        90
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "ALP": {
+      "key": "ALP",
+      "name": "Alkalen Fosfataz",
+      "unit": "U/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        40,
+        130
+      ],
+      "refRangeFemale": [
+        40,
+        130
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "GGT": {
+      "key": "GGT",
+      "name": "GGT",
+      "unit": "U/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        5,
+        40
+      ],
+      "refRangeFemale": [
+        5,
+        40
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "TBIL": {
+      "key": "TBIL",
+      "name": "Total Bilirubin",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0.3,
+        1.2
+      ],
+      "refRangeFemale": [
+        0.3,
+        1.2
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "DBIL": {
+      "key": "DBIL",
+      "name": "Direkt Bilirubin",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0.3
+      ],
+      "refRangeFemale": [
+        0,
+        0.3
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "ALBUMIN": {
+      "key": "ALBUMIN",
+      "name": "Albumin",
+      "unit": "g/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        3.5,
+        5
+      ],
+      "refRangeFemale": [
+        3.5,
+        5
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "BUN": {
+      "key": "BUN",
+      "name": "BUN (Kan Üre Azotu)",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        7,
+        20
+      ],
+      "refRangeFemale": [
+        7,
+        20
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "GFR": {
+      "key": "GFR",
+      "name": "eGFR",
+      "unit": "mL/dk",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        90,
+        120
+      ],
+      "refRangeFemale": [
+        90,
+        120
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "URIC_ACID": {
+      "key": "URIC_ACID",
+      "name": "Ürik Asit",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        3.5,
+        7.2
+      ],
+      "refRangeFemale": [
+        3.5,
+        7.2
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "NA": {
+      "key": "NA",
+      "name": "Sodyum",
+      "unit": "mmol/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        135,
+        145
+      ],
+      "refRangeFemale": [
+        135,
+        145
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "K": {
+      "key": "K",
+      "name": "Potasyum",
+      "unit": "mmol/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        3.5,
+        5.1
+      ],
+      "refRangeFemale": [
+        3.5,
+        5.1
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "CL": {
+      "key": "CL",
+      "name": "Klor",
+      "unit": "mmol/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        98,
+        107
+      ],
+      "refRangeFemale": [
+        98,
+        107
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "CA": {
+      "key": "CA",
+      "name": "Kalsiyum",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        8.5,
+        10.5
+      ],
+      "refRangeFemale": [
+        8.5,
+        10.5
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "MG": {
+      "key": "MG",
+      "name": "Magnezyum",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        1.7,
+        2.2
+      ],
+      "refRangeFemale": [
+        1.7,
+        2.2
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "PHOS": {
+      "key": "PHOS",
+      "name": "Fosfor",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        2.5,
+        4.5
+      ],
+      "refRangeFemale": [
+        2.5,
+        4.5
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "LACTATE": {
+      "key": "LACTATE",
+      "name": "Laktat",
+      "unit": "mmol/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0.5,
+        2.2
+      ],
+      "refRangeFemale": [
+        0.5,
+        2.2
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "AMMONIA": {
+      "key": "AMMONIA",
+      "name": "Amonyak",
+      "unit": "mcg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        15,
+        45
+      ],
+      "refRangeFemale": [
+        15,
+        45
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "CHOL": {
+      "key": "CHOL",
+      "name": "Total Kolesterol",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        200
+      ],
+      "refRangeFemale": [
+        0,
+        200
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "LDL": {
+      "key": "LDL",
+      "name": "LDL Kolesterol",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        130
+      ],
+      "refRangeFemale": [
+        0,
+        130
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "HDL": {
+      "key": "HDL",
+      "name": "HDL Kolesterol",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        40,
+        60
+      ],
+      "refRangeFemale": [
+        40,
+        60
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "TRIG": {
+      "key": "TRIG",
+      "name": "Trigliserit",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        150
+      ],
+      "refRangeFemale": [
+        0,
+        150
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "ESR": {
+      "key": "ESR",
+      "name": "Sedimentasyon",
+      "unit": "mm/saat",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        20
+      ],
+      "refRangeFemale": [
+        0,
+        20
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "PROCT": {
+      "key": "PROCT",
+      "name": "Prokalsitonin",
+      "unit": "ng/mL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0.5
+      ],
+      "refRangeFemale": [
+        0,
+        0.5
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "AMILAZ": {
+      "key": "AMILAZ",
+      "name": "Amilaz",
+      "unit": "U/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        30,
+        110
+      ],
+      "refRangeFemale": [
+        30,
+        110
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "LIPAZ": {
+      "key": "LIPAZ",
+      "name": "Lipaz",
+      "unit": "U/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        10,
+        60
+      ],
+      "refRangeFemale": [
+        10,
+        60
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "FT4": {
+      "key": "FT4",
+      "name": "Serbest T4",
+      "unit": "ng/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0.8,
+        1.8
+      ],
+      "refRangeFemale": [
+        0.8,
+        1.8
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "FT3": {
+      "key": "FT3",
+      "name": "Serbest T3",
+      "unit": "pg/mL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        2.3,
+        4.2
+      ],
+      "refRangeFemale": [
+        2.3,
+        4.2
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "PH": {
+      "key": "PH",
+      "name": "pH (ABG)",
+      "unit": "",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        7.35,
+        7.45
+      ],
+      "refRangeFemale": [
+        7.35,
+        7.45
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "PCO2": {
+      "key": "PCO2",
+      "name": "pCO2",
+      "unit": "mmHg",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        35,
+        45
+      ],
+      "refRangeFemale": [
+        35,
+        45
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "PO2": {
+      "key": "PO2",
+      "name": "pO2",
+      "unit": "mmHg",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        80,
+        100
+      ],
+      "refRangeFemale": [
+        80,
+        100
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "HCO3": {
+      "key": "HCO3",
+      "name": "HCO3",
+      "unit": "mmol/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        22,
+        26
+      ],
+      "refRangeFemale": [
+        22,
+        26
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "U_PH": {
+      "key": "U_PH",
+      "name": "İdrar pH",
+      "unit": "",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        5,
+        8
+      ],
+      "refRangeFemale": [
+        5,
+        8
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "U_SG": {
+      "key": "U_SG",
+      "name": "İdrar Dansite",
+      "unit": "",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        1.005,
+        1.03
+      ],
+      "refRangeFemale": [
+        1.005,
+        1.03
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "U_PROTEIN": {
+      "key": "U_PROTEIN",
+      "name": "İdrar Protein",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        15
+      ],
+      "refRangeFemale": [
+        0,
+        15
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "U_GLUKOZ": {
+      "key": "U_GLUKOZ",
+      "name": "İdrar Glukoz",
+      "unit": "mg/dL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        15
+      ],
+      "refRangeFemale": [
+        0,
+        15
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "AKCIGER_GRAFISI": {
+      "key": "AKCIGER_GRAFISI",
+      "name": "PA Akciğer Grafisi",
+      "unit": "rapor",
+      "category": "imaging",
+      "resultKind": "report",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "never_generate",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "BIYOPSI": {
+      "key": "BIYOPSI",
+      "name": "Biyopsi",
+      "unit": "rapor",
+      "category": "procedure",
+      "resultKind": "report",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "never_generate",
+      "visibility": "hidden",
+      "tier": "advanced"
+    },
+    "BT_TORAKS": {
+      "key": "BT_TORAKS",
+      "name": "Toraks BT",
+      "unit": "rapor",
+      "category": "imaging",
+      "resultKind": "report",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "never_generate",
+      "visibility": "hidden",
+      "tier": "advanced"
+    },
+    "EKG": {
+      "key": "EKG",
+      "name": "EKG (12 Derivasyon)",
+      "unit": "rapor",
+      "category": "lab",
+      "resultKind": "report",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "never_generate",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "MAMOGRAFI": {
+      "key": "MAMOGRAFI",
+      "name": "Mamografi",
+      "unit": "rapor",
+      "category": "imaging",
+      "resultKind": "report",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "never_generate",
+      "visibility": "hidden",
+      "tier": "advanced"
+    },
+    "MEME_USG": {
+      "key": "MEME_USG",
+      "name": "Meme Ultrasonografisi",
+      "unit": "rapor",
+      "category": "imaging",
+      "resultKind": "report",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "never_generate",
+      "visibility": "hidden",
+      "tier": "advanced"
+    },
+    "USG_ABDOMEN": {
+      "key": "USG_ABDOMEN",
+      "name": "USG Abdomen",
+      "unit": "rapor",
+      "category": "imaging",
+      "resultKind": "report",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "never_generate",
+      "visibility": "hidden",
+      "tier": "advanced"
+    },
+    "BT_ABDOMEN": {
+      "key": "BT_ABDOMEN",
+      "name": "BT Abdomen",
+      "unit": "rapor",
+      "category": "imaging",
+      "resultKind": "report",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "never_generate",
+      "visibility": "hidden",
+      "tier": "advanced"
+    },
+    "BT_KRANIYAL": {
+      "key": "BT_KRANIYAL",
+      "name": "BT Kraniyal",
+      "unit": "rapor",
+      "category": "imaging",
+      "resultKind": "report",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "never_generate",
+      "visibility": "hidden",
+      "tier": "advanced"
+    },
+    "PELVIK_USG": {
+      "key": "PELVIK_USG",
+      "name": "Pelvik USG",
+      "unit": "rapor",
+      "category": "imaging",
+      "resultKind": "report",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "never_generate",
+      "visibility": "hidden",
+      "tier": "advanced"
+    },
+    "BHCG": {
+      "key": "BHCG",
+      "name": "Beta-HCG",
+      "unit": "mIU/mL",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        5
+      ],
+      "refRangeFemale": [
+        0,
+        5
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "KREATININ_KINAZ": {
+      "key": "KREATININ_KINAZ",
+      "name": "Kreatinin Kinaz",
+      "unit": "U/L",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": [
+        30,
+        200
+      ],
+      "refRangeFemale": [
+        30,
+        200
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    },
+    "KARACIGER_ENZIM": {
+      "key": "KARACIGER_ENZIM",
+      "name": "Karaciğer Enzimleri",
+      "unit": "panel",
+      "category": "lab",
+      "resultKind": "panel",
+      "panel": "LFT",
+      "type": "numeric",
+      "refRangeMale": [
+        0,
+        0
+      ],
+      "refRangeFemale": [
+        0,
+        0
+      ],
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_default",
+      "tier": "core"
+    },
+    "GOZ_BASINCI": {
+      "key": "GOZ_BASINCI",
+      "name": "Göz İçi Basıncı",
+      "unit": "",
+      "category": "lab",
+      "resultKind": "numeric",
+      "panel": null,
+      "type": "numeric",
+      "refRangeMale": null,
+      "refRangeFemale": null,
+      "pathologyDiagnoses": [],
+      "generationStrategy": "always_normal",
+      "visibility": "visible_advanced",
+      "tier": "branch"
+    }
+  },
+  "usage": [
+    {
+      "testKey": "EKG",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "TROPONIN",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "CBC",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "BT_TORAKS",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "KOLESTEROL",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "GLUKOZ",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "BNP",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "AKCIGER_GRAFISI",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "KREATININ",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "HBA1C",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "IDRAR",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "TSH",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "T4",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "CRP",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "ABG",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "URE",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "ELEKTROLIT",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "USG_ABDOMEN",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "MAMOGRAFI",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "MEME_USG",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "BIYOPSI",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "KARACIGER_ENZIM",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "FERITIN",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "DEMIR",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "PTT",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "GOZ_BASINCI",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "KREATININ_KINAZ",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "BHCG",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "PELVIK_USG",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "BT_KRANIYAL",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    },
+    {
+      "testKey": "BT_ABDOMEN",
+      "usedInRubric": true,
+      "usedInStatic": true,
+      "usedInCatalogue": true,
+      "vakaIds": []
+    }
+  ],
+  "unknownKeys": []
+}

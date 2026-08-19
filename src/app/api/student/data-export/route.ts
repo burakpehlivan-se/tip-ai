@@ -3,7 +3,8 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { getStudentSessionFromRequest } from "@/lib/student/auth";
-import { findUserById, findUserByUsername, authUserStoreMode } from "@/lib/auth/runtime-user-store";
+import { findUserById, findUserByUsername } from "@/lib/auth/runtime-user-store";
+import { storeMode } from "@/lib/store-mode";
 import { buildStudentLearningExport } from "@/lib/student/progress";
 import { appendLog } from "@/lib/admin/store";
 import { recordAuthEvent } from "@/lib/auth/audit";
@@ -64,7 +65,7 @@ export async function GET(req: NextRequest) {
 
   // Audit yalnızca olay türü, kullanıcı ve zaman bilgisi tutar; export gövdesi,
   // bağlantı bilgisi veya serbest metin loglara yazılmaz.
-  if (authUserStoreMode() === "postgres") {
+  if (storeMode() === "postgres") {
     await recordAuthEvent({ event: "student_data_exported", username: user.username, role: user.role, actor: user.username });
   } else {
     appendLog({

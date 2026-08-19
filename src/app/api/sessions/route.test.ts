@@ -10,7 +10,7 @@ import { createStudentSessionToken, STUDENT_SESSION_COOKIE } from "@/lib/student
 const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), "tip-ai-sessions-route-test-"));
 const oldCwd = process.cwd();
 const oldPassword = process.env.ADMIN_PASSWORD;
-const oldAuthStore = process.env.AUTH_USER_STORE;
+const oldAuthStore = process.env.STORE_MODE;
 
 function request(method: "GET" | "POST", token: string): NextRequest {
   return new NextRequest("http://localhost/api/sessions", {
@@ -25,7 +25,7 @@ describe("merkezi oturum uçları JSON geri dönüş modunda", () => {
   beforeAll(async () => {
     process.chdir(tmpDir);
     process.env.ADMIN_PASSWORD = "test-admin-password";
-    delete process.env.AUTH_USER_STORE;
+    delete process.env.STORE_MODE;
     const student = registerStudent({ username: "oturum.api", password: "sifre123" });
     token = await createStudentSessionToken(student.username, student.id);
   });
@@ -33,8 +33,8 @@ describe("merkezi oturum uçları JSON geri dönüş modunda", () => {
   afterAll(() => {
     if (oldPassword === undefined) delete process.env.ADMIN_PASSWORD;
     else process.env.ADMIN_PASSWORD = oldPassword;
-    if (oldAuthStore === undefined) delete process.env.AUTH_USER_STORE;
-    else process.env.AUTH_USER_STORE = oldAuthStore;
+    if (oldAuthStore === undefined) delete process.env.STORE_MODE;
+    else process.env.STORE_MODE = oldAuthStore;
     process.chdir(oldCwd);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
