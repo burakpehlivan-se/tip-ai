@@ -13,7 +13,7 @@ const config = [
     },
   },
   {
-    ignores: [".playwright-mcp/**", "data/**", "prisma/data/**"],
+    ignores: [".playwright-mcp/**", "data/**", "prisma/data/**", ".next/**", "playwright-report/**", "test-results/**"],
   },
 ];
 

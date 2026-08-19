@@ -289,7 +289,7 @@ export default function AdminShell({ children }: { children: ReactNode }) {
       {skipLink}
       <header className="sticky top-0 z-40 border-b border-hairline bg-canvas/95 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
-          <div className="flex items-center gap-4">
+          <div className="flex min-w-0 items-center gap-4">
             <Link href="/admin/panel" className="shrink-0 text-sm font-semibold tracking-tight">
               tıp<span className="text-brand">_ai</span>{" "}
               <span className="text-muted font-normal">panel</span>

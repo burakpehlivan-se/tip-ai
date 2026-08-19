@@ -19,7 +19,9 @@ test.describe("öğrenci kritik yolculuğu", () => {
     await expect(page).toHaveURL(/\/profilim$/);
     await expect(page.getByRole("heading", { name: "E2E Öğrencisi" })).toBeVisible();
 
+    await page.goto("/ayarlar");
     const privacySection = page.locator('section[aria-labelledby="ilgili-kisi-talepleri"]');
+    await expect(privacySection).toBeVisible();
     page.once("dialog", (dialog) => dialog.accept());
     await privacySection.getByRole("button", { name: "Talep oluştur" }).first().click();
     await expect(privacySection.getByRole("status")).toContainText("Talebiniz kayda alındı");
@@ -29,6 +31,7 @@ test.describe("öğrenci kritik yolculuğu", () => {
     expect([401, 403]).toContain(adminStatus);
 
     await page.goto("/poliklinik/kardiyoloji");
+    await page.getByRole("button", { name: "Vakayı Başlat" }).click();
     const questionInput = page.getByLabel("Hastaya soru sor");
     await expect(questionInput).toBeVisible();
 

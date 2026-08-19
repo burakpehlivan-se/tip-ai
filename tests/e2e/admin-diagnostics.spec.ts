@@ -33,7 +33,7 @@ test.describe("admin sistem tanısı", () => {
       expect(hasNoPageOverflow).toBe(true);
     }
 
-    const refresh = page.getByRole("button", { name: "Durumu yenile" });
+    const refresh = page.getByRole("button", { name: "Şimdi yenile" });
     await refresh.focus();
     await expect(refresh).toBeFocused();
     const response = page.waitForResponse(
