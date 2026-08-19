@@ -11,6 +11,7 @@ async function getEkgTestResultForUrl(
   imageUrl: string,
   includeFindingLabel: boolean
 ): Promise<TestSonucu | null> {
+  if (!process.env.DATABASE_URL) return null;
   const [source] = await getDb()
     .select({ imageIndex: ekgSources.imageIndex, findingLabel: ekgSources.findingLabel })
     .from(ekgSources)
@@ -35,6 +36,7 @@ async function getEkgTestResultForUrl(
 }
 
 export async function hasEkgTest(caseId: string): Promise<boolean> {
+  if (!process.env.DATABASE_URL) return false;
   const [source] = await getDb()
     .select({ caseId: ekgSources.caseId })
     .from(ekgSources)

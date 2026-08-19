@@ -21,12 +21,12 @@ test.describe("admin sistem tanısı", () => {
       await page.goto("/admin/panel/diagnostics");
 
       await expect(page.getByRole("heading", { name: "Sistem tanısı" })).toBeVisible();
-      await expect(page.getByText("Çalışma zamanı depoları", { exact: true })).toBeVisible();
-      await expect(page.getByText("Hazır", { exact: true })).toBeVisible();
+      await expect(page.getByText("Kimlik deposu", { exact: true })).toBeVisible();
+      await expect(page.getByText("Tümü çalışıyor", { exact: true })).toBeVisible();
       const navigation = page.getByRole("navigation", {
         name: viewport.width < 1024 ? "Mobil panel gezinme" : "Panel gezinme",
       });
-      await expect(navigation.getByRole("link", { name: "Sistem" })).toHaveAttribute("aria-current", "page");
+      await expect(navigation.getByRole("link", { name: "Sistem Tanısı" })).toHaveAttribute("aria-current", "page");
       const hasNoPageOverflow = await page.locator("html").evaluate(
         (element) => element.scrollWidth <= window.innerWidth
       );
@@ -42,6 +42,6 @@ test.describe("admin sistem tanısı", () => {
     );
     await refresh.click();
     await expect((await response).status()).toBe(200);
-    await expect(page.getByText("Hazır", { exact: true })).toBeVisible();
+    await expect(page.getByText("Tümü çalışıyor", { exact: true })).toBeVisible();
   });
 });

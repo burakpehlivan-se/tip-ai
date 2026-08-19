@@ -11,6 +11,7 @@ async function getRadiologyTestResultForUrl(
   imageUrl: string,
   includeFindingLabel: boolean
 ): Promise<TestSonucu | null> {
+  if (!process.env.DATABASE_URL) return null;
   const [source] = await getDb()
     .select({ imageIndex: radiologySources.imageIndex, findingLabel: radiologySources.findingLabel })
     .from(radiologySources)
@@ -35,6 +36,7 @@ async function getRadiologyTestResultForUrl(
 }
 
 export async function hasRadiologyTest(caseId: string): Promise<boolean> {
+  if (!process.env.DATABASE_URL) return false;
   const [source] = await getDb()
     .select({ caseId: radiologySources.caseId })
     .from(radiologySources)
