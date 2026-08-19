@@ -23,13 +23,17 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
 
   const [grouped, store] = await Promise.all([listRuntimeCasesGrouped(), loadRuntimeCasesStore()]);
-  const groupedWithVakaNo = grouped.map((g) => ({
-    ...g,
-    cases: g.cases.map((c) => ({
-      ...c,
-      vakaNo: vakaNoFromCaseId(c.id),
-    })),
-  }));
+  const groupedWithVakaNo = await Promise.all(
+    grouped.map(async (g) => ({
+      ...g,
+      cases: await Promise.all(
+        g.cases.map(async (c) => ({
+          ...c,
+          vakaNo: await vakaNoFromCaseId(c.id),
+        }))
+      ),
+    }))
+  );
   return NextResponse.json({
     grouped: groupedWithVakaNo,
     total: store.cases.length,

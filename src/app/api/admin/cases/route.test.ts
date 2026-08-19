@@ -3,7 +3,7 @@ import fs from "fs";
 import os from "os";
 import path from "path";
 import { NextRequest } from "next/server";
-import { POST } from "./route";
+import { GET, POST } from "./route";
 import { PATCH } from "./[id]/route";
 import { POST as reviewCase } from "./[id]/review/route";
 import { createSessionToken } from "@/lib/admin/auth";
@@ -94,6 +94,22 @@ describe("admin case write routes", () => {
 
     expect(response.status).toBe(401);
     expect(await response.json()).toEqual({ error: "Yetkisiz" });
+  });
+
+  it("returns string vaka numbers for listed cases instead of promise objects", async () => {
+    await createDraft();
+    const req = new NextRequest("http://localhost/api/admin/cases", {
+      headers: new Headers({ cookie: `tip_ai_admin_session=${adminToken()}` }),
+    });
+    const response = await GET(req);
+    expect(response.status).toBe(200);
+    const body = await response.json();
+    expect(body.grouped.length).toBeGreaterThan(0);
+    for (const group of body.grouped) {
+      for (const caseItem of group.cases) {
+        expect(caseItem.vakaNo).toEqual(expect.stringMatching(/^\d{4}$/));
+      }
+    }
   });
 
   it("returns field issues instead of storing a malformed privileged patch", async () => {
