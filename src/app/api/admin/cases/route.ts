@@ -15,7 +15,6 @@ import {
 import { AdminVaka, normalizeAdminVaka } from "@/lib/admin/types";
 import { parseCreateCaseInput } from "@/lib/admin/case-input";
 import { getRequestId, logger } from "@/lib/logger";
-import { vakaNoFromCaseId } from "@/lib/vaka-no";
 
 export async function GET(req: NextRequest) {
   const session = await getSessionFromRequest(req);
@@ -23,17 +22,15 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
 
   const [grouped, store] = await Promise.all([listRuntimeCasesGrouped(), loadRuntimeCasesStore()]);
-  const groupedWithVakaNo = await Promise.all(
-    grouped.map(async (g) => ({
-      ...g,
-      cases: await Promise.all(
-        g.cases.map(async (c) => ({
-          ...c,
-          vakaNo: await vakaNoFromCaseId(c.id),
-        }))
-      ),
-    }))
-  );
+  // Vaka numaraları grup sırası + grup içi sıraya göre tek geçişte üretilir;
+  // her vaka için ayrı sorgu atmak postgres modunda 535+ sorguya mal olurdu.
+  const groupedWithVakaNo = grouped.map((g, groupIndex) => ({
+    ...g,
+    cases: g.cases.map((c, caseIndex) => ({
+      ...c,
+      vakaNo: `${String(groupIndex + 1).padStart(2, "0")}${String(caseIndex + 1).padStart(2, "0")}`,
+    })),
+  }));
   return NextResponse.json({
     grouped: groupedWithVakaNo,
     total: store.cases.length,
