@@ -68,6 +68,8 @@ jobs:
         run: npm ci
 
       - name: Install Chromium
+        env:
+          PLAYWRIGHT_DOWNLOAD_TIMEOUT: 180000
         run: |
           attempts=0
           until npx playwright install --with-deps chromium; do
