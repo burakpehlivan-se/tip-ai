@@ -68,7 +68,17 @@ jobs:
         run: npm ci
 
       - name: Install Chromium
-        run: npx playwright install --with-deps chromium
+        run: |
+          attempts=0
+          until npx playwright install --with-deps chromium; do
+            attempts=$((attempts + 1))
+            if [ "$attempts" -ge 3 ]; then
+              echo "Playwright browser install failed after 3 attempts."
+              exit 1
+            fi
+            echo "Playwright browser install failed (attempt $attempts/3); retrying in 20s..."
+            sleep 20
+          done
 
       - name: Critical student journey
         run: npm run test:e2e
