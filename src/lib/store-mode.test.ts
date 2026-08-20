@@ -12,13 +12,13 @@ afterEach(() => {
 });
 
 describe("storeMode", () => {
-  it("tanımsız veya json değeriyle JSON deposunu seçer", () => {
-    expect(storeMode()).toBe("json");
-    expect(storeMode("")).toBe("json");
-    expect(storeMode("json")).toBe("json");
+  it("tanımsız, boş veya legacy json değeriyle postgres'e düşer", () => {
+    expect(storeMode()).toBe("postgres");
+    expect(storeMode("")).toBe("postgres");
+    expect(storeMode("json")).toBe("postgres");
   });
 
-  it("PostgreSQL'i yalnızca açık postgres değeriyle seçer", () => {
+  it("postgres değerini korur", () => {
     expect(storeMode("postgres")).toBe("postgres");
   });
 
@@ -48,9 +48,9 @@ describe("shouldUsePostgresStore", () => {
     expect(shouldUsePostgresStore("guest:abc-123")).toBe(false);
   });
 
-  it("gerçek kullanıcılar STORE_MODE'ya göre yönlendirilir", () => {
+  it("gerçek kullanıcılar her zaman postgres kullanır (json fallback)", () => {
     process.env.STORE_MODE = "json";
-    expect(shouldUsePostgresStore("ogrenci")).toBe(false);
+    expect(shouldUsePostgresStore("ogrenci")).toBe(true);
     process.env.STORE_MODE = "postgres";
     expect(shouldUsePostgresStore("ogrenci")).toBe(true);
   });

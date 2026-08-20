@@ -101,13 +101,11 @@ export async function createRuntimeSessionId(
   ttlMs = sessionPolicyForRole(role).absoluteTtlMs,
   deviceLabel?: string
 ): Promise<string | undefined> {
-  if (storeMode() === "json") return undefined;
   return (await createAuthSession({ userId, role, ttlMs, deviceLabel })).id;
 }
 
-/** Çıkışta merkezi kaydı iptal eder; JSON modunda eski cookie temizleme davranışı sürer. */
+/** Çıkışta merkezi kaydı iptal eder. */
 export async function revokeRuntimeSession(token: string | undefined | null): Promise<void> {
-  if (storeMode() === "json") return;
   const session = verifySessionToken(token);
   if (!session?.sessionId) return;
   await revokeAuthSession(session.sessionId);
