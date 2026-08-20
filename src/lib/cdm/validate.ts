@@ -6,6 +6,7 @@ import {
   CONDITION_VOCAB,
 } from "./vocabulary";
 import { isCdmGender, isCdmLevel, isCdmRecord } from "./validation-rules";
+import { validateCoreCommon } from "./validate-core";
 
 export interface CdmValidationIssue {
   level: "error" | "warn" | "info";

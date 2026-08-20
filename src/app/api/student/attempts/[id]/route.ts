@@ -12,6 +12,10 @@ import {
 import { ClinicalReasoningValidationError, normalizeClinicalReasoning } from "@/lib/student/clinical-reasoning";
 import { JsonStoreReadError } from "@/lib/admin/json-store";
 import { getRequestId, logger } from "@/lib/logger";
+import { clientRateLimitKey, rateLimitHeaders, takeRateLimit } from "@/lib/security/rate-limit";
+
+const ATTEMPT_MUTATION_WINDOW_MS = 60 * 1000;
+const ATTEMPT_MUTATION_IP_LIMIT = 60;
 
 const KEY = /^[\p{L}0-9_-]{1,80}$/u;
 const GUEST_COOKIE = "tip_ai_guest_attempt";
@@ -25,6 +29,19 @@ function attemptStoreUnavailable(req: NextRequest, error: unknown) {
 }
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+  const quota = await takeRateLimit({
+    namespace: "student-attempt-mutation:ip",
+    key: clientRateLimitKey(req),
+    limit: ATTEMPT_MUTATION_IP_LIMIT,
+    windowMs: ATTEMPT_MUTATION_WINDOW_MS,
+  });
+  if (!quota.allowed) {
+    return NextResponse.json(
+      { error: "Çok fazla istek. Lütfen kısa bir süre sonra tekrar deneyin." },
+      { status: 429, headers: rateLimitHeaders(quota) }
+    );
+  }
+  const headers = rateLimitHeaders(quota);
   const session = await getStudentSessionFromRequest(req);
   const actor = session?.username || (req.cookies.get(GUEST_COOKIE)?.value ? `guest:${req.cookies.get(GUEST_COOKIE)!.value}` : null);
   if (!actor) return NextResponse.json({ error: "Giriş yapmalısınız." }, { status: 401 });
@@ -34,17 +51,23 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   try {
     if (body.type === "ask" && typeof body.action === "string" && KEY.test(body.action)) {
       const yanit = await answerStudentAttempt(id, actor, body.action, session?.userId);
-      return yanit == null ? NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ yanit });
+      const res = yanit == null ? NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ yanit });
+      for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
+      return res;
     }
     if (body.type === "test" && typeof body.testKey === "string" && KEY.test(body.testKey)) {
       const sonuc = await requestStudentAttemptTest(id, actor, body.testKey, session?.userId);
-      return sonuc == null ? NextResponse.json({ error: "Test veya vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ sonuc });
+      const res = sonuc == null ? NextResponse.json({ error: "Test veya vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ sonuc });
+      for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
+      return res;
     }
     if (body.type === "reasoning") {
       const reasoning = normalizeClinicalReasoning(body.reasoning);
       if (!reasoning) return NextResponse.json({ error: "Klinik muhakeme bilgisi gerekli." }, { status: 400 });
       const saved = await saveStudentAttemptClinicalReasoning(id, actor, reasoning, session?.userId);
-      return saved ? NextResponse.json({ saved: true }) : NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 });
+      const res = saved ? NextResponse.json({ saved: true }) : NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 });
+      for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
+      return res;
     }
     if (
       body.type === "complete" &&
@@ -57,7 +80,9 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     ) {
       const reasoning = normalizeClinicalReasoning(body.reasoning);
       const sonuc = await completeStudentAttempt(id, actor, body.taniGirildi.trim(), body.tedaviGirildi.trim(), reasoning, session?.userId);
-      return sonuc == null ? NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ sonuc });
+      const res = sonuc == null ? NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ sonuc });
+      for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
+      return res;
     }
   } catch (error) {
     if (error instanceof JsonStoreReadError) return attemptStoreUnavailable(req, error);

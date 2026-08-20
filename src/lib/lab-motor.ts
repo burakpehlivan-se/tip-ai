@@ -9,19 +9,12 @@ import {
 } from "./lab-reference-library";
 
 // ═══════════════════════════════════════════════════
-// Rule engine erişimi — yalnızca sunucu (Node) tarafında
+// Rule engine — pure, no fs import. Server caller injects admin rules;
+// client (tarayıcı) uses FALLBACK_RULES. No dynamic require, so
+// client bundle never pulls `fs` / rule-engine-store.
 // ═══════════════════════════════════════════════════
-// rule-engine-store fs kullanır; client bundle'a girmemelidir.
-// Client'ta (tarayıcı) FALLBACK_RULES kullanılır, sunucuda admin
-// tarafından yönetilen gerçek kurallar okunur.
-function loadRuleStore(): typeof import("./admin/rule-engine-store") | null {
-  if (typeof process === "undefined" || !process.versions?.node) return null;
-  try {
-    return require("./admin/rule-engine-store") as typeof import("./admin/rule-engine-store");
-  } catch {
-    return null;
-  }
-}
+export type InjectedLabRules = Record<string, DiseaseRule[]>;
+export type InjectedAliases = Record<string, string>;
 
 // ═══════════════════════════════════════════════════
 // Layer 2: Rule Engine — disease → test tendency mapping
@@ -180,46 +173,42 @@ const FALLBACK_RULES: Record<string, DiseaseRule[]> = {
   ],
 };
 
-function getMergedRules(): Record<string, DiseaseRule[]> {
-  const store = loadRuleStore();
-  if (!store) return FALLBACK_RULES;
-  try {
-    const active = store.getActiveRules();
-    if (!active || active.length === 0) return FALLBACK_RULES;
-
-    const merged: Record<string, DiseaseRule[]> = {};
-    for (const r of active) {
-      if (!merged[r.testKey]) merged[r.testKey] = [];
-      merged[r.testKey].push({
-        disease: r.diseaseKey,
-        tendency: r.tendency as Tendency,
-        factor: r.factor,
-      });
-    }
-    return merged;
-  } catch {
-    return FALLBACK_RULES;
-  }
+function getMergedRules(injected?: InjectedLabRules): Record<string, DiseaseRule[]> {
+  return injected && Object.keys(injected).length > 0 ? injected : FALLBACK_RULES;
 }
 
-function getDiseaseAliases(): Record<string, string> {
-  const store = loadRuleStore();
-  if (!store) return {};
-  try {
-    return store.getActiveAliases();
-  } catch {
-    return {};
+function getDiseaseAliases(injected?: InjectedAliases): Record<string, string> {
+  return injected ?? {};
+}
+
+/** Server helper: admin rule-engine-store → lab-motor injectable shape */
+export function buildInjectedRules(
+  active: Array<{ testKey: string; diseaseKey: string; tendency: string; factor: number }>
+): InjectedLabRules {
+  const merged: Record<string, DiseaseRule[]> = {};
+  for (const r of active) {
+    if (!merged[r.testKey]) merged[r.testKey] = [];
+    merged[r.testKey].push({
+      disease: r.diseaseKey,
+      tendency: r.tendency as Tendency,
+      factor: r.factor,
+    });
   }
+  return merged;
 }
 
 // ═══════════════════════════════
 // Disease prevalence adjustments
 // ═══════════════════════════════
 
-function matchDisease(profile: ClinicalProfile): string | undefined {
+function matchDisease(
+  profile: ClinicalProfile,
+  injectedRules?: InjectedLabRules,
+  injectedAliases?: InjectedAliases
+): string | undefined {
   const { diagnoses, comorbidities, hastalikKey } = profile;
-  const rules = getMergedRules();
-  const aliasMap = getDiseaseAliases();
+  const rules = getMergedRules(injectedRules);
+  const aliasMap = getDiseaseAliases(injectedAliases);
 
   // Collect all disease keys that have rules
   const diseasesWithRules = new Set<string>();
@@ -261,7 +250,8 @@ function matchDisease(profile: ClinicalProfile): string | undefined {
 export function getLabResult(
   testKey: string,
   profile: ClinicalProfile,
-  statikTestler?: Record<string, TestSonucu>
+  statikTestler?: Record<string, TestSonucu>,
+  injected?: { rules?: InjectedLabRules; aliases?: InjectedAliases }
 ): TestSonucu | null {
   // ── Layer 1: Case-specific static override ──
   if (statikTestler?.[testKey]) {
@@ -269,8 +259,8 @@ export function getLabResult(
   }
 
   // ── Layer 2: Rule engine — disease → abnormal value ──
-  const disease = matchDisease(profile);
-  const rules = getMergedRules();
+  const disease = matchDisease(profile, injected?.rules, injected?.aliases);
+  const rules = getMergedRules(injected?.rules);
   const testRules = rules[testKey];
 
   if (disease && testRules) {
@@ -305,15 +295,17 @@ export function getLabResult(
 export function generateFullPanel(
   diagnosis: string,
   profile: ClinicalProfile,
-  existingTests?: Record<string, TestSonucu>
+  existingTests?: Record<string, TestSonucu>,
+  injected?: { rules?: InjectedLabRules; aliases?: InjectedAliases }
 ): Record<string, TestSonucu> {
   const panel: Record<string, TestSonucu> = { ...existingTests };
-  const canonDiagnosis = (getDiseaseAliases() || {})[diagnosis] || diagnosis;
+  const aliases = getDiseaseAliases(injected?.aliases);
+  const canonDiagnosis = aliases[diagnosis] || diagnosis;
   const relevantTests = HASTALIK_TEST_MAP[canonDiagnosis] || HASTALIK_TEST_MAP[diagnosis] || [];
 
   for (const testKey of relevantTests) {
     if (panel[testKey]) continue;
-    const result = getLabResult(testKey, profile);
+    const result = getLabResult(testKey, profile, undefined, injected);
     if (result) panel[testKey] = result;
   }
 

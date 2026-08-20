@@ -5,12 +5,8 @@
 
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
-import {
-  createSessionToken,
-  createRuntimeSessionId,
-  verifySessionToken,
-  sessionCookieOptions,
-} from "@/lib/admin/auth";
+import { createHmac, timingSafeEqual } from "crypto";
+import { createRuntimeSessionId, sessionCookieOptions, studentSecret } from "@/lib/admin/auth";
 import { storeMode } from "@/lib/store-mode";
 import { isAuthSessionActive } from "@/lib/auth/session-store";
 import { sessionPolicyForRole } from "@/lib/auth/session-policy";
@@ -20,21 +16,61 @@ import { authenticateUser, findUserById, findUserByUsername } from "@/lib/auth/r
 export const STUDENT_SESSION_COOKIE = "tip_ai_student_session";
 export const STUDENT_SESSION_TTL_MS = sessionPolicyForRole("ogrenci").absoluteTtlMs; // 12 saat
 
+function signStudent(payloadB64: string): string {
+  return createHmac("sha256", studentSecret()).update(payloadB64).digest("base64url");
+}
+
+function createStudentSessionTokenRaw(
+  username: string,
+  role: "ogrenci",
+  userId: string,
+  sessionId?: string
+): string {
+  const payload: SessionPayload = {
+    username,
+    role,
+    userId,
+    sessionId,
+    exp: Date.now() + STUDENT_SESSION_TTL_MS,
+  };
+  const payloadB64 = Buffer.from(JSON.stringify(payload), "utf8").toString("base64url");
+  const sig = signStudent(payloadB64);
+  return `${payloadB64}.${sig}`;
+}
+
 export async function createStudentSessionToken(
   username: string,
   userId: string,
   deviceLabel?: string
 ): Promise<string> {
   const sessionId = await createRuntimeSessionId(userId, "ogrenci", STUDENT_SESSION_TTL_MS, deviceLabel);
-  return createSessionToken(username, "ogrenci", userId, sessionId);
+  return createStudentSessionTokenRaw(username, "ogrenci", userId, sessionId);
 }
 
 export function verifyStudentSessionToken(
   token: string | undefined | null
 ): SessionPayload | null {
-  const session = verifySessionToken(token);
-  if (session && session.role !== "ogrenci") return null;
-  return session;
+  if (!token) return null;
+  const parts = token.split(".");
+  if (parts.length !== 2) return null;
+  const [payloadB64, sig] = parts;
+  const expected = signStudent(payloadB64);
+  try {
+    const a = Buffer.from(sig);
+    const b = Buffer.from(expected);
+    if (a.length !== b.length || !timingSafeEqual(a, b)) return null;
+  } catch {
+    return null;
+  }
+  try {
+    const payload = JSON.parse(Buffer.from(payloadB64, "base64url").toString("utf8")) as SessionPayload;
+    if (!payload.exp || payload.exp < Date.now()) return null;
+    if (!payload.username) return null;
+    if (payload.role !== "ogrenci") return null;
+    return payload;
+  } catch {
+    return null;
+  }
 }
 
 /**

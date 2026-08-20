@@ -22,7 +22,7 @@ export { getAdminCredentials };
 // geçersizleşir. Production bu yola hiçbir zaman düşmez.
 const DEV_SESSION_SECRET = randomBytes(32).toString("base64url");
 
-function secret(): string {
+export function adminSecret(): string {
   if (process.env.NODE_ENV === "production") {
     if (!process.env.ADMIN_SESSION_SECRET) {
       throw new Error(
@@ -38,8 +38,42 @@ function secret(): string {
   );
 }
 
+let studentSecretFallbackWarned = false;
+export function studentSecret(): string {
+  if (process.env.NODE_ENV === "production") {
+    if (process.env.STUDENT_SESSION_SECRET) return process.env.STUDENT_SESSION_SECRET;
+    if (process.env.ADMIN_SESSION_SECRET) {
+      if (!studentSecretFallbackWarned) {
+        studentSecretFallbackWarned = true;
+        console.warn(
+          "[auth] STUDENT_SESSION_SECRET missing in production, falling back to ADMIN_SESSION_SECRET (deprecated). Set explicit STUDENT_SESSION_SECRET for isolation."
+        );
+      }
+      return process.env.ADMIN_SESSION_SECRET;
+    }
+    throw new Error(
+      "STUDENT_SESSION_SECRET or ADMIN_SESSION_SECRET required in production for student sessions."
+    );
+  }
+  return (
+    process.env.STUDENT_SESSION_SECRET ||
+    process.env.ADMIN_SESSION_SECRET ||
+    process.env.ADMIN_PASSWORD ||
+    DEV_SESSION_SECRET
+  );
+}
+
+// Geriye uyum için eski secret() admin'e eşdeğer
+function secret(): string {
+  return adminSecret();
+}
+
 function sign(payloadB64: string): string {
   return createHmac("sha256", secret()).update(payloadB64).digest("base64url");
+}
+
+function signStudent(payloadB64: string): string {
+  return createHmac("sha256", studentSecret()).update(payloadB64).digest("base64url");
 }
 
 export function createSessionToken(

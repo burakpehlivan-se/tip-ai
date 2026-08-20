@@ -9,6 +9,10 @@ import { getRequestId, logger } from "@/lib/logger";
 import { hasRadiologyTest, RADIOLOGY_TEST_KEY, RADIOLOGY_TEST_NAME } from "@/lib/student/radiology-test";
 import { hasEkgTest, EKG_TEST_KEY, EKG_TEST_NAME } from "@/lib/student/ekg-test";
 import { caseIdFromVakaNo, parseVakaNo, vakaNoFromCaseId } from "@/lib/vaka-no";
+import { clientRateLimitKey, rateLimitHeaders, takeRateLimit } from "@/lib/security/rate-limit";
+
+const ATTEMPT_START_WINDOW_MS = 60 * 1000;
+const ATTEMPT_START_IP_LIMIT = 20;
 
 const GUEST_COOKIE = "tip_ai_guest_attempt";
 
@@ -79,6 +83,18 @@ export async function GET(req: NextRequest) {
 }
 
 export async function POST(req: NextRequest) {
+  const quota = await takeRateLimit({
+    namespace: "student-attempt-start:ip",
+    key: clientRateLimitKey(req),
+    limit: ATTEMPT_START_IP_LIMIT,
+    windowMs: ATTEMPT_START_WINDOW_MS,
+  });
+  if (!quota.allowed) {
+    return NextResponse.json(
+      { error: "Çok fazla vaka başlatma isteği. Lütfen kısa bir süre sonra tekrar deneyin." },
+      { status: 429, headers: rateLimitHeaders(quota) }
+    );
+  }
   const body = await req.json().catch(() => null);
   const session = await getStudentSessionFromRequest(req);
   const guest = body?.guest === true;
@@ -110,6 +126,7 @@ export async function POST(req: NextRequest) {
   if (!vaka) return NextResponse.json({ error: "Aktif vaka bulunamadı." }, { status: 404 });
   const sourceCaseId = await getStudentAttemptSourceCaseId(vaka.id, session?.username || `guest:${guestId}`, session?.userId);
   const response = NextResponse.json({ vaka, poliklinikKey, vakaNo: sourceCaseId ? await vakaNoFromCaseId(sourceCaseId) : null });
+  for (const [k, v] of Object.entries(rateLimitHeaders(quota))) response.headers.set(k, v);
   if (!session) response.cookies.set(GUEST_COOKIE, guestId, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 12 });
   return response;
 }

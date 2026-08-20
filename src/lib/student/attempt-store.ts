@@ -8,7 +8,7 @@ import { readJsonOrRecover, withJsonStoreLock, writeJsonAtomic } from "@/lib/adm
 import type { DegerlendirmeSonuc, TestSonucu, Vaka } from "@/lib/types";
 import { degerlendir } from "@/lib/scoring/degerlendir";
 import { hastaDilineCevir } from "@/lib/ai/hasta-dili";
-import { getLabResult } from "@/lib/lab-motor";
+import { buildInjectedRules, getLabResult } from "@/lib/lab-motor";
 import { getHastaTipiById, loadHastaTipleriStore, recordPlaySession } from "@/lib/admin/store";
 import { uslupDonustur } from "@/lib/ai/uslup-donusturucu";
 import { getRadiologyTestResult, RADIOLOGY_TEST_KEY } from "@/lib/student/radiology-test";
@@ -140,7 +140,20 @@ async function yanitHesapla(record: AttemptRecord, action: string): Promise<stri
 
 function attemptTest(record: AttemptRecord, testKey: string) {
   const { vaka } = record;
-  return vaka.statikTestler[testKey] || (vaka.profile ? getLabResult(testKey, vaka.profile, vaka.statikTestler) : null);
+  if (vaka.statikTestler[testKey]) return vaka.statikTestler[testKey];
+  if (!vaka.profile) return null;
+  let injected: { rules?: ReturnType<typeof buildInjectedRules>; aliases?: Record<string, string> } | undefined;
+  try {
+    if (typeof process !== "undefined" && process.versions?.node) {
+      const store = require("@/lib/admin/rule-engine-store") as typeof import("@/lib/admin/rule-engine-store");
+      const active = store.getActiveRules();
+      const aliases = store.getActiveAliases();
+      if (active.length) injected = { rules: buildInjectedRules(active), aliases };
+    }
+  } catch {
+    // fallback
+  }
+  return getLabResult(testKey, vaka.profile, vaka.statikTestler, injected);
 }
 
 function toResumableAttempt(record: AttemptRecord): ResumableAttemptCase {

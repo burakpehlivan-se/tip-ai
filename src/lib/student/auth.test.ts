@@ -92,4 +92,47 @@ describe("student auth", () => {
     updateUser(student.id, { active: false }, { username: "admin" });
     await expect(getCurrentStudentSession(token)).resolves.toBeNull();
   });
+
+  it("ayrı STUDENT_SESSION_SECRET varken admin sırrıyla imzalı öğrenci token'ı geçersizdir", async () => {
+    const oldAdmin = process.env.ADMIN_SESSION_SECRET;
+    const oldStudent = process.env.STUDENT_SESSION_SECRET;
+    const oldNode = (process.env as unknown as Record<string, string | undefined>).NODE_ENV;
+    (process.env as unknown as Record<string, string | undefined>).NODE_ENV = "production";
+    process.env.ADMIN_SESSION_SECRET = "admin-secret-12345678901234567890-aaa";
+    process.env.STUDENT_SESSION_SECRET = "student-secret-09876543210987654321-bbb";
+    try {
+      // admin sırrıyla öğrenci rolü token üret (saldırı simülasyonu) — doğrulanmamalı
+      const forged = createSessionToken("hacker", "ogrenci", "user_hacker");
+      expect(verifyStudentSessionToken(forged)).toBeNull();
+      // doğru öğrenci sırrıyla üretilen token geçerli
+      const valid = await createStudentSessionToken("ali.veli2", "user_456");
+      expect(verifyStudentSessionToken(valid)).not.toBeNull();
+      expect(valid).not.toBe(forged);
+    } finally {
+      if (oldAdmin === undefined) delete process.env.ADMIN_SESSION_SECRET;
+      else process.env.ADMIN_SESSION_SECRET = oldAdmin;
+      if (oldStudent === undefined) delete process.env.STUDENT_SESSION_SECRET;
+      else process.env.STUDENT_SESSION_SECRET = oldStudent;
+      (process.env as unknown as Record<string, string | undefined>).NODE_ENV = oldNode;
+    }
+  });
+
+  it("STUDENT_SESSION_SECRET yoksa admin sırrına fallback eder (geri uyum)", async () => {
+    const oldAdmin = process.env.ADMIN_SESSION_SECRET;
+    const oldStudent = process.env.STUDENT_SESSION_SECRET;
+    const oldNode = (process.env as unknown as Record<string, string | undefined>).NODE_ENV;
+    (process.env as unknown as Record<string, string | undefined>).NODE_ENV = "production";
+    process.env.ADMIN_SESSION_SECRET = "fallback-admin-secret-1234567890123456";
+    delete process.env.STUDENT_SESSION_SECRET;
+    try {
+      const token = await createStudentSessionToken("fallback.ogrenci", "user_fallback");
+      expect(verifyStudentSessionToken(token)).not.toBeNull();
+    } finally {
+      if (oldAdmin === undefined) delete process.env.ADMIN_SESSION_SECRET;
+      else process.env.ADMIN_SESSION_SECRET = oldAdmin;
+      if (oldStudent === undefined) delete process.env.STUDENT_SESSION_SECRET;
+      else process.env.STUDENT_SESSION_SECRET = oldStudent;
+      (process.env as unknown as Record<string, string | undefined>).NODE_ENV = oldNode;
+    }
+  });
 });

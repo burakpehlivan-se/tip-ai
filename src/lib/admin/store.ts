@@ -32,18 +32,11 @@ import {
 } from "./paths";
 import { seedCasesFromTemplates } from "./seed";
 import { upgradeAllCasesToCdm } from "../cdm/migrate";
-import { quarantineCorruptJson } from "./json-recovery";
 import { logger } from "../logger";
-import { withJsonStoreLock, writeJsonAtomic } from "./json-store";
+import { readJsonWithFallback, withJsonStoreLock, writeJsonAtomic } from "./json-store";
 
 function readJson<T>(file: string, fallback: T): T {
-  try {
-    if (!fs.existsSync(file)) return fallback;
-    return JSON.parse(fs.readFileSync(file, "utf8")) as T;
-  } catch (error) {
-    quarantineCorruptJson(file, error, "JSON veri deposu");
-    return fallback;
-  }
+  return readJsonWithFallback(file, fallback, "JSON veri deposu");
 }
 
 // ─── Yazma serileştirme ───

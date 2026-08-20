@@ -1,9 +1,24 @@
+import fs from "fs";
 import {
   checkAuthMigrationReadiness,
   checkCaseStoreMigrationReadiness,
 } from "@/lib/auth/migration-readiness";
 import { isShadowReadEnabled, storeMode } from "@/lib/store-mode";
 import { rateLimitStoreMode, type RateLimitStoreMode } from "@/lib/security/rate-limit";
+import { adminDataDir } from "@/lib/admin/paths";
+
+function checkJsonStoreReadiness(): boolean {
+  try {
+    const dir = adminDataDir();
+    fs.accessSync(dir, fs.constants.R_OK | fs.constants.W_OK);
+    // cases.json yoksa seed edilecek — var ise okunabilir olmalı
+    const casesFile = `${dir}/cases.json`;
+    if (fs.existsSync(casesFile)) fs.accessSync(casesFile, fs.constants.R_OK);
+    return true;
+  } catch {
+    return false;
+  }
+}
 
 export type HealthStatus = "ok" | "not_ready";
 
@@ -41,15 +56,16 @@ export async function getReadiness(): Promise<{ ready: boolean; payload: Readine
     const rateLimit = rateLimitStoreMode();
     const cases = storeMode();
     const caseShadowRead = isShadowReadEnabled();
+    const jsonReady = checkJsonStoreReadiness();
     if (store === "json" && rateLimit === "memory" && cases === "json") {
       return {
-        ready: true,
+        ready: jsonReady,
         payload: {
-          status: "ok",
+          status: jsonReady ? "ok" : "not_ready",
           auth: { store, migration: "not_required" },
-          attempts: { store: attempts, runtime: "ready" },
-          rateLimit: { store: rateLimit, runtime: "ready" },
-          cases: { store: cases, runtime: "ready", migration: "not_required", shadowRead: caseShadowRead },
+          attempts: { store: attempts, runtime: jsonReady ? "ready" : "not_ready" },
+          rateLimit: { store: rateLimit, runtime: jsonReady ? "ready" : "not_ready" },
+          cases: { store: cases, runtime: jsonReady ? "ready" : "not_ready", migration: "not_required", shadowRead: caseShadowRead },
         },
       };
     }
@@ -64,7 +80,8 @@ export async function getReadiness(): Promise<{ ready: boolean; payload: Readine
     const authReady = authReadiness?.ok ?? true;
     const rateLimitReady = rateLimit === "memory" || authReady;
     const casesReady = caseReadiness?.ok ?? true;
-    const ready = authReady && attemptsReady && rateLimitReady && casesReady;
+    const jsonNeeded = store === "json" || cases === "json" || attempts === "json";
+    const ready = authReady && attemptsReady && rateLimitReady && casesReady && (!jsonNeeded || jsonReady);
     return {
       ready,
       payload: {

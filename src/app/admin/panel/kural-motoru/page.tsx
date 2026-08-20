@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { ALL_TEST_KEYS, emptyForm, type FormState } from "./kural-helpers";
 
 interface RuleEntry {
   id: string;
@@ -22,39 +23,6 @@ interface RuleStore {
   rules: RuleEntry[];
   aliases: DiseaseAlias[];
 }
-
-interface FormState {
-  testKey: string;
-  diseaseKey: string;
-  tendency: "yuksek" | "dusuk";
-  factor: string;
-  description: string;
-}
-
-const ALL_TEST_KEYS = [
-  "TROPONIN","BNP","CKMB","MYOGLOBIN","KREATININ_KINAZ",
-  "GLUKOZ","HBA1C","LACTATE","AMMONIA",
-  "KREATININ","BUN","URE","GFR","URIC_ACID",
-  "NA","K","CL","CA","MG","PHOS",
-  "ALT","AST","ALP","GGT","TBIL","DBIL","ALBUMIN",
-  "CHOL","LDL","HDL","TRIG",
-  "CRP","ESR","PROCT","FERITIN",
-  "AMILAZ","LIPAZ",
-  "TSH","FT4","FT3",
-  "WBC","RBC","HGB","HCT","MCV","PLT","NEUT","LYMPH","EOS",
-  "PT","PTT","INR","FIBRINOGEN","DDIMER",
-  "PH","PCO2","PO2","HCO3",
-  "U_PH","U_SG","U_PROTEIN","U_GLUKOZ",
-  "DEMIR","BHCG","GOZ_BASINCI",
-];
-
-const emptyForm = (): FormState => ({
-  testKey: "",
-  diseaseKey: "",
-  tendency: "yuksek",
-  factor: "",
-  description: "",
-});
 
 export default function KuralMotoruPage() {
   const [store, setStore] = useState<RuleStore | null>(null);
