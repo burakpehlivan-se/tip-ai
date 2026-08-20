@@ -1,24 +1,9 @@
-import fs from "fs";
 import {
   checkAuthMigrationReadiness,
   checkCaseStoreMigrationReadiness,
 } from "@/lib/auth/migration-readiness";
-import { isShadowReadEnabled, storeMode } from "@/lib/store-mode";
+import { storeMode } from "@/lib/store-mode";
 import { rateLimitStoreMode, type RateLimitStoreMode } from "@/lib/security/rate-limit";
-import { adminDataDir } from "@/lib/admin/paths";
-
-function checkJsonStoreReadiness(): boolean {
-  try {
-    const dir = adminDataDir();
-    fs.accessSync(dir, fs.constants.R_OK | fs.constants.W_OK);
-    // cases.json yoksa seed edilecek — var ise okunabilir olmalı
-    const casesFile = `${dir}/cases.json`;
-    if (fs.existsSync(casesFile)) fs.accessSync(casesFile, fs.constants.R_OK);
-    return true;
-  } catch {
-    return false;
-  }
-}
 
 export type HealthStatus = "ok" | "not_ready";
 
@@ -55,33 +40,17 @@ export async function getReadiness(): Promise<{ ready: boolean; payload: Readine
     const attempts = storeMode();
     const rateLimit = rateLimitStoreMode();
     const cases = storeMode();
-    const caseShadowRead = isShadowReadEnabled();
-    const jsonReady = checkJsonStoreReadiness();
-    if (store === "json" && rateLimit === "memory" && cases === "json") {
-      return {
-        ready: jsonReady,
-        payload: {
-          status: jsonReady ? "ok" : "not_ready",
-          auth: { store, migration: "not_required" },
-          attempts: { store: attempts, runtime: jsonReady ? "ready" : "not_ready" },
-          rateLimit: { store: rateLimit, runtime: jsonReady ? "ready" : "not_ready" },
-          cases: { store: cases, runtime: jsonReady ? "ready" : "not_ready", migration: "not_required", shadowRead: caseShadowRead },
-        },
-      };
-    }
+    // Artık tüm vaka verileri postgres'te; JSON file-store kontrolü kaldırıldı.
     const needsAuthReadiness = store === "postgres" || rateLimit === "postgres";
     const [authReadiness, caseReadiness] = await Promise.all([
       needsAuthReadiness ? checkAuthMigrationReadiness() : Promise.resolve(null),
-      cases === "postgres" ? checkCaseStoreMigrationReadiness() : Promise.resolve(null),
+      checkCaseStoreMigrationReadiness(),
     ]);
-    const attemptsReady = attempts === "json" || attempts === "postgres";
-    // PostgreSQL rate limit, JSON auth'ta bile merkezi DB bağımlılığıdır; bu
-    // nedenle migration/readiness geçmeden trafik kabul edilmez.
-    const authReady = authReadiness?.ok ?? true;
+    const attemptsReady = attempts === "postgres";
+    const authReady = authReadiness?.ok ?? false;
     const rateLimitReady = rateLimit === "memory" || authReady;
-    const casesReady = caseReadiness?.ok ?? true;
-    const jsonNeeded = store === "json" || cases === "json" || attempts === "json";
-    const ready = authReady && attemptsReady && rateLimitReady && casesReady && (!jsonNeeded || jsonReady);
+    const casesReady = caseReadiness?.ok ?? false;
+    const ready = authReady && attemptsReady && rateLimitReady && casesReady;
     return {
       ready,
       payload: {
@@ -93,7 +62,7 @@ export async function getReadiness(): Promise<{ ready: boolean; payload: Readine
           store: cases,
           runtime: casesReady ? "ready" : "not_ready",
           migration: caseReadiness?.checks ?? "not_required",
-          shadowRead: caseShadowRead,
+          shadowRead: false,
         },
       },
     };

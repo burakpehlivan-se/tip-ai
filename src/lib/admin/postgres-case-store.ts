@@ -15,6 +15,8 @@ import {
   publishedClinicalCaseVersions,
 } from "@/lib/auth/schema";
 import type { AdminVaka, AuditLog, AuditPatch, CasesStore, PublishedCaseVersion } from "./types";
+import { seedCasesFromTemplates } from "./seed";
+import { normalizeAdminVaka } from "./types";
 
 type ClinicalCaseRow = typeof clinicalCases.$inferSelect;
 type PublishedVersionRow = typeof publishedClinicalCaseVersions.$inferSelect;
@@ -124,13 +126,34 @@ function storeFromRows(caseRows: ClinicalCaseRow[], versionRows: PublishedVersio
  */
 export async function loadPostgresCasesStore(): Promise<CasesStore> {
   const db = getDb();
-  const [caseRows, versionRows] = await Promise.all([
+  let [caseRows, versionRows] = await Promise.all([
     db.select().from(clinicalCases).orderBy(asc(clinicalCases.caseId)),
     db
       .select()
       .from(publishedClinicalCaseVersions)
       .orderBy(asc(publishedClinicalCaseVersions.caseId), desc(publishedClinicalCaseVersions.version)),
   ]);
+  // İlk açılışta tablo boşsa 60 şablon vakayı seed et (JSON modundaki davranışla parite)
+  if (caseRows.length === 0) {
+    const seeded = seedCasesFromTemplates().map((c) => normalizeAdminVaka(c));
+    // Tek transaction içinde ekle, çakışma olursa atla (idempotent)
+    await db.transaction(async (tx) => {
+      for (const vaka of seeded) {
+        try {
+          await tx.insert(clinicalCases).values(caseInsertValues(vaka));
+        } catch {
+          // duplicate caseId → atla
+        }
+      }
+    });
+    [caseRows, versionRows] = await Promise.all([
+      db.select().from(clinicalCases).orderBy(asc(clinicalCases.caseId)),
+      db
+        .select()
+        .from(publishedClinicalCaseVersions)
+        .orderBy(asc(publishedClinicalCaseVersions.caseId), desc(publishedClinicalCaseVersions.version)),
+    ]);
+  }
   return storeFromRows(caseRows, versionRows);
 }
 

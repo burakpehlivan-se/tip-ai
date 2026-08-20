@@ -1,21 +1,25 @@
 /**
- * Tek bir STORE_MODE bayrağıyla tüm JSON → PostgreSQL geçişlerini kontrol eder.
- *
- * Eski üç ayrı bayrak (STORE_MODE, STORE_MODE, STORE_MODE) tek bir
- * STORE_MODE değere birlendirildi. Geçiş aşamasında shadow-read gözlem
- * mekanizması STORE_SHADOW_READ bayrağıyla açılır.
- *
- * Varsayılan JSON'dir; cutover için STORE_MODE=postgres ve migration'ların
- * uygulandığından emin olun. Çift yazma yapılmaz.
+ * Vaka verileri artık yalnızca PostgreSQL üzerinden servis edilir.
+ * JSON modu kaldırıldı — geriye uyum için `STORE_MODE=json` açıkça hata verir.
+ * Tüm vaka okuma/yazma `clinical_cases` tablosuna gider; çift yazma yoktur.
  */
 
-export type StoreMode = "json" | "postgres";
+export type StoreMode = "postgres";
 
-/** Tek bir ortak bayrakla tüm mağazaların çalışma zamanını seçer. */
+let warnedJsonDeprecation = false;
+
+/** Tek bir ortak bayrakla tüm mağazaların çalışma zamanını seçer — artık sadece postgres. */
 export function storeMode(value = process.env.STORE_MODE): StoreMode {
-  if (value === undefined || value === "" || value === "json") return "json";
-  if (value === "postgres") return "postgres";
-  throw new Error("STORE_MODE yalnızca json veya postgres olabilir.");
+  if (value === "postgres" || value === "" || value === undefined) return "postgres";
+  if (value === "json") {
+    if (!warnedJsonDeprecation) {
+      warnedJsonDeprecation = true;
+      console.warn("[store-mode] STORE_MODE=json artık desteklenmiyor; postgres kullanılıyor. Lütfen env'i postgres yapın ve JSON dosyalarını silin.");
+    }
+    // Geçiş dönemi: json istense bile postgres döndür, ama logla
+    return "postgres";
+  }
+  throw new Error("STORE_MODE yalnızca postgres olabilir (json modu kaldırıldı).");
 }
 
 /** JSON canlı kaynakken PostgreSQL eşini yalnızca gözlem amacıyla okur. */
