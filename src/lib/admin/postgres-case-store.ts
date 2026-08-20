@@ -133,26 +133,32 @@ export async function loadPostgresCasesStore(): Promise<CasesStore> {
       .from(publishedClinicalCaseVersions)
       .orderBy(asc(publishedClinicalCaseVersions.caseId), desc(publishedClinicalCaseVersions.version)),
   ]);
-  // İlk açılışta tablo boşsa 60 şablon vakayı seed et (JSON modundaki davranışla parite)
-  if (caseRows.length === 0) {
+  // Synthea importu kardiyoloji/KVC şablonlarını ezmişse eksik şablonlar yetim
+  // kalır ve ekg_sources boş görünür. Tablo boşken tümü, doluyken yalnızca
+  // eksik şablonlar idempotent eklenir — prod'da 535 synthea + 60 şablon olur.
+  {
     const seeded = seedCasesFromTemplates().map((c) => normalizeAdminVaka(c));
-    // Tek transaction içinde ekle, çakışma olursa atla (idempotent)
-    await db.transaction(async (tx) => {
-      for (const vaka of seeded) {
-        try {
-          await tx.insert(clinicalCases).values(caseInsertValues(vaka));
-        } catch {
-          // duplicate caseId → atla
+    const existingIds = new Set(caseRows.map((row) => row.caseId));
+    const missing = seeded.filter((vaka) => !existingIds.has(vaka.id));
+    const shouldSeed = caseRows.length === 0 ? seeded : missing;
+    if (shouldSeed.length > 0) {
+      await db.transaction(async (tx) => {
+        for (const vaka of shouldSeed) {
+          try {
+            await tx.insert(clinicalCases).values(caseInsertValues(vaka));
+          } catch {
+            // duplicate caseId → atla
+          }
         }
-      }
-    });
-    [caseRows, versionRows] = await Promise.all([
-      db.select().from(clinicalCases).orderBy(asc(clinicalCases.caseId)),
-      db
-        .select()
-        .from(publishedClinicalCaseVersions)
-        .orderBy(asc(publishedClinicalCaseVersions.caseId), desc(publishedClinicalCaseVersions.version)),
-    ]);
+      });
+      [caseRows, versionRows] = await Promise.all([
+        db.select().from(clinicalCases).orderBy(asc(clinicalCases.caseId)),
+        db
+          .select()
+          .from(publishedClinicalCaseVersions)
+          .orderBy(asc(publishedClinicalCaseVersions.caseId), desc(publishedClinicalCaseVersions.version)),
+      ]);
+    }
   }
   return storeFromRows(caseRows, versionRows);
 }
