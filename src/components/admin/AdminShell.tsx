@@ -187,33 +187,41 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     </div>
   );
 
-  const desktopNav = (
-    <nav className="hidden min-w-0 flex-1 items-center gap-1 overflow-x-auto lg:flex" aria-label="Panel gezinme">
-      {navGroups.map((group) => (
-        <div key={group.title} className="flex shrink-0 items-center gap-1 border-r border-hairline-soft pr-2 last:border-r-0 last:pr-0">
-          {group.items.map((n) => {
-            const active = isActiveNav(n.href);
-            return (
-              <Link
-                key={n.href}
-                href={n.href}
-                aria-current={active ? "page" : undefined}
-                className={`relative inline-flex min-h-11 items-center rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
-                  active
-                    ? "text-ink"
-                    : "text-steel hover:bg-surface hover:text-ink"
-                }`}
-              >
-                {n.label}
-                {active && (
-                  <span className="absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-brand" aria-hidden="true" />
-                )}
-              </Link>
-            );
-          })}
-        </div>
-      ))}
-    </nav>
+  // lg+: 14 bağlantı + grup ayraçları yatay bar'a sığmadığı için (1024–1280px'te
+  // taşma, 1920px'te bile yatay kaydırma) kalıcı sol sidebar kullanılır.
+  const sidebarNav = (
+    <aside className="hidden w-56 shrink-0 border-r border-hairline bg-canvas lg:sticky lg:top-14 lg:block lg:max-h-[calc(100dvh-3.5rem)] lg:self-start lg:overflow-y-auto">
+      <nav aria-label="Panel gezinme" className="p-3">
+        {navGroups.map((group, groupIndex) => (
+          <div key={group.title} className={groupIndex > 0 ? "mt-4" : undefined}>
+            <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-wide text-muted">{group.title}</p>
+            <ul>
+              {group.items.map((n) => {
+                const active = isActiveNav(n.href);
+                return (
+                  <li key={n.href}>
+                    <Link
+                      href={n.href}
+                      aria-current={active ? "page" : undefined}
+                      className={`relative flex min-h-10 items-center rounded-lg px-3 text-sm font-medium transition-colors ${
+                        active
+                          ? "bg-brand/10 text-ink"
+                          : "text-steel hover:bg-surface hover:text-ink"
+                      }`}
+                    >
+                      {n.label}
+                      {active && (
+                        <span className="absolute inset-y-1.5 left-0 w-0.5 rounded-full bg-brand" aria-hidden="true" />
+                      )}
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        ))}
+      </nav>
+    </aside>
   );
 
   const mobileNav = (
@@ -288,19 +296,27 @@ export default function AdminShell({ children }: { children: ReactNode }) {
     <div className="min-h-screen">
       {skipLink}
       <header className="sticky top-0 z-40 border-b border-hairline bg-canvas/95 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center justify-between gap-4 px-4">
+        <div className="flex h-14 items-center justify-between gap-4 px-4">
           <div className="flex min-w-0 items-center gap-4">
             <Link href="/admin/panel" className="shrink-0 text-sm font-semibold tracking-tight">
               tıp<span className="text-brand">_ai</span>{" "}
               <span className="text-muted font-normal">panel</span>
             </Link>
-            {desktopNav}
           </div>
           <div className="flex shrink-0 items-center gap-2">{userMenu}</div>
         </div>
         {mobileNav}
       </header>
-      <main id="panel-icerik" tabIndex={-1} className="mx-auto max-w-6xl px-4 py-8">{children}</main>
+      <div className="lg:flex lg:items-start">
+        {sidebarNav}
+        <main
+          id="panel-icerik"
+          tabIndex={-1}
+          className="mx-auto w-full min-w-0 max-w-6xl flex-1 px-4 py-8 lg:max-w-none lg:px-6 xl:px-8"
+        >
+          {children}
+        </main>
+      </div>
     </div>
   );
 }
