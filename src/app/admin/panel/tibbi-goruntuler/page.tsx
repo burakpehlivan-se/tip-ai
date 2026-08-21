@@ -227,8 +227,10 @@ function GoruntuCard({ item }: { item: GoruntuKaydi }) {
           {item.imageAvailable ? (
             <>
               {/* Dinamik admin endpoint'i görüntüyü vaka yetkisiyle servis eder. */}
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={goruntuUrl} alt={`${item.vaka.hastalikAdi} — ${item.findingLabel}`} className="aspect-square w-full object-contain" loading="lazy" />
+              <a href={goruntuUrl} target="_blank" rel="noopener noreferrer" aria-label="Görüntüyü yeni sekmede aç" className="block" title="Yeni sekmede aç">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={goruntuUrl} alt={`${item.vaka.hastalikAdi} — ${item.findingLabel}`} className="aspect-square w-full object-contain" loading="lazy" />
+              </a>
             </>
           ) : <div className="flex aspect-square items-center justify-center px-4 text-center text-xs text-clinical-orange">Görüntü dosyası volume'de yok</div>}
         </div>

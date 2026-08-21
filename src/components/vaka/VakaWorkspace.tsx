@@ -166,6 +166,7 @@ export default function VakaWorkspace({
   const [debugDetayAcik, setDebugDetayAcik] = useState(false);
   const [debugTumSonuclarAcik, setDebugTumSonuclarAcik] = useState(false);
   const [debugTestFiltre, setDebugTestFiltre] = useState<"hepsi" | "var" | "yok">("hepsi");
+  const [debugTestArama, setDebugTestArama] = useState("");
   const [onboardingKapatildi, setOnboardingKapatildi] = useState(false);
   const [islemYukleniyor, setIslemYukleniyor] = useState(false);
   const [islemHatasi, setIslemHatasi] = useState("");
@@ -618,10 +619,13 @@ export default function VakaWorkspace({
   const debugTestEnvanteri = useMemo(() => buildDebugTestEnvanteri(vaka), [vaka]);
 
   const debugGosterilenTestler = useMemo(() => {
-    if (debugTestFiltre === "var") return debugTestEnvanteri.items.filter((i) => i.hasSonuc);
-    if (debugTestFiltre === "yok") return debugTestEnvanteri.items.filter((i) => !i.hasSonuc);
-    return debugTestEnvanteri.items;
-  }, [debugTestEnvanteri, debugTestFiltre]);
+    let items = debugTestEnvanteri.items;
+    if (debugTestFiltre === "var") items = items.filter((i) => i.hasSonuc);
+    if (debugTestFiltre === "yok") items = items.filter((i) => !i.hasSonuc);
+    const q = debugTestArama.trim().toLocaleLowerCase("tr");
+    if (q) items = items.filter((i) => `${i.ad} ${i.key} ${i.kategori}`.toLocaleLowerCase("tr").includes(q));
+    return items;
+  }, [debugTestEnvanteri, debugTestFiltre, debugTestArama]);
 
   // Sonuç ekranı gösteriliyorsa
   if (sonuc) {
@@ -915,10 +919,15 @@ export default function VakaWorkspace({
                         <div className="flex flex-wrap gap-1.5">
                           {chips.map((chip) => {
                             const soruldu = sorulanAksiyonSeti.has(chip.aksiyon);
+                            const rel = debugMode && relevantAksiyonSeti.has(chip.aksiyon);
                             return (
                               <button key={chip.aksiyon} onClick={() => { chipSor(chip); if (!soruldu) soruDrawerKapat(); }} disabled={soruldu || islemYukleniyor}
                                 className={`rounded-full border px-2.5 py-1.5 text-xs font-medium transition-[background-color,border-color,color] ${
-                                  soruldu ? "cursor-default border-hairline bg-surface text-muted/60 line-through" : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
+                                  soruldu
+                                    ? "cursor-default border-hairline bg-surface text-muted/60 line-through"
+                                    : rel
+                                      ? "border-brand/40 bg-brand/5 text-ink hover:border-brand hover:bg-brand/10"
+                                      : "border-hairline bg-canvas text-steel hover:border-ink/50 hover:text-ink hover:bg-surface"
                                 }`}>{chip.etiket}</button>
                             );
                           })}
@@ -1207,6 +1216,18 @@ export default function VakaWorkspace({
                           {f.label}
                         </button>
                       ))}
+                    </div>
+
+                    <div>
+                      <label htmlFor="debug-test-arama" className="sr-only">Testlerde ara</label>
+                      <input
+                        id="debug-test-arama"
+                        type="text"
+                        value={debugTestArama}
+                        onChange={(e) => setDebugTestArama(e.target.value)}
+                        placeholder="Testlerde ara…"
+                        className="h-8 w-full rounded-full border border-hairline bg-canvas px-3 text-xs text-ink placeholder:text-muted focus:border-clinical-orange focus:outline-none"
+                      />
                     </div>
 
                     <div className="max-h-[55vh] space-y-2 overflow-y-auto scrollbar-thin pr-0.5">

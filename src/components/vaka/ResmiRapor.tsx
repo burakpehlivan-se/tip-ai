@@ -99,20 +99,30 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
             {typeof sonuc.sonuc === "object" && sonuc.sonuc !== null && "imageUrl" in sonuc.sonuc && !imageError ? (
               <figure>
                 {/* API rotasından gelen dinamik görüntü; next/image burada uygun değil. */}
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={String((sonuc.sonuc as Record<string, unknown>).imageUrl)}
-                  alt={debugMode && (sonuc.sonuc as Record<string, unknown>).findingLabel
-                    ? `Görüntü bulgusu: ${String((sonuc.sonuc as Record<string, unknown>).findingLabel)}`
-                    : sonuc.testAdi}
-                  className="mx-auto h-auto max-h-[28rem] w-full rounded border border-hairline object-contain"
-                  loading="lazy"
-                  onLoad={() => setImageError(false)}
-                  onError={() => setImageError(true)}
-                />
+                <a
+                  href={String((sonuc.sonuc as Record<string, unknown>).imageUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  aria-label={`${sonuc.testAdi} görüntüsünü yeni sekmede aç`}
+                  className="group block"
+                  title="Yeni sekmede aç"
+                >
+                  {/* API rotasından gelen dinamik görüntü; next/image burada uygun değil. */}
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={String((sonuc.sonuc as Record<string, unknown>).imageUrl)}
+                    alt={debugMode && (sonuc.sonuc as Record<string, unknown>).findingLabel
+                      ? `Görüntü bulgusu: ${String((sonuc.sonuc as Record<string, unknown>).findingLabel)}`
+                      : sonuc.testAdi}
+                    className="mx-auto h-auto max-h-[28rem] w-full rounded border border-hairline object-contain group-hover:border-brand/50"
+                    loading="lazy"
+                    onLoad={() => setImageError(false)}
+                    onError={() => setImageError(true)}
+                  />
+                </a>
                 {debugMode && (sonuc.sonuc as Record<string, unknown>).findingLabel ? (
-                  <figcaption className="mt-2 text-center text-xs text-steel">
-                    Bulgu etiketi: {String((sonuc.sonuc as Record<string, unknown>).findingLabel)}
+                  <figcaption className="mt-2 rounded border border-clinical-orange/40 bg-clinical-orange/10 px-2 py-1.5 text-center text-xs font-semibold text-clinical-orange">
+                    DEBUG · Bulgu etiketi: {String((sonuc.sonuc as Record<string, unknown>).findingLabel)}
                   </figcaption>
                 ) : null}
               </figure>
