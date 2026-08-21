@@ -13,9 +13,93 @@ const ERKEK = ["Ahmet", "Mehmet", "Ali", "Mustafa", "Hüseyin"];
 const KADIN = ["Ayşe", "Fatma", "Zeynep", "Elif", "Merve"];
 const SOY = ["Yılmaz", "Kaya", "Demir", "Çelik", "Şahin"];
 
+/**
+ * Synthea rubrik anahtarları (rubric-templates.ts) ile CHIP_HAVUZU aksiyon
+ * anahtarları farklı kelime dağarcıklarındadır (örn. CHIEF_COMPLAINT ↔ SIKAYET).
+ * Bu eşleme olmadan relevantAksiyonlar hiçbir chip ile kesişmez; debug yeşil
+ * vurgusu ve anamnez puanlaması Synthea vakalarında çalışmaz.
+ */
+const RUBRIK_TO_CHIP: Record<string, string[]> = {
+  // Varsayılan şablon soruları
+  CHIEF_COMPLAINT: ["SIKAYET"],
+  HISTORY_OF_PRESENT: ["SIKAYET_SURE", "ESLIK_EDEN"],
+  PAST_MEDICAL: ["HT_OYKUSU", "DIYABET", "KOAH_OYKUSU"],
+  MEDICATIONS: ["ILAC", "ILAC_OYKUSU"],
+  FAMILY_HISTORY: ["AILE_OYKUSU"],
+  SOCIAL_HISTORY: ["SIGARA", "ALKOL"],
+  // Hastalığa özgü semptom soruları
+  CHEST_PAIN_CHARACTER: ["GOGUS_AGRISI"],
+  RADIATION: ["AGRI_YAYILIM"],
+  ONSET: ["SIKAYET_SURE"],
+  DYSPNEA: ["NEFES_DARLIGI"],
+  CARDIAC_RISK: ["HT_OYKUSU", "DIYABET", "SIGARA", "KAH_OYKUSU"],
+  CHEST_PAIN: ["GOGUS_AGRISI"],
+  EDEMA: ["ODEM"],
+  FATIGUE: ["HALSIZLIK"],
+  CARDIAC_HISTORY: ["KAH_OYKUSU"],
+  PALPITATIONS: ["CARPINTI_OYKU"],
+  STROKE_RISK: ["HT_OYKUSU", "DIYABET"],
+  HEADACHE: ["BAS_AGRISI"],
+  VISION: ["GORME"],
+  LIFESTYLE: ["BESLENME", "ALKOL", "YASAM_TARZI"],
+  COMORBIDITIES: ["DIYABET", "BÖBREK_OYKUSU"],
+  POLYURIA: ["POLIURI"],
+  POLYDIPSIA: ["POLIDIPSI"],
+  WEIGHT_CHANGE: ["KILO_KAYBI", "KILO_ALIM"],
+  DIABETES_HISTORY: ["DIYABET"],
+  FOOT_SYMPTOMS: ["UYUSMA", "YARA"],
+  HTN_HISTORY: ["HT_OYKUSU"],
+  DIABETES: ["DIYABET"],
+  URINARY: ["IDRAR_AZALMA", "IDRAR_RENK"],
+  COUGH: ["OKSURUK"],
+  FEVER: ["ATES_SORGU", "ATES_SURE"],
+  SMOKING: ["SIGARA", "SIGARA_OYKUSU"],
+  EXACERBATIONS: ["BALGAM"],
+  WHEEZE: ["FIZIK_AKCIGER"],
+  NIGHT_SYMPTOMS: ["GECE_ARTIS"],
+  TRIGGERS: ["ALERJI"],
+  DYSURIA: ["DIZURI"],
+  FREQUENCY: ["POLLAKURI"],
+  URINARY_HISTORY: ["IDRAR_RENK"],
+  PREGNANCY: ["MENSTRUASYON"],
+  BLEEDING: ["KOLAY_MORARMA", "KANLI_DISKI", "MENSTRUASYON"],
+  DIET: ["BESLENME"],
+  CHRONIC_DISEASE: ["BÖBREK_OYKUSU", "KARACIGER_OYKUSU"],
+  NASAL: ["GENIZ_AKINTISI"],
+  FACIAL_PAIN: ["BAS_AGRISI"],
+  DURATION: ["SIKAYET_SURE"],
+  ALLERGIES: ["ALERJI"],
+  // Red flag anahtarları → karşılık gelen sorgu/vital çipleri
+  HEMODYNAMIC: ["VITAL_TANSIYON", "VITAL_NABIZ"],
+  ONGOING_CHEST_PAIN: ["GOGUS_AGRISI"],
+  ACS: ["GOGUS_AGRISI"],
+  HYPOXIA: ["VITAL_SPO2"],
+  HYPERTENSIVE_CRISIS: ["VITAL_TANSIYON", "BAS_AGRISI", "GORME"],
+  DKA: ["KUSMA", "KONFUZYON"],
+  HYPOGLYCEMIA: ["TITREME", "TERLEME"],
+  HYPERKALEMIA: ["HIPERKALEMI_SEMPTOM"],
+  PYELONEPHRITIS: ["ATES_SORGU", "SIRT_AGRISI"],
+  RESPIRATORY_FAILURE: ["VITAL_SPO2", "NEFES_DARLIGI"],
+  SEPSIS: ["VITAL_TANSIYON", "ATES_SORGU"],
+  ORBITAL: ["GOZ_AGRISI", "GORME"],
+  ACTIVE_BLEEDING: ["KANLI_KUSMA", "KANLI_DISKI", "KOLAY_MORARMA"],
+};
+
+/** case-generator ile paralel: vital/öykü çipleri her vakada relevant sayılır. */
+const HER_ZAMAN_RELEVANT = [
+  "VITAL_TANSIYON", "VITAL_NABIZ", "VITAL_ATES", "VITAL_SPO2",
+  "SIGARA", "SIGARA_OYKUSU", "DIYABET", "ILAC", "ILAC_OYKUSU", "ALERJI",
+  "SIKAYET", "AILE_OYKUSU",
+];
+
+/** Rubrik anahtarlarını koruyarak chip aksiyonlarına eşler (skorlama uyumluluğu). */
+function rubrikAksiyonlariniGenislet(rubrikAnahtarlari: string[]): string[] {
+  const harcanan = rubrikAnahtarlari.flatMap((key) => RUBRIK_TO_CHIP[key] || []);
+  return Array.from(new Set([...rubrikAnahtarlari, ...harcanan, ...HER_ZAMAN_RELEVANT]));
+}
+
 /** Admin deposundaki vaka şablonundan oynanabilir Vaka üretir */
-export function adminVakaToPlayable(av: AdminVaka): Vaka {
-  const source = caseVersionStamp(av);
+export function adminVakaToPlayable(av: AdminVaka): Vaka {  const source = caseVersionStamp(av);
   const cinsiyet: Cinsiyet =
     av.cinsiyetTercih === "E"
       ? "E"
@@ -63,11 +147,11 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {
     measuredAt: episodeZamani,
   });
 
-  const relevantAksiyonlar = [
+  const relevantAksiyonlar = rubrikAksiyonlariniGenislet([
     ...(av.rubric?.beklenenSorular || []).map((s) => s.key),
     ...(av.rubric?.redFlagler || []).map((r) => r.key),
     ...(av.rubric?.beklenenTestler || []).map((t) => t.key),
-  ];
+  ]);
 
   // CDM vitals → ozetBilgiler / yanıt zenginleştirme
   const ozet = [...(av.ozetBilgiler || [])];
