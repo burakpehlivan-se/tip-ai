@@ -32,7 +32,13 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/scripts/standalone-migrate.mjs ./scripts/standalone-migrate.mjs
-COPY --from=builder /app/drizzle ./drizzle
+COPY --from=builder /app/scripts/build-ekg-sources.ts ./scripts/build-ekg-sources.ts
+COPY --from=builder /app/scripts/build-radiology-sources.ts ./scripts/build-radiology-sources.ts
+COPY --from=builder /app/src/lib/etl ./src/lib/etl
+COPY --from=builder /app/src/lib/auth ./src/lib/auth
+# tsx is devDependency but needed for on-demand ETL in prod; copy it
+COPY --from=deps /app/node_modules/tsx ./node_modules/tsx
+COPY --from=deps /app/node_modules/.bin/tsx ./node_modules/.bin/tsx
 
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
