@@ -75,15 +75,15 @@
 
 @layer components {
   .btn-primary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-charcoal active:bg-charcoal disabled:bg-hairline disabled:text-muted;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-ink px-5 py-2.5 text-sm font-medium text-white transition-colors hover:bg-charcoal active:bg-charcoal disabled:bg-hairline disabled:text-muted;
   }
 
   .btn-accent {
-    @apply inline-flex items-center justify-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-brand-deep;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-brand px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-brand-deep;
   }
 
   .btn-secondary {
-    @apply inline-flex items-center justify-center gap-2 rounded-full border border-hairline bg-transparent px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-surface;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-full border border-hairline bg-transparent px-5 py-2.5 text-sm font-medium text-ink transition-colors hover:bg-surface;
   }
 
   .btn-ghost {
@@ -99,7 +99,7 @@
   }
 
   .input {
-    @apply h-10 w-full rounded-md border border-hairline bg-canvas px-3.5 py-2.5 text-base text-ink placeholder:text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
+    @apply h-11 w-full rounded-md border border-hairline bg-canvas px-3.5 py-2.5 text-base text-ink placeholder:text-muted focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20;
   }
 
   .badge {

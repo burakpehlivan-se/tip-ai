@@ -108,7 +108,7 @@ function GirisForm() {
                 setPassword2("");
               }}
               aria-pressed={sekme === t}
-              className={`rounded-md px-3 py-2 text-sm font-medium transition-colors ${
+              className={`min-h-11 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
                 sekme === t ? "bg-canvas text-ink shadow-sm" : "text-steel hover:text-ink"
               }`}
             >
@@ -231,7 +231,7 @@ function GirisForm() {
             </Link>{" "}
             oynayabilirsin.
           </p>
-          <Link href="/" className="mt-2 inline-block text-sm text-steel hover:text-ink">
+          <Link href="/" className="mt-2 inline-flex min-h-11 items-center text-sm text-steel hover:text-ink">
             ← Ana sayfa
           </Link>
         </div>

@@ -509,7 +509,7 @@ export default function CemicegekSimulator() {
                 }
                 setAktifIndex(i);
               }}
-              className={`shrink-0 rounded-full px-2.5 py-1 text-[10px] font-medium border transition-colors ${
+              className={`min-h-11 flex items-center shrink-0 rounded-full px-3 text-xs font-medium border transition-colors ${
                 i === aktifIndex
                   ? "border-ink bg-ink text-white"
                   : k.labda && !k.raporHazir

@@ -858,7 +858,7 @@ export default function VakaWorkspace({
                     const rel = debugMode && relevantAksiyonSeti.has(chip.aksiyon);
                     return (
                           <button key={chip.aksiyon} onClick={() => chipSor(chip)} disabled={soruldu || islemYukleniyor}
-                        className={`min-h-8 shrink-0 rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 text-[10px] lg:text-xs font-medium transition-[background-color,border-color,color] ${
+                        className={`min-h-11 shrink-0 rounded-full border px-2 lg:px-2.5 py-0.5 lg:py-1 lg:min-h-8 text-[10px] lg:text-xs font-medium transition-[background-color,border-color,color] ${
                           soruldu
                             ? "cursor-default border-hairline bg-surface text-muted/60 line-through"
                             : rel

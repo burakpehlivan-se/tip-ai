@@ -364,7 +364,8 @@ export default function ProfilimPage() {
               <div className="mb-10">
                 <h2 className="mb-4 text-xl font-semibold text-ink">Poliklinik Kırılımı</h2>
                 <div className="card overflow-hidden p-0">
-                  <table className="w-full text-sm">
+                  <div className="overflow-x-auto scrollbar-thin">
+                    <table className="w-full text-sm">
                     <thead>
                       <tr className="border-b border-hairline bg-surface/50 text-left text-xs uppercase tracking-wide text-muted">
                         <th className="px-4 py-3 font-medium">Poliklinik</th>
@@ -390,6 +391,7 @@ export default function ProfilimPage() {
                       ))}
                     </tbody>
                   </table>
+                  </div>
                 </div>
               </div>
             )}

@@ -78,7 +78,7 @@ export default function VakalarPage() {
       <a href="#ana-icerik" className="skip-link">İçeriğe atla</a>
       <nav className="sticky top-0 z-50 border-b border-hairline-soft bg-canvas/80 backdrop-blur-md">
         <div className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-3 px-4 py-3 sm:px-6">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="flex min-h-11 items-center gap-2">
             <span className="text-xl font-semibold tracking-tight text-ink">
               tıp<span className="text-brand">_ai</span>
             </span>
@@ -87,7 +87,7 @@ export default function VakalarPage() {
             <SessionNavigation compact />
             <Link
               href="/cemicegek"
-              className="rounded-full bg-clinical-red/10 px-3 py-2 text-sm font-medium text-clinical-red transition-colors hover:bg-clinical-red/20 sm:px-4 sm:py-1.5"
+              className="rounded-full bg-clinical-red/10 px-3 py-3 text-sm font-medium text-clinical-red transition-colors hover:bg-clinical-red/20 sm:px-4 sm:py-1.5"
             >
               <span className="sm:hidden">Acil</span>
               <span className="hidden sm:inline">🚑 Çemiçgezek Acil</span>

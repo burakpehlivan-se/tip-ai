@@ -22,12 +22,12 @@ export default function HomePage() {
 
       <header className="sticky top-0 z-50 border-b border-hairline-soft bg-canvas/95 backdrop-blur-md">
         <nav className="mx-auto flex min-h-16 max-w-6xl items-center justify-between gap-4 px-4 py-3 sm:px-6" aria-label="Ana menü">
-          <Link href="/" className="shrink-0 text-xl font-semibold tracking-tight text-ink" aria-label="tıp_ai ana sayfa">
+          <Link href="/" className="flex min-h-11 shrink-0 items-center text-xl font-semibold tracking-tight text-ink" aria-label="tıp_ai ana sayfa">
             tıp<span className="text-brand">_ai</span>
           </Link>
-          <div className="hidden items-center gap-7 md:flex">
+          <div className="hidden items-center gap-2 md:flex">
             {navigationItems.map((item) => (
-              <Link key={item.href} href={item.href} className="text-sm font-medium text-steel transition-colors hover:text-ink">
+              <Link key={item.href} href={item.href} className="inline-flex min-h-11 items-center px-1 text-sm font-medium text-steel transition-colors hover:text-ink">
                 {item.label}
               </Link>
             ))}
@@ -37,11 +37,11 @@ export default function HomePage() {
         </nav>
         <nav className="flex gap-1 overflow-x-auto border-t border-hairline-soft px-4 py-2 md:hidden" aria-label="Mobil ana menü">
           {navigationItems.map((item) => (
-            <Link key={item.href} href={item.href} className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-steel transition-colors hover:bg-surface hover:text-ink">
+            <Link key={item.href} href={item.href} className="shrink-0 rounded-full px-3 py-3 text-sm font-medium text-steel transition-colors hover:bg-surface hover:text-ink">
               {item.label}
             </Link>
           ))}
-          <Link href="/cemicegek" className="shrink-0 rounded-full px-3 py-1.5 text-sm font-medium text-clinical-red transition-colors hover:bg-clinical-red/10">
+          <Link href="/cemicegek" className="shrink-0 rounded-full px-3 py-3 text-sm font-medium text-clinical-red transition-colors hover:bg-clinical-red/10">
             Acil simülatör
           </Link>
         </nav>
@@ -160,9 +160,9 @@ export default function HomePage() {
             <p className="text-lg font-semibold tracking-tight text-ink">tıp<span className="text-brand">_ai</span></p>
             <p className="mt-2 max-w-lg text-sm leading-6 text-steel">Türkçe klinik karar simülasyon sistemi. Sentetik vakalarla eğitim için tasarlanmıştır.</p>
           </div>
-          <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-medium text-steel">
-            {navigationItems.map((item) => <Link key={item.href} href={item.href} className="transition-colors hover:text-ink">{item.label}</Link>)}
-            <Link href="/giris" className="transition-colors hover:text-ink">Giriş</Link>
+          <div className="flex flex-wrap gap-x-3 gap-y-2 text-sm font-medium text-steel">
+            {navigationItems.map((item) => <Link key={item.href} href={item.href} className="inline-flex min-h-11 items-center px-2 transition-colors hover:text-ink">{item.label}</Link>)}
+            <Link href="/giris" className="inline-flex min-h-11 items-center px-2 transition-colors hover:text-ink">Giriş</Link>
           </div>
         </div>
         <div className="border-t border-hairline-soft px-4 py-4 text-center text-xs text-muted">© 2026 tıp_ai · Bu platform tıbbi tavsiye vermez.</div>

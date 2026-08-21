@@ -57,7 +57,7 @@ export function SessionNavigation({ className = "", compact = false }: { classNa
     }
     return (
       <div className={`flex items-center gap-3 ${className}`}>
-        <Link href="/giris" className="text-sm font-medium text-steel transition-colors hover:text-ink">
+        <Link href="/giris" className="inline-flex min-h-11 items-center text-sm font-medium text-steel transition-colors hover:text-ink">
           Giriş Yap
         </Link>
         <Link href="/vakalar" className="btn-primary text-sm">
