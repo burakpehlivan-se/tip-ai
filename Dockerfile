@@ -35,6 +35,8 @@ COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/scripts/standalone-migrate.mjs ./scripts/standalone-migrate.mjs
+# Migration SQL + meta journal; standalone-migrate.mjs bunları bekler
+COPY --from=builder /app/drizzle ./drizzle
 COPY --from=builder /app/scripts/build-ekg-sources.ts ./scripts/build-ekg-sources.ts
 COPY --from=builder /app/scripts/build-radiology-sources.ts ./scripts/build-radiology-sources.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
