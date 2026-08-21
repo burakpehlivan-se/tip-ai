@@ -7,9 +7,9 @@
 
 ## 1. Bekleyen Doğrulama (deploy bitince)
 
-- [ ] `/profilim` ve `/ayarlar` header: logo, `Vakalar`/`Profilim` linkleri ve `.btn-ghost` ("Çıkış") yükseklikleri **≥44px** olmalı
-  - Commit: `151b465512` — bu maddeler henüz prod'da doğrulanmadı
-- [ ] Tüm sayfalarda yatay taşma regresyonu yok (önceki tur: `/`, `/giris`, `/vakalar` ✓)
+- [x] `/profilim` ve `/ayarlar` header: logo, `Vakalar`/`Profilim` linkleri ve `.btn-ghost` ("Çıkış") yükseklikleri **≥44px** olmalı
+  - Commit: `151b465512` — ✅ **2026-08-21'de prod'da doğrulandı:** `/profilim` ve `/ayarlar` @390x844 küçük hedef = 0
+- [x] Tüm sayfalarda yatay taşma regresyonu yok (önceki tur: `/`, `/giris`, `/vakalar` ✓; bu tur: `/`, `/giris`, `/vakalar`, `/profilim`, `/ayarlar` ✓)
 
 ## 2. Canlı Test Edilemeyen Sayfalar (oturum/veri/rol gerekli)
 
