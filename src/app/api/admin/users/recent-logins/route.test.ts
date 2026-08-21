@@ -43,14 +43,14 @@ describe("recent login events API", () => {
 
   it("yalnızca admin'e son başarılı girişleri verir", async () => {
     const { storeMode } = await import("@/lib/store-mode");
-    let admin: { id: string; username: string; role: "admin" } | undefined;
+    let admin: any;
     if (storeMode() === "postgres") {
       const { findUserByUsername, createUser: createUserPg } = await import("@/lib/auth/runtime-user-store");
-      let found = await findUserByUsername("admin");
+      let found: any = await findUserByUsername("admin");
       if (!found) {
         found = await createUserPg({ username: "admin", password: "test-admin-password", role: "admin", createdBy: "test" });
       }
-      admin = found as unknown as typeof admin;
+      admin = found;
       // ensure a login event exists
       try {
         const student = await createUserPg({ username: `son.giris.${Date.now()}`, password: "sifre123", role: "ogrenci", createdBy: admin.username });

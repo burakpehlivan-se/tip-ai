@@ -24,7 +24,19 @@ import {
 } from "../src/lib/etl/ptbxl/matching";
 import { renderEkgPng, readSignalsMv, parseHea } from "../src/lib/etl/ptbxl/render";
 
-const PTBXL_DIR = "data/raw/ptb-xl/physionet.org/files/ptb-xl/1.0.3";
+const PTBXL_CANDIDATES = [
+  "data/raw/ptb-xl/physionet.org/files/ptb-xl/1.0.3",
+  "data/raw/ptbxl",
+  "/app/data/raw/ptbxl",
+  "data/raw/ptbxl/physionet.org/files/ptb-xl/1.0.3",
+];
+function resolvePtbxlDir(): string {
+  const argDir = process.argv.find((a) => a.startsWith("--dir="))?.split("=")[1];
+  if (argDir && fs.existsSync(argDir)) return argDir;
+  for (const p of PTBXL_CANDIDATES) if (fs.existsSync(path.join(p, "ptbxl_database.csv"))) return p;
+  return PTBXL_CANDIDATES[0];
+}
+const PTBXL_DIR = resolvePtbxlDir();
 const CASES_JSON = "data/admin/cases.json";
 const EKG_OUT_DIR = "data/raw/ptbxl/rendered";
 
@@ -36,7 +48,20 @@ interface CaseWithEkg {
   gender: GenderPref;
 }
 
-function loadCases(casesPath: string): CaseWithEkg[] {
+async function loadCases(casesPath: string): Promise<CaseWithEkg[]> {
+  // Postgres-only: try DB first, fallback to legacy JSON for local dev
+  try {
+    const { loadPostgresCasesStore } = await import("../src/lib/admin/postgres-case-store");
+    const store = await loadPostgresCasesStore();
+    const out: CaseWithEkg[] = [];
+    for (const c of store.cases) {
+      if (!c.statikTestler || !(c.statikTestler as Record<string, unknown>).EKG) continue;
+      const gender: GenderPref = c.cinsiyetTercih === "K" || c.cinsiyetTercih === "E" ? c.cinsiyetTercih : "herhangi";
+      out.push({ caseId: c.id, ageRange: c.yasAraligi ?? [20, 90], gender });
+    }
+    if (out.length) return out;
+  } catch {}
+  if (!fs.existsSync(casesPath)) return [];
   const raw = JSON.parse(fs.readFileSync(casesPath, "utf8"));
   const list = Array.isArray(raw) ? raw : raw.cases;
   const out: CaseWithEkg[] = [];
@@ -107,7 +132,7 @@ export async function buildEkgSources(args: { dry: boolean }): Promise<EkgBuildR
       : []
   );
   const diskRows = rows.filter((r) => available.has(path.basename(r.filename) + ".dat"));
-  const cases = loadCases(CASES_JSON);
+  const cases = await loadCases(CASES_JSON);
 
   fs.mkdirSync(EKG_OUT_DIR, { recursive: true });
 

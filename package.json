@@ -19,6 +19,8 @@
     "db:backfill-fhir-code-system:dry": "npx tsx scripts/backfill-fhir-code-system.ts --dry",
     "db:build-radiology-sources": "npx tsx scripts/build-radiology-sources.ts",
     "db:build-radiology-sources:dry": "npx tsx scripts/build-radiology-sources.ts --dry",
+    "db:build-ekg-sources": "npx tsx scripts/build-ekg-sources.ts",
+    "db:build-ekg-sources:dry": "npx tsx scripts/build-ekg-sources.ts --dry",
     "lint": "eslint .",
     "validate:vakalar": "npx tsx scripts/validate-vakalar.ts",
     "validate:vakalar:json": "npx tsx scripts/validate-vakalar.ts --json",
