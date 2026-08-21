@@ -87,7 +87,7 @@
   }
 
   .btn-ghost {
-    @apply inline-flex items-center justify-center gap-2 rounded-md bg-transparent px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface;
+    @apply inline-flex min-h-11 items-center justify-center gap-2 rounded-md bg-transparent px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-surface;
   }
 
   .card {

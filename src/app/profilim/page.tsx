@@ -147,13 +147,13 @@ export default function ProfilimPage() {
     <div className="min-h-screen bg-canvas">
       <nav className="sticky top-0 z-50 border-b border-hairline-soft bg-canvas/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <Link href="/" className="flex items-center gap-2">
+          <Link href="/" className="inline-flex min-h-11 items-center gap-2">
             <span className="text-xl font-semibold tracking-tight text-ink">
               tıp<span className="text-brand">_ai</span>
             </span>
           </Link>
           <div className="flex items-center gap-4">
-            <Link href="/vakalar" className="text-sm font-medium text-steel hover:text-ink transition-colors">
+            <Link href="/vakalar" className="inline-flex min-h-11 items-center text-sm font-medium text-steel hover:text-ink transition-colors">
               Vakalar
             </Link>
             <button onClick={() => void cikisYap()} className="btn-secondary text-sm">
