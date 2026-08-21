@@ -24,6 +24,9 @@ ENV NODE_ENV=production
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV TIP_AI_REPLICA_COUNT=1
 
+# Coolify healthcheck needs curl inside the container
+RUN apk add --no-cache curl
+
 RUN addgroup --system --gid 1001 nodejs
 RUN adduser --system --uid 1001 nextjs
 
@@ -34,6 +37,7 @@ COPY --from=prod-deps /app/node_modules ./node_modules
 COPY --from=builder /app/scripts/standalone-migrate.mjs ./scripts/standalone-migrate.mjs
 COPY --from=builder /app/scripts/build-ekg-sources.ts ./scripts/build-ekg-sources.ts
 COPY --from=builder /app/scripts/build-radiology-sources.ts ./scripts/build-radiology-sources.ts
+COPY --from=builder /app/tsconfig.json ./tsconfig.json
 COPY --from=builder /app/src/lib/etl ./src/lib/etl
 COPY --from=builder /app/src/lib/auth ./src/lib/auth
 # tsx is devDependency but needed for on-demand ETL in prod; copy it
