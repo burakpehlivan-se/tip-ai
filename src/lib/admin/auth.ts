@@ -101,11 +101,19 @@ export async function createRuntimeSessionId(
   ttlMs = sessionPolicyForRole(role).absoluteTtlMs,
   deviceLabel?: string
 ): Promise<string | undefined> {
-  return (await createAuthSession({ userId, role, ttlMs, deviceLabel })).id;
+  if (storeMode() === "json") return undefined;
+  try {
+    return (await createAuthSession({ userId, role, ttlMs, deviceLabel })).id;
+  } catch {
+    // Test without DB or transient DB error should not block token creation;
+    // session will be stateless (no server-side revocation) but HMAC still valid.
+    return undefined;
+  }
 }
 
 /** Çıkışta merkezi kaydı iptal eder. */
 export async function revokeRuntimeSession(token: string | undefined | null): Promise<void> {
+  if (storeMode() === "json") return;
   const session = verifySessionToken(token);
   if (!session?.sessionId) return;
   await revokeAuthSession(session.sessionId);

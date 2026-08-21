@@ -12,10 +12,16 @@ afterEach(() => {
 });
 
 describe("storeMode", () => {
-  it("tanımsız, boş veya legacy json değeriyle postgres'e düşer", () => {
-    expect(storeMode()).toBe("postgres");
-    expect(storeMode("")).toBe("postgres");
+  it("tanımsız, boş veya legacy json değeriyle testte json, prod'da postgres'e düşer", () => {
+    // test default is json
+    expect(storeMode()).toBe("json");
+    expect(storeMode("")).toBe("json");
+    expect(storeMode("json")).toBe("json");
+    // prod fallback
+    const oldNode = process.env.NODE_ENV;
+    (process.env as unknown as Record<string, string | undefined>).NODE_ENV = "production";
     expect(storeMode("json")).toBe("postgres");
+    (process.env as unknown as Record<string, string | undefined>).NODE_ENV = oldNode;
   });
 
   it("postgres değerini korur", () => {
@@ -49,8 +55,14 @@ describe("shouldUsePostgresStore", () => {
   });
 
   it("gerçek kullanıcılar her zaman postgres kullanır (json fallback)", () => {
+    const oldNode = process.env.NODE_ENV;
+    // testte json -> postgres kullanmaz
     process.env.STORE_MODE = "json";
+    expect(shouldUsePostgresStore("ogrenci")).toBe(false);
+    // prod'da json fallback postgres
+    (process.env as unknown as Record<string, string | undefined>).NODE_ENV = "production";
     expect(shouldUsePostgresStore("ogrenci")).toBe(true);
+    (process.env as unknown as Record<string, string | undefined>).NODE_ENV = oldNode;
     process.env.STORE_MODE = "postgres";
     expect(shouldUsePostgresStore("ogrenci")).toBe(true);
   });

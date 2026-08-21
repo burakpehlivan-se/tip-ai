@@ -1,9 +1,11 @@
 /**
- * Vaka deposu runtime sınırı — artık yalnızca PostgreSQL.
- * JSON modu kaldırıldı; tüm okuma/yazma `clinical_cases` tablosuna gider.
- * `storeMode()` her zaman postgres döner, bu dosya sadece postgres adaptörüne delege eder.
+ * Vaka deposu runtime sınırı. Üretimde yalnızca PostgreSQL; test izolasyonu
+ * için NODE_ENV=test'te JSON dosya deposu korunur (tmpDir). Üretimde
+ * STORE_MODE=json postgres'e fallback eder.
  */
 
+import * as jsonCases from "./store";
+import { compareCaseStoreShadow } from "./case-store-shadow";
 import {
   getPostgresCaseById,
   getPostgresPublishedCaseVersion,
@@ -12,36 +14,86 @@ import {
   loadPostgresCasesStore,
   recordPostgresCaseMutation,
 } from "./postgres-case-store";
+import { isShadowReadEnabled, storeMode } from "@/lib/store-mode";
 import type { AdminVaka, AuditLog, AuditPatch, CasesStore, PublishedCaseVersion } from "./types";
+import { logger } from "@/lib/logger";
+
+async function observeJsonCaseStore(primary: CasesStore): Promise<void> {
+  if (!isShadowReadEnabled()) return;
+  try {
+    const replica = await loadPostgresCasesStore();
+    const summary = compareCaseStoreShadow(primary, replica);
+    logger.info("Vaka deposu shadow-read tamamlandı", {
+      component: "case-store",
+      event: "shadow-read",
+      outcome: summary.matches ? "match" : "mismatch",
+      ...summary,
+    });
+  } catch {
+    logger.warn("Vaka deposu shadow-read kullanılamıyor", {
+      component: "case-store",
+      event: "shadow-read",
+      outcome: "unavailable",
+    });
+  }
+}
 
 export async function loadRuntimeCasesStore(): Promise<CasesStore> {
-  return loadPostgresCasesStore();
+  if (storeMode() === "postgres") return loadPostgresCasesStore();
+  const primary = jsonCases.loadCasesStore();
+  await observeJsonCaseStore(primary);
+  return primary;
 }
 
 export async function getRuntimeCaseById(caseId: string): Promise<AdminVaka | undefined> {
-  return getPostgresCaseById(caseId);
+  if (storeMode() === "postgres") return getPostgresCaseById(caseId);
+  const primary = jsonCases.getCaseById(caseId);
+  if (isShadowReadEnabled()) await observeJsonCaseStore(jsonCases.loadCasesStore());
+  return primary;
 }
 
 export async function listRuntimePublishedCaseVersions(caseId: string): Promise<PublishedCaseVersion[]> {
-  return listPostgresPublishedCaseVersions(caseId);
+  if (storeMode() === "postgres") return listPostgresPublishedCaseVersions(caseId);
+  const primary = jsonCases.listPublishedCaseVersions(caseId);
+  if (isShadowReadEnabled()) await observeJsonCaseStore(jsonCases.loadCasesStore());
+  return primary;
 }
 
 export async function getRuntimePublishedCaseVersion(
   caseId: string,
   version: number
 ): Promise<PublishedCaseVersion | undefined> {
-  return getPostgresPublishedCaseVersion(caseId, version);
+  if (storeMode() === "postgres") return getPostgresPublishedCaseVersion(caseId, version);
+  const primary = jsonCases.getPublishedCaseVersion(caseId, version);
+  if (isShadowReadEnabled()) await observeJsonCaseStore(jsonCases.loadCasesStore());
+  return primary;
 }
 
 export async function listRuntimeCasesGrouped(): Promise<
   { poliklinikKey: string; poliklinikAd: string; poliklinikIcon: string; cases: AdminVaka[] }[]
 > {
-  return listPostgresCasesGrouped();
+  if (storeMode() === "postgres") return listPostgresCasesGrouped();
+  const primary = jsonCases.loadCasesStore();
+  await observeJsonCaseStore(primary);
+  const groups = new Map<
+    string,
+    { poliklinikKey: string; poliklinikAd: string; poliklinikIcon: string; cases: AdminVaka[] }
+  >();
+  for (const vaka of primary.cases) {
+    const current = groups.get(vaka.poliklinikKey);
+    if (current) current.cases.push(vaka);
+    else {
+      groups.set(vaka.poliklinikKey, {
+        poliklinikKey: vaka.poliklinikKey,
+        poliklinikAd: vaka.poliklinikAd,
+        poliklinikIcon: vaka.poliklinikIcon,
+        cases: [vaka],
+      });
+    }
+  }
+  return [...groups.values()].sort((left, right) => left.poliklinikAd.localeCompare(right.poliklinikAd, "tr"));
 }
 
-/**
- * Tek mutation sınırı — PostgreSQL transaction + immutable published-version koruması.
- */
 export async function recordRuntimeCaseMutation(input: {
   actor: string;
   action: AuditLog["action"];
@@ -49,6 +101,9 @@ export async function recordRuntimeCaseMutation(input: {
   patches: AuditPatch[];
   expectedUpdatedAt?: Record<string, number>;
   mutate: (store: CasesStore) => void;
-}): Promise<{ store: CasesStore; log: AuditLog; backup: null }> {
-  return recordPostgresCaseMutation(input);
+}): Promise<{ store: CasesStore; log: AuditLog; backup: ReturnType<typeof jsonCases.recordMutation>["backup"] | null }> {
+  if (storeMode() === "postgres") return recordPostgresCaseMutation(input);
+  const result = jsonCases.recordMutation(input.actor, input.action, input.message, input.patches, input.mutate);
+  await observeJsonCaseStore(result.store);
+  return result;
 }

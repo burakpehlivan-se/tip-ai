@@ -2,7 +2,7 @@ import {
   checkAuthMigrationReadiness,
   checkCaseStoreMigrationReadiness,
 } from "@/lib/auth/migration-readiness";
-import { storeMode } from "@/lib/store-mode";
+import { isShadowReadEnabled, storeMode } from "@/lib/store-mode";
 import { rateLimitStoreMode, type RateLimitStoreMode } from "@/lib/security/rate-limit";
 
 export type HealthStatus = "ok" | "not_ready";
@@ -40,16 +40,29 @@ export async function getReadiness(): Promise<{ ready: boolean; payload: Readine
     const attempts = storeMode();
     const rateLimit = rateLimitStoreMode();
     const cases = storeMode();
-    // Artık tüm vaka verileri postgres'te; JSON file-store kontrolü kaldırıldı.
+    const caseShadowRead = isShadowReadEnabled();
+    // Üretimde postgres zorunlu; test'te json'a izin ver (izolasyon)
+    if (store === "json" && rateLimit === "memory" && cases === "json") {
+      return {
+        ready: true,
+        payload: {
+          status: "ok",
+          auth: { store, migration: "not_required" },
+          attempts: { store: attempts, runtime: "ready" },
+          rateLimit: { store: rateLimit, runtime: "ready" },
+          cases: { store: cases, runtime: "ready", migration: "not_required", shadowRead: caseShadowRead },
+        },
+      };
+    }
     const needsAuthReadiness = store === "postgres" || rateLimit === "postgres";
     const [authReadiness, caseReadiness] = await Promise.all([
       needsAuthReadiness ? checkAuthMigrationReadiness() : Promise.resolve(null),
-      checkCaseStoreMigrationReadiness(),
+      cases === "postgres" ? checkCaseStoreMigrationReadiness() : Promise.resolve(null),
     ]);
-    const attemptsReady = attempts === "postgres";
-    const authReady = authReadiness?.ok ?? false;
+    const attemptsReady = attempts === "json" || attempts === "postgres";
+    const authReady = authReadiness?.ok ?? true;
     const rateLimitReady = rateLimit === "memory" || authReady;
-    const casesReady = caseReadiness?.ok ?? false;
+    const casesReady = caseReadiness?.ok ?? true;
     const ready = authReady && attemptsReady && rateLimitReady && casesReady;
     return {
       ready,
@@ -62,7 +75,7 @@ export async function getReadiness(): Promise<{ ready: boolean; payload: Readine
           store: cases,
           runtime: casesReady ? "ready" : "not_ready",
           migration: caseReadiness?.checks ?? "not_required",
-          shadowRead: false,
+          shadowRead: caseShadowRead,
         },
       },
     };

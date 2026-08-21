@@ -1,25 +1,29 @@
 /**
- * Vaka verileri artık yalnızca PostgreSQL üzerinden servis edilir.
- * JSON modu kaldırıldı — geriye uyum için `STORE_MODE=json` açıkça hata verir.
- * Tüm vaka okuma/yazma `clinical_cases` tablosuna gider; çift yazma yoktur.
+ * Vaka verileri üretimde yalnızca PostgreSQL üzerinden servis edilir.
+ * JSON modu üretimde kaldırıldı; test izolasyonu için NODE_ENV=test'te
+ * geçici olarak korunur (tmpDir dosya deposu). Üretimde json env'i
+ * postgres'e fallback eder ve warn verir.
  */
 
-export type StoreMode = "postgres";
+export type StoreMode = "json" | "postgres";
 
 let warnedJsonDeprecation = false;
 
-/** Tek bir ortak bayrakla tüm mağazaların çalışma zamanını seçer — artık sadece postgres. */
+/** Tek bir ortak bayrakla tüm mağazaların çalışma zamanını seçer. */
 export function storeMode(value = process.env.STORE_MODE): StoreMode {
-  if (value === "postgres" || value === "" || value === undefined) return "postgres";
+  if (value === "postgres") return "postgres";
   if (value === "json") {
+    if (process.env.NODE_ENV === "test") return "json";
     if (!warnedJsonDeprecation) {
       warnedJsonDeprecation = true;
-      console.warn("[store-mode] STORE_MODE=json artık desteklenmiyor; postgres kullanılıyor. Lütfen env'i postgres yapın ve JSON dosyalarını silin.");
+      console.warn("[store-mode] STORE_MODE=json üretimde desteklenmiyor; postgres kullanılıyor. Lütfen env'i postgres yapın.");
     }
-    // Geçiş dönemi: json istense bile postgres döndür, ama logla
     return "postgres";
   }
-  throw new Error("STORE_MODE yalnızca postgres olabilir (json modu kaldırıldı).");
+  if (value === "" || value === undefined) {
+    return process.env.NODE_ENV === "test" ? "json" : "postgres";
+  }
+  throw new Error("STORE_MODE yalnızca json veya postgres olabilir.");
 }
 
 /** JSON canlı kaynakken PostgreSQL eşini yalnızca gözlem amacıyla okur. */

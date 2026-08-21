@@ -95,7 +95,10 @@ export function enforceSuperAdminLock(
   }
 }
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export async function findUserById(id: string): Promise<DbUserRow | null> {
+  if (!UUID_RE.test(id)) return null;
   const db = getDb();
   const [row] = await db.select().from(users).where(eq(users.id, id)).limit(1);
   return row ?? null;
