@@ -9,6 +9,12 @@ interface GoruntuItem {
   findingLabel: string;
   source: string;
   imageAvailable: boolean;
+  /** Kaynak tablosundan: kayıt oluşturma zamanı (ISO string). */
+  createdAt?: string;
+  /** Yalnızca EKG: PTB-XL kayıt kimliği. */
+  ecgId?: number;
+  /** Yalnızca EKG: aktif SCP tanı kodları (örn. {"IMI":100}). */
+  scpCodes?: Record<string, number> | null;
   vaka: {
     hastalikAdi: string;
     hastalikKey: string;
@@ -216,6 +222,20 @@ function SummaryCard({ label, value, hint, accent = "ink" }: { label: string; va
   );
 }
 
+function formatCreatedAt(value?: string): string {
+  if (!value) return "—";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? "—"
+    : date.toLocaleDateString("tr-TR", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function formatScpCodes(codes?: Record<string, number> | null): string {
+  if (!codes) return "—";
+  const entries = Object.entries(codes);
+  return entries.length > 0 ? entries.map(([code, score]) => `${code}: ${score}`).join(", ") : "—";
+}
+
 function GoruntuCard({ item }: { item: GoruntuKaydi }) {
   const goruntuUrl = item.tip === "ekg"
     ? `/api/admin/cases/${encodeURIComponent(item.caseId)}/ekg-image`
@@ -249,6 +269,13 @@ function GoruntuCard({ item }: { item: GoruntuKaydi }) {
             <div><dt className="text-muted">Tür</dt><dd className="mt-0.5 text-ink">{item.tip === "ekg" ? "EKG (PTB-XL)" : "Radyoloji (ChestX-ray)"}</dd></div>
             <div><dt className="text-muted">Vaka anahtarı</dt><dd className="mt-0.5 break-all font-mono text-ink">{item.vaka.hastalikKey || "—"}</dd></div>
             <div><dt className="text-muted">Yaş / cinsiyet</dt><dd className="mt-0.5 text-ink">{item.vaka.yasAraligi.join("–")} · {item.vaka.cinsiyetTercih || "—"}</dd></div>
+            {item.tip === "ekg" && (
+              <>
+                <div><dt className="text-muted">EKG Kimliği</dt><dd className="mt-0.5 font-mono text-ink">{item.ecgId ?? "—"}</dd></div>
+                <div><dt className="text-muted">SCP Kodları</dt><dd className="mt-0.5 break-all text-ink">{formatScpCodes(item.scpCodes)}</dd></div>
+              </>
+            )}
+            <div><dt className="text-muted">Eklenme</dt><dd className="mt-0.5 text-ink">{formatCreatedAt(item.createdAt)}</dd></div>
           </dl>
           {item.vaka.anaSikayet && <p className="mt-3 rounded-lg bg-surface-soft px-3 py-2 text-sm text-steel">{item.vaka.anaSikayet}</p>}
           {item.vaka.conditions.length > 0 && <p className="mt-3 text-xs text-muted">Tanılar: <span className="text-steel">{item.vaka.conditions.join(", ")}</span></p>}
