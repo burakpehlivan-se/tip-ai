@@ -5,7 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { observeAuthShadowRead } from "@/lib/auth/shadow-read";
 import { recordSuccessfulLogin } from "@/lib/auth/runtime-user-store";
 import { deviceLabelFromUserAgent } from "@/lib/auth/client-device";
-import { getRequestId } from "@/lib/logger";
+import { getRequestId, logger } from "@/lib/logger";
 import { authenticateStudent, createStudentSessionToken, studentSessionCookieOptions } from "@/lib/student/auth";
 import { clientRateLimitKey, rateLimitHeaders, refundRateLimit, takeRateLimit, usernameRateLimitKey } from "@/lib/security/rate-limit";
 
@@ -58,7 +58,14 @@ export async function POST(req: NextRequest) {
     for (const [key, value] of Object.entries(rateLimitHeaders(accountQuota))) res.headers.set(key, value);
     res.cookies.set("tip_ai_student_session", token, studentSessionCookieOptions());
     return res;
-  } catch {
-    return NextResponse.json({ error: "Giriş başarısız" }, { status: 400 });
+  } catch (error) {
+    if (error instanceof SyntaxError) {
+      return NextResponse.json({ error: "Geçersiz istek gövdesi." }, { status: 400 });
+    }
+    logger.exception("Öğrenci girişi beklenmeyen hata", error, {
+      requestId: getRequestId(req),
+      route: "/api/student/login",
+    });
+    return NextResponse.json({ error: "Giriş başarısız. Lütfen kısa süre sonra tekrar deneyin." }, { status: 503 });
   }
 }
