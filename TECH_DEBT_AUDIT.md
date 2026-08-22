@@ -77,16 +77,16 @@ Türkçe tıp eğitimi klinik simülasyon platformu. Next.js (App Router, client
 
 > İlke: her adım bağımsız merge edilebilir; performans sadece iyileşir; net satır borcu düşer; yeni soyutlama katmanı açılmaz.
 
-## Faz 1 — Güvenlik & Doğruluk (yarım gün, 6 PR-lik küçük commit)
+## Faz 1 — Güvenlik & Doğruluk (✅ tamamlandı 2026-08-21)
 
-| Adım | İş | Doğrulama |
-|------|-----|-----------|
-| 1.1 | `soru-eslestir`: `getStudentSessionFromRequest` + `takeRateLimit` ekle | Oturumsuz POST → 401; limit aşımı → 429 |
-| 1.2 | `student/login`: catch'e `logger.exception`; DB hatası → 503 | Yanlış şifre 400, outage 503 + log satırı |
-| 1.3 | `register`: `e.message` yerine güvenli mesaj + server log | Anonim client'a dahili string sızmaz |
-| 1.4 | `pipeline/fill`: typeof guard | `{"id":123}` → 400 |
-| 1.5 | `recent-logins` testini `TEST_DATABASE_URL` gate'ine al (mevcut desen kopyala) | `npm test` yeşil, DB olmadan |
-| 1.6 | `global-error.tsx` minimal ekle | Root layout hatası → markalı hata ekranı |
+| Adım | İş | Commit | Durum |
+|------|-----|--------|-------|
+| 1.1 | `soru-eslestir`: student session + rate limit (`ai-eslestir:account`, 30/dk) | `3bf6bc3e55` | ✅ |
+| 1.2 | `student/login`: beklenmeyen hata → `logger.exception` + 503; bozuk JSON → 400 | `74ff810d5e` | ✅ |
+| 1.3 | `register`: doğrulama hataları allowlist ile geçer, dahili hatalar loglanıp 503 döner | `0677e4a7ce` | ✅ |
+| 1.4 | `pipeline/fill`: `typeof body.id === "string"` guard | `743b965b06` | ✅ |
+| 1.5 | `recent-logins` testi `TEST_DATABASE_URL` gate'inde (route postgres-only bulundu) | `afd3cdff43` | ✅ `npm test` yeşil: 62 passed / 0 failed |
+| 1.6 | `global-error.tsx` eklendi (inline stiller + `<html>/<body>`) | `c017e2cab3` | ✅ |
 
 ## Faz 2 — Performans (1 gün; mevcut davranış korunur, sadece sorgu/bant genişliği azalır)
 
