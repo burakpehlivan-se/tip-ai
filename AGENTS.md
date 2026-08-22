@@ -19,6 +19,7 @@ This block is written and re-added by `next dev` — verify at `node_modules/nex
 - **Verification after deploy:** `GET /api/health/ready` must return 200 with all stores `postgres`; check container logs for `[migrate] migration'lar tamamlandı`.
 - **UI testing protocol:** All UI/UX verification runs against the production site (`https://tip-ai.burakpehlivan.dev`), never localhost. Log in as a regular user with the test credentials stored in gitignored `.env.local` (`TIPAI_TEST_USER` / `TIPAI_TEST_PASS`) — never hardcode or commit them.
 - **Auto-push:** After completing code changes, commit and push to `master` immediately without waiting for user approval (pre-approved by user). Push = production deploy via Coolify webhook.
+- **One commit per phase:** Batch all changes of a work phase into a SINGLE commit before pushing (never push step-by-step) — every push triggers a Coolify deploy and queued deploys waste build time.
 - **Prod verification flow:** State exactly which change will be verified on prod and the test plan, then stop and wait until the user confirms the deploy finished before running the checks.
 
 <!-- END:deployment-context -->
