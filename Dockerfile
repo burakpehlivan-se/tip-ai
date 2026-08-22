@@ -37,17 +37,20 @@ COPY --from=builder /app/public ./public
 COPY --from=builder /app/.next/standalone ./
 COPY --from=builder /app/.next/static ./.next/static
 COPY --from=prod-deps /app/node_modules ./node_modules
-COPY --from=builder /app/scripts/standalone-migrate.mjs ./scripts/standalone-migrate.mjs
+COPY --from=builder /app/scripts ./scripts
 # Migration SQL + meta journal; standalone-migrate.mjs bunları bekler
 COPY --from=builder /app/drizzle ./drizzle
-COPY --from=builder /app/scripts/build-ekg-sources.ts ./scripts/build-ekg-sources.ts
-COPY --from=builder /app/scripts/build-radiology-sources.ts ./scripts/build-radiology-sources.ts
 COPY --from=builder /app/tsconfig.json ./tsconfig.json
-COPY --from=builder /app/src/lib/etl ./src/lib/etl
-COPY --from=builder /app/src/lib/auth ./src/lib/auth
-# tsx is devDependency but needed for on-demand ETL in prod; copy it
+# On-demand ETL/admin script'leri src'nin tamamını import eder (cdm, data, ai,
+# admin, clinical-history…). Yalnızca etl+auth kopyalamak container içi
+# script koşularını (db:generate-synthea-cases vb.) kırıyordu.
+COPY --from=builder /app/src ./src
+# tsx is devDependency but needed for on-demand ETL in prod; copy it.
+# deps aşamasındaki .bin/tsx symlink'i kopyada bozuluyor — gerçek cli'ya
+# işaret eden düz bir shim yazılır.
 COPY --from=deps /app/node_modules/tsx ./node_modules/tsx
-COPY --from=deps /app/node_modules/.bin/tsx ./node_modules/.bin/tsx
+RUN printf '#!/bin/sh\nexec node /app/node_modules/tsx/dist/cli.mjs "$@"\n' > /app/node_modules/.bin/tsx \
+ && chmod +x /app/node_modules/.bin/tsx
 
 RUN mkdir -p /app/data && chown -R nextjs:nodejs /app/data
 
