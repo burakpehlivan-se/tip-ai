@@ -1,55 +1,128 @@
-# TIP-AI Technical Debt Audit
+# Teknik Borç Denetimi ve İyileştirme Planı
 
-**Audit date:** 2026-08-11  
-**Scope:** TypeScript/Next.js source, build configuration, persistence, authentication, test layout, and deployment configuration. The working tree contained unrelated user changes; this audit is read-only and does not classify those changes as defects.
+> Tarih: 2026-08-21 · Kapsam: src + scripts (~53k LOC, 64 test dosyası)
+> Yöntem: tech-debt-audit protokolü — 9 boyut, 3 paralel denetim, tüm bulgular `dosya:satır` kanıtlı.
+> Kısıtlar: Performans mevcut seviyede tutulacak (regresyon yok), aşırı mühendislik yok, bakım yükü artmayacak.
 
-## Executive summary
+---
 
-TIP-AI has a solid safety-oriented foundation: role checks protect the admin routes, published cases now have a clinical validation gate, and the primary case store uses atomic writes and a single-writer deployment guard. The largest remaining risks are at boundaries rather than in domain logic: privileged case APIs accept untyped JSON, student attempts use a second and materially weaker JSON store, and a client workspace still imports a server-capable laboratory module through a webpack fallback. These are addressable without a framework rewrite. The recommended first increment is three small, independently releasable changes: typed request parsing, resilient attempt persistence, and a strict server/client laboratory boundary.
+## Yönetici Özeti
 
-`npm audit --omit=dev` could not reach the npm advisory endpoint because DNS resolution for `registry.npmjs.org` failed. This audit therefore makes no claim about current dependency CVEs; the same command should run in networked CI.
+Genel sağlık **iyi**: strict TypeScript (2 `any`), 0 CVE, SQL tamamen parametreli, tutarlı `{ error }` sözleşmesi, kaliteli rate-limit. En zayıf alanlar: **admin API'lerinde sorgu verimsizliği** (bir Critical N+1) ve **gözlemlenebilirlik** (33 sessiz catch bloğu). Hızlı kazanım sayısı: ~10 madde, toplam ~1 gün.
 
-## Mental model
+## Zihinsel Model
 
-The app is a Next.js 16 clinical decision simulation system. Public and student routes create server-owned simulation attempts; admin routes maintain cases, users, audit logs, backups, rules, and validation reports. Domain logic is mostly in `src/lib` (CDM conversion/validation, scoring, lab generation, and JSON-backed stores). The deployed runtime is a single Node process with `/app/data` persisted as a Docker volume; it is intentionally not multi-replica safe.
+Türkçe tıp eğitimi klinik simülasyon platformu. Next.js (App Router, client component ağırlıklı) + Drizzle ORM + PostgreSQL; AI yanitları DeepSeek proxy'sinden gelir. Veri katmanı iki modlu (`STORE_MODE=postgres` prod'da; JSON store test/legacy). Modüller: `lib/auth` (oturum/şifre), `lib/student` (deneme akışı + attempt store), `lib/admin` (vaka yönetimi + panel API'leri), `lib/vaka|data` (katalog/şablonlar), `app/admin/panel/*` (yoğun admin UI).
 
-## Findings
+## Bulgular Tablosu
 
-| ID | Category | Evidence | Severity | Effort | Description | Recommendation |
-|---|---|---|---|---:|---|---|
-| TD-01 | Type and contract debt | `src/app/api/admin/cases/[id]/route.ts:49-95`, `src/app/api/admin/cases/route.ts:38-104` | High | 4–6 h | Privileged case create/update handlers accept arbitrary JSON, cast selected fields with `as any`, and only partly coerce values. The clinical publication check runs after this boundary, so malformed draft data can still enter the repository and cause later failures. | Add small explicit create/update parsers that return a typed DTO plus field-specific 400 responses; reuse them in both routes. Do not add a broad schema framework unless more than these boundaries need it. |
-| TD-02 | Data integrity and availability | `src/lib/student/attempt-store.ts:29-49`, `src/lib/student/attempt-store.ts:132-192`; contrast `src/lib/admin/store.ts:33-79` | High | 4–6 h | Student attempts use a separate direct JSON store. It silently treats every read/parse failure as an empty store, does not use the single-writer guard, does not serialize mutations, and writes without file/directory fsync. A malformed or concurrent write can discard active learner progress without an observable error. | Move attempts onto the shared JSON persistence primitives (atomic write, corruption quarantine, single-writer assertion, and mutation lock) while retaining the 12-hour TTL and current public API. |
-| TD-03 | Architecture and performance | `src/components/vaka/VakaWorkspace.tsx:270-290`, `next.config.mjs:8-17` | High | 6–10 h | The 1,108-line, highest-churn workspace imports code that can reach filesystem-backed lab/rule storage. The client bundle is made to compile by `fs: false`; the config itself documents the missing server/client split. This makes an accidental client-side server dependency easier to introduce and complicates bundle analysis. | Define a client-safe lab-result contract. Resolve generated test data in the student attempt API; pass it to the workspace instead of importing server-capable lab code from a client component. |
-| TD-04 | Consistency and correctness | `src/lib/cdm/validate.ts:28-318`, `src/lib/cdm/validate-report.ts:87-818` | Medium | 6–8 h | The same CDM document is checked by two independent validators with different issue shapes and different strictness. Import validation, reporting, and publication can drift as new clinical fields are introduced. | Keep two explicit policies—`import` and `publication`—but implement shared field rules and a single issue model. Preserve existing external response contracts with adapters during migration. |
-| TD-05 | Test debt | Critical mutation routes at `src/app/api/admin/cases/route.ts:33-143` and `src/app/api/admin/cases/[id]/route.ts:36-142`; no sibling route test files | Medium | 5–7 h | The suite has unit coverage for auth, stores, scoring, CDM, and student attempts, but the admin case mutation routes that enforce RBAC and publication gating have no request-level regression tests. | Add route tests for unauthorized access, malformed payloads, draft save, failed activation, successful activation, and audit-log creation. Run these in the default `npm test` command. |
-| TD-06 | Maintainability | `src/components/vaka/VakaWorkspace.tsx:289`, `src/components/vaka/VakaWorkspace.tsx` (1,108 LOC; 28 touches in last 80 commits), `src/lib/data/case-generator.ts` (1,880 LOC) | Medium | 6–10 h | The main learner workspace is both a UI hot spot and a state/orchestration module; it contains a `@ts-ignore`. The static case generator is also very large. Changes to either have disproportionate regression risk. | Remove the type suppression first; then extract only stable seams (attempt transport, test-request state, and message construction). Keep rendering components in place until behaviour tests cover the extracted seam. |
-| TD-07 | Operability and documentation drift | `.env.example:12-14`, `Dockerfile:15-32`, `src/lib/admin/paths.ts:4-26`; no repository `README.md` | Medium | 2–3 h | The environment sample advertises Prisma/SQLite and `DATABASE_URL`, but the current runtime uses JSON files under `/app/data/admin`; there is no primary runbook for setup, backup/restore, single-replica limits, or audit commands. | Replace the stale database section with the JSON-store deployment contract and add a short README/runbook. Document the trigger for a future database migration rather than implying one already exists. |
-| TD-08 | Observability | `src/lib/student/attempt-store.ts:35-42`, `src/lib/lab-motor.ts:20,199,209`, `src/components/vaka/VakaWorkspace.tsx:236-367` | Low | 2–4 h | Several catches intentionally degrade gracefully, but attempt-store failures are indistinguishable from “no attempt”. This prevents support staff from diagnosing lost progress. | Log and classify server persistence failures; leave client-facing wording generic. Do not turn expected “missing file” cases into error noise. |
+| ID | Boyut | Konum | Şiddet | Efor | Sorun | Öneri |
+|----|-------|-------|--------|------|-------|-------|
+| F1 | Perf | `api/admin/ekg-sources/route.ts:47-62` | **Critical** | 1-2s | N+1: ~535 satır × garanti-miss `getRuntimeCaseById` = sayfa başına ~536 boşuna sorgu + paginasyon yok | Per-row lookup'ı at, SQL GROUP BY ile aggregate et |
+| F2 | Perf | `lib/admin/postgres-case-store.ts:130-163` | High | 4-6s | Tüm vaka korpusu (~595 satır full JSONB) her admin isteğinde belleğe yükleniyor; ≥10 route kullanıyor | Kullanım başına projeksiyon sorgusu (aşamalı) |
+| F3 | Perf | `api/student/attempts/route.ts:71-77` | High | 1-2s | Aynı sourceCaseId 3 kez çözülüyor; 7 sıralı DB turu — öğrenci hot path'i | Tek çözüm + `Promise.all`, ideal: EXISTS join |
+| F4 | Güvenlik | `api/ai/soru-eslestir/route.ts:14-17` | High | 0.5s | Oturumsuz + rate-limitsiz AI proxy → faturalandırma istismarı vektörü | Session check + `takeRateLimit` ekle |
+| F5 | Gözlem | `api/student/login/route.ts:61-63` | High | 0.25s | Auth path'te sessiz catch — DB kesintisi kötü girişten ayırt edilemiyor | `logger.exception` + 503 ayrımı |
+| F6 | Test | `api/admin/users/recent-logins/route.test.ts:26-27` | High | 0.5s | Test hardcoded DB URL'e bağlanıyor → `npm test` kapısı sürekli kırık | `TEST_DATABASE_URL` gate'i uygula (postgres.integration.test.ts deseni) |
+| F7 | Test | `lib/student/public-case.ts` | High | 2-3s | Misafir/PHI-strip akışı sıfır test | Saf fonksiyon unit testleri (infra gerekmez) |
+| F8 | Mimari | `admin/panel/vakalar/[id]/page.tsx:102-1646` | High | 8h+ | 1545 LOC god component, 34 useState, en yüksek churn #2 | **Şimdilik bölme** — kural: daha fazla büyütme; dokunulduğunda tab-tab çıkar |
+| F9 | Mimari | `components/vaka/VakaWorkspace.tsx:101-1363` | High | 8h+ | 1263 LOC, 61 hook, churn şampiyonu (52 commit); React test infra'su yok | Aynı kural: büyütme, dokununca reducer/hook'a taşı |
+| F10 | Gözlem | ~33 API catch bloğu log'suz (`admin/users/recent-logins:36` vb.) | Medium | 1-2s | Sessiz 503'ler üretimde görünmez | Kritik path'lere tek satır `logger.warn/error` |
+| F11 | Güvenlik | `api/student/register/route.ts:51-53` | Medium | 0.25s | Dahili hata mesajı anonim istemciye sızmıyor mu kontrol + log yok | Mesaj sanitizasyonu + log |
+| F12 | Tip | `api/admin/pipeline/fill/route.ts:22` | Medium | 0.25s | `as { id?: string }` doğrulanmamış cast mutation recorder'a akıyor | typeof guard |
+| F13 | Bundle | `app/profilim/page.tsx:6-7` | Medium | 0.1s | Tip-only import value olarak yapılıyor → fs + 1473 LOC zinciri client bundle'a | `import type` |
+| F14 | Tutarlılık | API error mesajları: `"Vaka bulunamadı."` ×14 vs ×3 noktalama drift; kod yok | Medium | 2-3s | İstemci string'e güvenerek branch edemiyor | Aşamalı: sadece yeni kodda sabit mesajlar; kod sistemi ekleme |
+| F15 | Config | `.env.example`:12-13 `GUEST_CASE_ID` ölü; :25-26 shadow-read "kullanılmıyor" ama kod duruyor; README:291 env listesi eksik (5 değişken) | Medium | 1s | Doc/kod çelişkisi deployer'ları yanıltır | Ölü var sil, listeyi senkle |
+| F16 | Mimari | `lib/admin/store.ts:48,211,225,248` ölü exportlar; `attempt-store.ts:32 ↔ postgres-attempt-store.ts:15` tip-döngüsü | Low | 0.5s | Legacy JSON-store yüzeyi kalıntısı | Export kaldır / tipleri ayır |
+| F17 | Gözlem | `app/global-error.tsx` yok | Low | 0.25s | Root layout hatalarında framework default ekranı | Minimal global-error ekle |
+| F18 | Test | `auth/password.ts` hash testleri skip'li integration dosyasında; `postgres-attempt-store.ts` kapsamsız | Medium | 2-4s | Varsayılan `npm test` bu kritik yolları hiç çalıştırmıyor | Her zaman açık unit testler |
+| F19 | Perf | `postgres-case-store.ts:146-153` seed döngüsü satır-satır insert | Medium | 0.5s | Yüzlerce sıralı await | `onConflictDoNothing()` bulk insert |
 
-## Top priorities
+## İlk 5 Öncelik (etki/efor)
 
-1. **TD-01 — typed case request parsing.** Highest safety-to-effort ratio; prevents invalid data before it reaches clinical validation and audit logs.
-2. **TD-02 — resilient student attempt persistence.** Protects active learner progress and closes the largest data-loss gap.
-3. **TD-03 — server/client lab boundary.** Removes the webpack filesystem workaround from the critical student workspace and protects bundle/runtime boundaries.
-4. **TD-05 — route-level regression tests.** Locks the first two fixes and the publication safety gate into CI.
-5. **TD-04 — unify CDM rule implementation.** Reduces future maintenance cost after the safety-critical paths are protected.
+1. **F1** ekg-sources N+1 — kritik prod etkisi, 1-2 saat
+2. **F4+F5+F11+F12** güvenlik/gözlem paketi — ~1 saatte 4 delik kapanır
+3. **F3** öğrenci hot-path sorgu optimizasyonu — 1-2 saat
+4. **F6** kırık test kapısını onar — CI güveni, 30 dk
+5. **F13+F16+F19** mikro temizlik paketi — 1 saat
 
-## Quick wins
+## Hızlı Kazanımlar (<30 dk each)
 
-- [ ] Replace the `@ts-ignore` at `src/components/vaka/VakaWorkspace.tsx:289` with an explicit common `TestSonucu` result type.
-- [ ] Add an audit CI job that runs `npm audit --omit=dev --audit-level=high` in a networked environment.
-- [ ] Add `TIP_AI_REPLICA_COUNT=1` and `/app/data` persistence requirements to the deployment documentation.
-- [ ] Return a stable `code` alongside the active-case publication error so the admin UI can render actionable validation feedback.
+- [ ] F13 `import type` düzeltmesi (2 satır)
+- [ ] F4 soru-eslestir'a session+rate-limit (~15 satır)
+- [ ] F5 login catch'ine log (~3 satır)
+- [ ] F11 register sanitizasyonu (~5 satır)
+- F12 typeof guard (~3 satır)
+- [ ] F17 global-error.tsx (~20 satır)
+- [ ] F19 bulk insert (~10 satır)
+- [ ] F15 .env.example temizliği + README env listesi
 
-## Looks bad but is fine
+## "Kötü Görünüyor Ama Sorun Değil"
 
-- The inline boot script in `src/app/layout.tsx:42-43` uses `dangerouslySetInnerHTML`, but its content is static, contains no user data, and exists to prevent the known unstyled-first-paint issue. It is not an XSS sink under the current implementation.
-- The primary admin store uses synchronous I/O in `src/lib/admin/store.ts:60-79`. For the documented single-process deployment this is deliberate: it permits atomic replace plus fsync and avoids asynchronous read–modify–write races.
-- The single-replica check in `src/lib/admin/paths.ts:9-18` is a useful fail-fast constraint, not a scalability bug by itself. The debt is that other stores have not consistently adopted the same contract.
+1. **Türkçe domain + English infra isim karışımı** (`sorulanAksiyonlar` vs `recordPlaySession`) — proje konvansiyonu (UI Türkçe, altyapı İngilizce); yeniden adlandırma yüksek risk/düşük getiri.
+2. **`case-templates.ts` 1473 LOC** — salt-veri dosyası; içerik büyüklüğü, mantık karmaşası değil.
+3. **`rate-limit.ts:101` empty catch** — fail-closed cleanup, bilinçli ve yorumlu.
+4. **15 skipped test** — hepsi `TEST_DATABASE_URL` koşullu integration seti; bilinçli tasarım (README:21-28).
+5. **VakaWorkspace'in scoring motorunu client'a alması** — offline değerlendirme gereksinimi, bilinçli trade-off.
 
-## Open questions
+## Açık Sorular
 
-1. What is the actual performance SLO represented by `[XYZ]` (for example, student attempt API P95 or mobile LCP)?
-2. Is the planned deployment permanently a single persistent container, or is horizontal scaling/serverless hosting expected within the next two quarters?
-3. Are guest attempts expected to survive a container restart, or is a 12-hour best-effort continuation sufficient?
-4. Does “uzman onayı” need a distinct reviewer workflow and immutable approval audit trail before cases are used in formal assessment?
+1. Admin analitik route'larında korpus-yükleme (F2): gerçek kullanım sıklığı nedir? Sadece admin kullanıyorsa geciktirilebilir.
+2. God component'ler (F8/F9): bir sonraki feature hangisine dokunacak? O an bölme planlanmalı.
+3. Shadow-read modülü (`lib/auth/shadow-read.ts`): silinecek mi resmen?
+
+---
+
+# Implementasyon Planı
+
+> İlke: her adım bağımsız merge edilebilir; performans sadece iyileşir; net satır borcu düşer; yeni soyutlama katmanı açılmaz.
+
+## Faz 1 — Güvenlik & Doğruluk (yarım gün, 6 PR-lik küçük commit)
+
+| Adım | İş | Doğrulama |
+|------|-----|-----------|
+| 1.1 | `soru-eslestir`: `getStudentSessionFromRequest` + `takeRateLimit` ekle | Oturumsuz POST → 401; limit aşımı → 429 |
+| 1.2 | `student/login`: catch'e `logger.exception`; DB hatası → 503 | Yanlış şifre 400, outage 503 + log satırı |
+| 1.3 | `register`: `e.message` yerine güvenli mesaj + server log | Anonim client'a dahili string sızmaz |
+| 1.4 | `pipeline/fill`: typeof guard | `{"id":123}` → 400 |
+| 1.5 | `recent-logins` testini `TEST_DATABASE_URL` gate'ine al (mevcut desen kopyala) | `npm test` yeşil, DB olmadan |
+| 1.6 | `global-error.tsx` minimal ekle | Root layout hatası → markalı hata ekranı |
+
+## Faz 2 — Performans (1 gün; mevcut davranış korunur, sadece sorgu/bant genişliği azalır)
+
+| Adım | İş | Doğrulama |
+|------|-----|-----------|
+| 2.1 | `ekg-sources`: per-row `getRuntimeCaseById` çağrısını kaldır (schema zaten FK'sız → sonuç zaten boş); label aggregate SQL'e; LIMIT/paginasyon | Route response öncekiyle aynı şekil; query sayısı 536→1 |
+| 2.2 | `attempts/route.ts` GET: sourceCaseId tek sefer çöz, 3 kontrolü `Promise.all` ile paralelleştir | Aynı JSON yanıtı; DB turu 7→~3 |
+| 2.3 | Seed döngüsü → tek bulk insert `onConflictDoNothing()` | Seed çıktısı birebir aynı |
+| 2.4 | `profilim`: `import type` düzeltmesi | Bundle'dan fs/case-templates zinciri düşer (build output karşılaştır) |
+
+**Performans bütçesi:** Bu fazdan sonra ölçüm: öğrenci vaka-açılışı p95 ve admin vaka-listesi p95, önce/sonra kaydet. Regresyon = geri al.
+
+## Faz 3 — Bakım Borcu (yarım gün)
+
+| Adım | İş | Doğrulama |
+|------|-----|-----------|
+| 3.1 | `public-case.ts` unit testleri (PHI-strip + seçim mantığı; saf fonksiyonlar) | Yeni test dosyası, infra gerekmez |
+| 3.2 | `password.ts` format testlerini her-zaman-açık unit teste taşı | Skip'siz çalışır |
+| 3.3 | Ölü kod: `store.ts` 4 export kaldır, `GUEST_CASE_ID` sil, shadow-read kararı (soru 3) | grep ile sıfır referans; `npm test` yeşil |
+| 3.4 | Kritik sessiz 503'lere `logger.warn` (F10'un ilk 4 noktası) | Log çıktısı görünür |
+| 3.5 | `.env.example` + README env listesi senkronu | Liste = kod gerçekliği |
+
+## Bilinçli Erteleme Kararları (aşırı mühendislik önleme)
+
+- **Zod benimseme (77 route)** → ERTelenir. Mevcut manuel validasyon tutarlı; tek güvenlik deliği Faz 1'de kapatıldı. Yeni route'larda shared validator yazılacaksa o an karar verilir.
+- **God component bölmeleri (F8/F9)** → ERTelenir; **kural:** bu dosyalara satır EKLEMEYEN değişiklikte bölme yok; dokunulurken ilgili tab/faz hook'a taşınır ve dosya küçülür.
+- **Error-code sistemi (F14)** → ERTelenir; sadece yeni kodda mevcut kanonik mesajlar kopyalanır.
+- **React testing-library kurulumu** → VakaWorkspace'e feature yazılana kadar ertelendi.
+- **F2 korpus-projeksiyonu** → Admin analitik kullanımı ölçülmeden yapılmaz (açık soru 1); N+1 gibi somut ispat yoksa optimize etme.
+
+## Non-Functional Gereksinimler (planın parçası)
+
+| NFR | Hedef | Nasıl korunuyor |
+|-----|-------|-----------------|
+| Performans | Regresyon sıfır; öğrenci hot-path sorgu sayısı düşer (F3) | Faz 2 ölçüm kapısı; her PR tek davranış-değişikliği |
+| Güvenlik | Kimlik doğrulamasız mutasyon/AI çağrısı = 0 | Faz 1.1; mevcut guard deseni kopyalanır, yeni pattern icat edilmez |
+| Gözlemlenebilirlik | Auth/attempt path'inde sessiz hata = 0 | Faz 1.2 + 3.4; logger mevcut altyapı |
+| Basitlik | Net LOC düşüşü; yeni bağımlılık = 0 | Plan bilinçli ertemeler; tüm düzeltmeler mevcut desenlerin kopyası |
+| Bakım yükü | Dosya büyüme kuralı: F8/F9 küçülerek dokunulur | Büyütmeme kuralı + test kapısı Faz 3.1 ile güçlenir |
