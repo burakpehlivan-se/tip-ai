@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { DeepseekSonuc } from "../../ai/deepseek";
 
-const deepseekMock = vi.fn<[], Promise<DeepseekSonuc>>();
+const deepseekMock = vi.fn<() => Promise<DeepseekSonuc>>(() => Promise.resolve({ content: "" }));
 
 vi.mock("../../ai/deepseek", async (importOriginal) => {
   const actual = await importOriginal<typeof import("../../ai/deepseek")>();

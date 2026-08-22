@@ -157,10 +157,28 @@ export async function enrichSyntheaCase(vaka: TipAiCdmDocument): Promise<Synthea
       maxTokens: 4000,
     });
 
-    const hamYanit = yanit.content || yanit.reasoningContent || "";
-    const parsed = jsonCikar(hamYanit) as
+    let hamYanit = yanit.content || yanit.reasoningContent || "";
+    let parsed = jsonCikar(hamYanit) as
       | { anaSikayet?: unknown; ozetBilgiler?: unknown; hastaYanitlari?: unknown }
       | null;
+
+    // JSON çıkmadıysa (tipik neden: "length" ile kesilmiş yanıt) bir kez daha
+    // dene — daha yüksek token limiti ile. Tek tur; maliyeti sınırlı tutar.
+    if (!parsed) {
+      const ikinci = await deepseekChat({
+        messages: [
+          { role: "system", content: "Sen yalnızca JSON üreten bir tıp eğitimi vaka sistemisin." },
+          { role: "user", content: prompt + "\n\nÖNEMLİ: Yanıtı TEK geçerli JSON bloğu olarak ver, kısaltma." },
+        ],
+        temperature: 0.4,
+        maxTokens: 8000,
+      });
+      const hamIkinci = ikinci.content || ikinci.reasoningContent || "";
+      if (hamIkinci) {
+        hamYanit = hamIkinci;
+        parsed = jsonCikar(hamIkinci) as typeof parsed;
+      }
+    }
 
     const sonuc: TipAiCdmDocument = structuredClone(vaka);
     const uyarilar: string[] = [];
