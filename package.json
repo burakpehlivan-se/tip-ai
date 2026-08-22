@@ -14,6 +14,7 @@
     "db:load-synthea-fhir:history": "npx tsx scripts/load-synthea-fhir.ts --history-only",
     "db:generate-synthea-cases": "npx tsx scripts/generate-synthea-cases.ts",
     "db:generate-synthea-cases:dry": "npx tsx scripts/generate-synthea-cases.ts --dry",
+    "db:re-enrich-synthea-cases": "npx tsx scripts/re-enrich-synthea-cases.ts",
     "db:backfill-synthea-case-sources": "npx tsx scripts/backfill-synthea-case-sources.ts",
     "db:backfill-fhir-code-system": "npx tsx scripts/backfill-fhir-code-system.ts",
     "db:backfill-fhir-code-system:dry": "npx tsx scripts/backfill-fhir-code-system.ts --dry",
