@@ -294,10 +294,19 @@ güncellenecektir.
 ADMIN_USERNAME
 ADMIN_PASSWORD
 ADMIN_SESSION_SECRET        # zorunlu; en az 32 byte rastgele değer
+STUDENT_SESSION_SECRET      # önerilir; ayarlanmazsa ADMIN_SESSION_SECRET'e düşer (deprecated)
 DATABASE_URL                # PostgreSQL bağlantı dizgisi
 APP_URL
 TIP_AI_REPLICA_COUNT=1
 RATE_LIMIT_STORE=memory    # çoklu replica/cutover sonrası: postgres
+
+# Opsiyonel
+DEEPSEEK_API_KEY            # yoksa AI özellikleri sessizce kapalıdır
+DEEPSEEK_BASE_URL           # varsayılan: https://api.deepseek.com
+DEEPSEEK_MODEL              # varsayılan: deepseek-v4-flash
+MIMIC_EPISODE_HASH_SALT     # MIMIC ETL deterministik kimlik tuzu (ETL kullanılacaksa)
+RADIOLOGY_IMAGES_DIR        # render edilmiş radyoloji PNG dizini
+EKG_IMAGES_DIR              # render edilmiş EKG PNG dizini
 ```
 
 Gizli değerleri repoya veya istemci tarafına eklemeyin.

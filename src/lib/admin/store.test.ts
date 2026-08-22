@@ -155,21 +155,6 @@ describe("admin store (temp dir)", () => {
     expect(loadHastaTipleriStore().tipler.length).toBe(seededSayi + 1);
   });
 
-  it("withStoreLock görevleri sırayla seri çalıştırır", async () => {
-    const { withStoreLock } = await import("./store");
-    const order: number[] = [];
-    await Promise.all(
-      [1, 2, 3, 4, 5].map((i) =>
-        withStoreLock(async () => {
-          order.push(i);
-          await new Promise((r) => setTimeout(r, Math.random() * 5));
-          order.push(i * 10);
-        })
-      )
-    );
-    expect(order).toEqual([1, 10, 2, 20, 3, 30, 4, 40, 5, 50]);
-  });
-
   it("bozuk JSON'u ezmek yerine karantinaya alır", async () => {
     const { loadCasesStore } = await import("./store");
     const casesFile = path.join(tmpDir, "data", "admin", "cases.json");

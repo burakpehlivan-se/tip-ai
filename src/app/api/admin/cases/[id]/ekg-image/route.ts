@@ -10,6 +10,7 @@ import { getRuntimeCaseById } from "@/lib/admin/runtime-case-store";
 import { getDb } from "@/lib/auth/db";
 import { ekgSources } from "@/lib/auth/schema";
 import { resolveEkgImagePath } from "@/lib/student/ekg-image";
+import { getRequestId, logger } from "@/lib/logger";
 
 export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const session = await getSessionFromRequest(req);
@@ -41,7 +42,13 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
         "Cache-Control": "private, max-age=86400",
       },
     });
-  } catch {
+  } catch (error) {
+    logger.warn("EKG görüntüsü okunamadı", {
+      requestId: getRequestId(req),
+      route: "/api/admin/cases/[id]/ekg-image",
+      caseId,
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: "EKG şu anda alınamadı." }, { status: 503 });
   }
 }

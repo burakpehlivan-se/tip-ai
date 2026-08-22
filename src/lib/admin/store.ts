@@ -45,8 +45,7 @@ function readJson<T>(file: string, fallback: T): T {
 // gelecekteki async mutasyonları ve compound operasyonları (undo/backup) güvenceye alır.
 // DİKKAT: Çok işlemli (cluster / çok replika) çalıştırma bu store ile güvenli DEĞİLDİR —
 // dosya kilidi (flock) veya SQLite geçişi gerekir.
-export function withStoreLock<T>(fn: () => T | Promise<T>): Promise<T> {
-  return withJsonStoreLock(fn);
+function withStoreLock<T>(fn: () => T | Promise<T>): Promise<T> {  return withJsonStoreLock(fn);
 }
 
 export function loadCasesStore(): CasesStore {
@@ -208,7 +207,7 @@ export function listCasesGrouped(): {
 }
 
 /** path: cases.<caseId>.statikTestler.<testKey>.[field...]  veya cases.<caseId>.<field> */
-export function getByPath(store: CasesStore, pathStr: string): unknown {
+function getByPath(store: CasesStore, pathStr: string): unknown {
   const parts = pathStr.split(".");
   if (parts[0] !== "cases" || parts.length < 2) return undefined;
   const caseId = parts[1];
@@ -222,7 +221,7 @@ export function getByPath(store: CasesStore, pathStr: string): unknown {
   return cur;
 }
 
-export function setByPath(store: CasesStore, pathStr: string, value: unknown): boolean {
+function setByPath(store: CasesStore, pathStr: string, value: unknown): boolean {
   const parts = pathStr.split(".");
   if (parts[0] !== "cases" || parts.length < 3) return false;
   const caseId = parts[1];
@@ -243,10 +242,6 @@ export function setByPath(store: CasesStore, pathStr: string, value: unknown): b
   }
   store.cases[idx].updatedAt = Date.now();
   return true;
-}
-
-export function deleteByPath(store: CasesStore, pathStr: string): boolean {
-  return setByPath(store, pathStr, undefined);
 }
 
 /**

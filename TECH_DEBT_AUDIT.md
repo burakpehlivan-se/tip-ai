@@ -101,15 +101,15 @@ Türkçe tıp eğitimi klinik simülasyon platformu. Next.js (App Router, client
 
 **Performans bütçesi:** Bu fazdan sonra ölçüm: öğrenci vaka-açılışı p95 ve admin vaka-listesi p95, önce/sonra kaydet. Regresyon = geri al.
 
-## Faz 3 — Bakım Borcu (yarım gün)
+## Faz 3 — Bakım Borcu (✅ tamamlandı 2026-08-22)
 
 | Adım | İş | Doğrulama |
 |------|-----|-----------|
-| 3.1 | `public-case.ts` unit testleri (PHI-strip + seçim mantığı; saf fonksiyonlar) | Yeni test dosyası, infra gerekmez |
-| 3.2 | `password.ts` format testlerini her-zaman-açık unit teste taşı | Skip'siz çalışır |
-| 3.3 | Ölü kod: `store.ts` 4 export kaldır, `GUEST_CASE_ID` sil, shadow-read kararı (soru 3) | grep ile sıfır referans; `npm test` yeşil |
-| 3.4 | Kritik sessiz 503'lere `logger.warn` (F10'un ilk 4 noktası) | Log çıktısı görünür |
-| 3.5 | `.env.example` + README env listesi senkronu | Liste = kod gerçekliği |
+| 3.1 | `public-case.test.ts`: PHI-strip + snapshot kurulum testleri (11 test) | ✅ Yeni suite yeşil — misafir akışı artık kapsamda |
+| 3.2 | `password.test.ts`: hash format + legacy scrypt + yardımcı testleri (10 test, her zaman açık) | ✅ Skip'siz çalışır |
+| 3.3 | Ölü kod: `withStoreLock`/`getByPath`/`setByPath` un-export, `deleteByPath` silindi, `GUEST_CASE_ID` kaldırıldı, shadow-read yorumu gerçeğe göre düzeltildi (modül korundu — login path'ine dokunmamak için) | ✅ grep sıfır referans; `npm test` yeşil |
+| 3.4 | Sessiz 503'lere `logger.warn`: recent-logins + ekg-image + radiology-image | ✅ Üç route da logluyor |
+| 3.5 | README env listesi senkronu (7 değişken eklendi) + `.env.example` temizliği | ✅ Liste kod gerçekliğiyle doğrulandı |
 
 ## Bilinçli Erteleme Kararları (aşırı mühendislik önleme)
 

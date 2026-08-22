@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
 import { listRecentLoginEvents } from "@/lib/auth/audit";
+import { getRequestId, logger } from "@/lib/logger";
 import type { AdminRole } from "@/lib/admin/types";
 
 const ROLES: AdminRole[] = ["admin", "doktor", "ogrenci"];
@@ -33,7 +34,12 @@ export async function GET(req: NextRequest) {
         createdAt: login.createdAt.getTime(),
       })),
     });
-  } catch {
+  } catch (error) {
+    logger.warn("Son giriş kayıtları okunamadı", {
+      requestId: getRequestId(req),
+      route: "/api/admin/users/recent-logins",
+      error: error instanceof Error ? error.message : String(error),
+    });
     return NextResponse.json({ error: "Son girişler yüklenemedi." }, { status: 503 });
   }
 }
