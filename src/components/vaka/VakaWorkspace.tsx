@@ -167,6 +167,8 @@ export default function VakaWorkspace({
   const [debugTumSonuclarAcik, setDebugTumSonuclarAcik] = useState(false);
   const [debugTestFiltre, setDebugTestFiltre] = useState<"hepsi" | "var" | "yok">("hepsi");
   const [debugTestArama, setDebugTestArama] = useState("");
+  const [debugSoruCevapAcik, setDebugSoruCevapAcik] = useState(false);
+  const [debugSoruArama, setDebugSoruArama] = useState("");
   const [onboardingKapatildi, setOnboardingKapatildi] = useState(false);
   const [islemYukleniyor, setIslemYukleniyor] = useState(false);
   const [islemHatasi, setIslemHatasi] = useState("");
@@ -627,6 +629,23 @@ export default function VakaWorkspace({
     return items;
   }, [debugTestEnvanteri, debugTestFiltre, debugTestArama]);
 
+  /** Debug: tüm soru çipleri + hastanın kayıtlı yanıtları */
+  const debugSoruCevapListesi = useMemo(() => {
+    const q = debugSoruArama.trim().toLocaleLowerCase("tr");
+    return ((vaka.soruChipleri || []) as SoruChipi[])
+      .map((c) => ({
+        key: c.aksiyon,
+        etiket: c.etiket,
+        kategori: c.kategori as string,
+        cevap: vaka.hastaYanitlari[c.aksiyon] || "",
+      }))
+      .filter(
+        (item) =>
+          !q ||
+          `${item.etiket} ${item.key} ${item.cevap}`.toLocaleLowerCase("tr").includes(q)
+      );
+  }, [vaka, debugSoruArama]);
+
   // Sonuç ekranı gösteriliyorsa
   if (sonuc) {
     return <SonucEkrani vaka={vaka} sonuc={sonuc} embed={embed} />;
@@ -658,6 +677,50 @@ export default function VakaWorkspace({
             </span>
             <span className="shrink-0 text-muted">{debugDetayAcik ? "▴" : "▾"}</span>
           </button>
+          <div className="flex items-center justify-between gap-2 border-t border-clinical-orange/20 px-3 py-1">
+            <span className="truncate text-[10px] text-muted">
+              Soru-Cevap envanteri · {debugSoruCevapListesi.length} soru kayıtlı yanıtlarıyla
+            </span>
+            <button
+              type="button"
+              onClick={() => setDebugSoruCevapAcik((v) => !v)}
+              className="btn-ghost shrink-0 min-h-7 px-2 py-0.5 text-[11px] text-clinical-orange hover:text-ink"
+            >
+              {debugSoruCevapAcik ? "Gizle" : "Göster"}
+            </button>
+          </div>
+          {debugSoruCevapAcik && (
+            <div className="max-h-72 space-y-1.5 overflow-y-auto border-t border-clinical-orange/20 bg-canvas px-3 py-2 scrollbar-thin">
+              <input
+                type="text"
+                value={debugSoruArama}
+                onChange={(e) => setDebugSoruArama(e.target.value)}
+                placeholder="Soru/cevapta ara…"
+                aria-label="Debug soru-cevap arama"
+                className="h-8 w-full rounded-full border border-hairline bg-canvas px-3 text-xs text-ink placeholder:text-muted focus:border-clinical-orange focus:outline-none"
+              />
+              {debugSoruCevapListesi.map((item) => {
+                const negatif = /yok|hayır|hayir|bilmiyorum|anlamadım/i.test(item.cevap);
+                return (
+                  <div key={item.key} className="rounded-md border border-hairline bg-surface-soft px-2.5 py-1.5 text-xs">
+                    <div className="flex flex-wrap items-center gap-1.5">
+                      <span className="font-semibold text-ink">{item.etiket}</span>
+                      <span className="rounded bg-surface px-1 py-0.5 text-[9px] font-medium text-muted">{item.key}</span>
+                      {!item.cevap && (
+                        <span className="rounded-full bg-clinical-orange/20 px-1.5 py-0.5 text-[9px] font-medium text-clinical-orange">yanıt yok</span>
+                      )}
+                    </div>
+                    {item.cevap && (
+                      <p className={`mt-0.5 leading-relaxed ${negatif ? "text-clinical-orange" : "text-steel"}`}>→ {item.cevap}</p>
+                    )}
+                  </div>
+                );
+              })}
+              {debugSoruCevapListesi.length === 0 && (
+                <p className="py-3 text-center text-xs text-muted">Bu aramada soru yok.</p>
+              )}
+            </div>
+          )}
           {debugDetayAcik && (
             <div className="grid max-h-28 gap-x-3 gap-y-0.5 overflow-y-auto border-t border-clinical-orange/20 px-3 py-1.5 sm:grid-cols-2 lg:grid-cols-3 scrollbar-thin">
               <div>

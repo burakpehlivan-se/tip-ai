@@ -19,6 +19,7 @@ import { createHash } from "crypto";
 import { CdmCondition, CdmLabResult, TipAiCdmDocument, TIP_AI_CDM_VERSION } from "../../cdm/types";
 import { validateVakaDocument, VakaValidationResult } from "../../cdm/validate-report";
 import { LAB_REFERANSLAR } from "../../data/clinical-reference";
+import { generateNormalLabs } from "../../data/lab-katalog";
 import { poliklinikAciklama } from "../../data/poliklinik-aciklamalari";
 import {
   ageToRange,
@@ -207,10 +208,61 @@ function mapImaging(bundle: SyntheaEpisodeBundle, tests: Record<string, CdmLabRe
   }
 }
 
+/**
+ * Beklenen testleri doldur:
+ * 1) Önce Synthea lab-pool'dan profil eşleşmeli gerçek satır örneklenir
+ *    (patoloji-definer testler lab-katalog tarafından bloklanır — uydurma yok).
+ * 2) Havuzda da olmayan test için dürüst "kaynakta yok" taslağı yazılır.
+ */
 function ensureExpectedTestResults(
   template: SyntheaRubricTemplate,
-  tests: Record<string, CdmLabResult>
+  tests: Record<string, CdmLabResult>,
+  ctx: { age: number; cinsiyet: "E" | "K"; hastalikKey: string; hastalikAdi: string; patientToken: string; episodeId: string }
 ): void {
+  const eksik = template.beklenenTestler.filter((t) => !tests[t.key]);
+  if (eksik.length === 0) return;
+
+  const profile = {
+    age: ctx.age,
+    sex: ctx.cinsiyet,
+    diagnoses: [ctx.hastalikAdi],
+    comorbidities: [],
+    severity: "orta",
+    hastalikKey: ctx.hastalikKey,
+  } as Parameters<typeof generateNormalLabs>[0];
+
+  let sampled: Record<string, import("../../types").TestSonucu> = {};
+  try {
+    sampled = generateNormalLabs(profile, {
+      patientId: ctx.patientToken,
+      episodeId: ctx.episodeId,
+      onlyCodes: eksik.map((t) => t.key),
+      existingKeys: Object.keys(tests),
+    });
+  } catch {
+    sampled = {};
+  }
+
+  for (const t of eksik) {
+    const s = sampled[t.key];
+    if (!s) continue;
+    const sonucObj = s.sonuc as Record<string, unknown>;
+    const valueNum =
+      s.tip === "numeric" && sonucObj && typeof sonucObj.deger === "number" ? sonucObj.deger : null;
+    tests[t.key] = {
+      testKey: t.key,
+      testAdi: s.testAdi || syntheaLabDisplayName(t.key, t.etiket),
+      tip: s.tip === "json" ? "text" : s.tip,
+      sonuc: s.tip === "numeric" ? sonucObj : JSON.stringify(s.sonuc, null, 2),
+      birim: typeof sonucObj?.birim === "string" ? sonucObj.birim : undefined,
+      referansAralik: typeof sonucObj?.referansAralik === "string" ? sonucObj.referansAralik : undefined,
+      referans: s.referans || "Synthea lab-pool",
+      yorum: s.yorum,
+      flag: flagFromReference(t.key, valueNum),
+      source: "dataset",
+    };
+  }
+
   for (const t of template.beklenenTestler) {
     if (tests[t.key]) continue;
     tests[t.key] = {
@@ -308,10 +360,16 @@ export function etlSyntheaPatientToCdm(
 
   // ── rubrik ──
   const template = getSyntheaRubricTemplate(disease.hastalikKey);
-  ensureExpectedTestResults(template, tests);
-
   const token = patientToken(bundle.patient.id);
   const id = slugId(disease.poliklinikKey, disease.hastalikKey, token);
+  ensureExpectedTestResults(template, tests, {
+    age,
+    cinsiyet,
+    hastalikKey: disease.hastalikKey,
+    hastalikAdi: disease.hastalikAdi,
+    patientToken: token,
+    episodeId: id,
+  });
 
   const hastaYanitlari: Record<string, string> = { OZEL: "Anlamadım" };
   if (vitals.tansiyon) hastaYanitlari.VITAL_TANSIYON = vitals.tansiyon;

@@ -439,8 +439,24 @@ export async function vakaCevaplariniUret(
     birlestirilmis.OZEL = "Bunu tam anlayamadım; başka şekilde sorabilir misiniz?";
   }
 
+  // ── Tutarlılık katmanı: önce yerel ağrı kuralı, sonra DeepSeek denetimi ──
+  const yerelOnarim = agriTutarliliginiZorla(birlestirilmis, vaka);
+  for (const [k, v] of Object.entries(yerelOnarim.duzeltmeler)) {
+    birlestirilmis[k] = v;
+  }
+  const aiDenetim = await tutarliligiDenetleVeOnar(birlestirilmis, vaka);
+  for (const [k, v] of Object.entries(aiDenetim.duzeltmeler)) {
+    if (birlestirilmis[k] !== v) birlestirilmis[k] = v;
+  }
+
   const eksikSoru = CHIP_HAVUZU.filter((c) => !birlestirilmis[c.aksiyon]).map((c) => c.aksiyon);
   const uyarilar = guvenlikKontrolu(birlestirilmis, vaka);
+  for (const key of yerelOnarim.onarilan) {
+    uyarilar.push(`${key}: ana şikayetle çelişti — yerel kural ile düzeltildi.`);
+  }
+  for (const key of aiDenetim.sorunluKeys) {
+    uyarilar.push(`${key}: DeepSeek tutarlılık denetimi düzeltti.`);
+  }
   for (const [key, value] of Object.entries(birlestirilmis)) {
     if (yuksekTibbiTerimVarMi(value)) uyarilar.push(`${key}: yüksek tıbbi terim filtresinden geçemedi.`);
   }
@@ -480,4 +496,94 @@ function guvenlikKontrolu(cevaplar: Record<string, string>, vaka: AdminVaka): st
   }
 
   return uyarilar;
+}
+
+/** Ana şikayette ağrı/baskı varken negatif ağrı yanıtını yerel kuralla düzeltir. */
+function agriTutarliliginiZorla(
+  cevaplar: Record<string, string>,
+  vaka: AdminVaka
+): { duzeltmeler: Record<string, string>; onarilan: string[] } {
+  const anaSikayet = (vaka.anaSikayet || "").toLocaleLowerCase("tr");
+  const agriVarMi = /ağr|agri|ağrı|baskı|basi/.test(anaSikayet);
+  if (!agriVarMi) return { duzeltmeler: {}, onarilan: [] };
+
+  const duzeltmeler: Record<string, string> = {};
+  const onarilan: string[] = [];
+  const negatifKalip =
+    /ağrım yok|ağrı yok|agrim yok|agri yok|hiç ağrım|belirgin bir ağrı yok|şu an ağrım/i;
+
+  for (const key of ["AGRI_YER", "AGRI_NITELIK", "AGRI_SURE", "AGRI_BASLANGIC", "AGRI_ARTIRAN", "AGRI_AZALTAN", "AGRI_YAYILIM"]) {
+    const cevap = cevaplar[key];
+    if (!cevap || !negatifKalip.test(cevap)) continue;
+    // Ana şikayeti referans veren nötr-pozitif bir yanıtla değiştir; bölge bilgisi uydurma.
+    duzeltmeler[key] =
+      key === "AGRI_YER"
+        ? "Evet, asıl şikâyetim olduğu yerde ağrım var; tam nerede olduğunu tarif etmekte zorlanıyorum."
+        : "Ağrıyla ilgili soruyorsanız, evet — başta bahsettiğim şikâyetim yüzünden bu konuda da rahatsızlığım var.";
+    onarilan.push(key);
+  }
+  return { duzeltmeler, onarilan };
+}
+
+/**
+ * DeepSeek tutarlılık denetimi: üretilen tüm yanıtları ana şikayet + profile karşı
+ * kontrol eder; çelişenleri tek turda düzeltir. Anahtar yoksa/hata olursa no-op.
+ */
+async function tutarliligiDenetleVeOnar(
+  cevaplar: Record<string, string>,
+  vaka: AdminVaka
+): Promise<{ duzeltmeler: Record<string, string>; sorunluKeys: string[] }> {
+  if (!deepseekYapilandirilmisMi()) return { duzeltmeler: {}, sorunluKeys: [] };
+
+  const satirlar = Object.entries(cevaplar)
+    .map(([key, cevap]) => `- ${key}: ${cevap.replace(/\n+/g, " ")}`)
+    .join("\n");
+
+  const prompt = `Aşağıda bir tıp eğitimi simülasyonundaki sentetik hastanın ana şikayeti ve hazır sorulara verdiği yanıtlar var.
+GÖREV: Yalnızca ANA ŞİKAYETLE veya hasta profiliyle ÇELİŞEN yanıtları bul ve düzelt.
+Örnek çelişki: ana şikayet "göğüs ağrısı" iken ağrı sorusuna "ağrım yok" denmesi.
+Tutarlı yanıtlara DOKUNMA. Bölge/değer UYDURMA; çelişkiyi gideren nötr bir ifade yaz ("tam tarif edemiyorum" gibi).
+
+ANA ŞİKAYET: ${vaka.anaSikayet || "—"}
+SEMPTEM ŞABLONU: ${vaka.semptomSablon || "—"}
+
+YANITLAR:
+${satirlar}
+
+SADECE şu JSON formatında döndür:
+{
+  "duzeltmeler": { "CHIP_KEY": "düzeltilmiş cevap" },
+  "sorunluKeys": ["CHIP_KEY", ...]
+}
+Çelişki yoksa boş nesne/liste döndür.`;
+
+  try {
+    const yanit = await deepseekChat({
+      messages: [
+        { role: "system", content: "Sen tıp eğitimi senaryolarında tutarlılık denetleyicisisin. Sadece JSON döndür." },
+        { role: "user", content: prompt },
+      ],
+      temperature: 0.2,
+      maxTokens: 8000,
+    });
+    const parsed = jsonCikar(yanit.content || yanit.reasoningContent || "") as
+      | { duzeltmeler?: Record<string, unknown>; sorunluKeys?: unknown }
+      | null;
+    if (!parsed) return { duzeltmeler: {}, sorunluKeys: [] };
+
+    const anahtarlar = chipKeyKumesi();
+    const duzeltmeler: Record<string, string> = {};
+    const kaynak = parsed.duzeltmeler && typeof parsed.duzeltmeler === "object" ? parsed.duzeltmeler : {};
+    for (const [k, v] of Object.entries(kaynak)) {
+      if (anahtarlar.has(k) && typeof v === "string" && v.trim()) {
+        duzeltmeler[k] = hastaDilineCevir(v);
+      }
+    }
+    const sorunluKeys = Array.isArray(parsed.sorunluKeys)
+      ? parsed.sorunluKeys.filter((k): k is string => typeof k === "string")
+      : Object.keys(duzeltmeler);
+    return { duzeltmeler, sorunluKeys };
+  } catch {
+    return { duzeltmeler: {}, sorunluKeys: [] };
+  }
 }

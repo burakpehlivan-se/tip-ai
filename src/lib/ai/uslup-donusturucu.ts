@@ -84,11 +84,18 @@ ORİJİNAL KLİNİK CEVAP:
       { role: "user", content: prompt },
     ],
     temperature: 0.7,
-    maxTokens: 500,
+    // Konuşkan/endişeli kişilikler uzun cevap üretir; düşük limit cümle ortasından
+    // kesmeye yol açıyordu. "length" finish_reason'ında kesik yanıt kabul edilmez.
+    maxTokens: 2000,
   });
 
   const donusmus = (yanit.content || "").trim();
-  return donusmus ? hastaDilineCevir(donusmus) : baseCevap;
+  if (!donusmus) return baseCevap;
+  if (yanit.finishReason === "length") {
+    // Kesik cevap: cache'e yazılmaz, eksiksiz klinik taban cevap döner.
+    return baseCevap;
+  }
+  return hastaDilineCevir(donusmus);
 }
 
 /** Klinik cevabı hasta tipine göre dönüştürür (tembel + önbellekli). */

@@ -26,9 +26,9 @@ export default function ResmiRapor({ sonuc, hasta, hastaneAdi = "ÇEMİÇGEZEK D
   const rapText = sonuc.testAdi.includes("Mamografi") || sonuc.testAdi.includes("USG") || sonuc.testAdi.includes("Grafisi") || sonuc.testAdi.includes("BT")
     ? "RADYOLOJİ RAPORU" : sonuc.testAdi.includes("Biyopsi") ? "PATOLOJİ RAPORU" : "LABORATUVAR SONUÇ RAPORU";
 
-  const fs = compact ? "text-[10px]" : "text-[clamp(10px,1.6vw,13px)]";
-  const fsSm = compact ? "text-[9px]" : "text-[clamp(8px,1.2vw,11px)]";
-  const fsHeading = compact ? "text-xs" : "text-[clamp(11px,1.8vw,14px)]";
+  const fs = compact ? "text-[11px]" : "text-[clamp(12px,1.9vw,15px)]";
+  const fsSm = compact ? "text-[10px]" : "text-[clamp(10px,1.4vw,12px)]";
+  const fsHeading = compact ? "text-sm" : "text-[clamp(13px,2vw,16px)]";
 
   return (
     <div className="w-full overflow-hidden rounded-md border border-ink/30 bg-white shadow-sm print:shadow-none"

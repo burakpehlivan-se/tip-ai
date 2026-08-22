@@ -25,6 +25,8 @@ export interface DeepseekSonuc {
   content: string;
   /** Reasoning modellerinde düşünme zinciri ayrı alanda döner. */
   reasoningContent?: string;
+  /** "stop" = doğal bitiş, "length" = token limitine takıldı (kesik yanıt). */
+  finishReason?: string;
   promptTokens?: number;
   completionTokens?: number;
 }
@@ -67,13 +69,14 @@ export async function deepseekChat(
     }
 
     const data = (await res.json()) as {
-      choices?: Array<{ message?: { content?: string; reasoning_content?: string } }>;
+      choices?: Array<{ message?: { content?: string; reasoning_content?: string }; finish_reason?: string }>;
       usage?: { prompt_tokens?: number; completion_tokens?: number };
     };
 
     return {
       content: data.choices?.[0]?.message?.content ?? "",
       reasoningContent: data.choices?.[0]?.message?.reasoning_content,
+      finishReason: data.choices?.[0]?.finish_reason,
       promptTokens: data.usage?.prompt_tokens,
       completionTokens: data.usage?.completion_tokens,
     };

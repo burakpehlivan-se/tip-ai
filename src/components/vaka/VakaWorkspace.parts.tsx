@@ -257,7 +257,7 @@ export function MesajBalonu({ msg, vaka, hastaneAdi, debugMode }: { msg: ChatMes
           {msg.metin}
         </div>
         {msg.testSonucu && (
-          <div className="mt-2 w-full max-w-[85%]">
+          <div className="mt-3 w-full">
             <ResmiRapor sonuc={msg.testSonucu} hasta={vaka.hasta} hastaneAdi={hastaneAdi} debugMode={debugMode} />
           </div>
         )}

@@ -22,17 +22,35 @@ export async function listSyntheaPatientIds(db: AuthDb = getDb()): Promise<strin
   return rows.map((r) => r.id);
 }
 
-/** Her farklı kaynak tanı kodu için yalnızca bir temsilî hasta seçer. */
+/**
+ * Her farklı kaynak tanı kodu için en zengin epizodlu temsilî hasta seçer.
+ *
+ * Skorlama (ilk gelen hastayı almak yerine):
+ *   - observation sayısı (lab/vital kapsamı) ×2
+ *   - medication + procedure satırı (yönetim verisi)
+ *   - imaging kaydı (görüntüleme testleri)
+ * Böylece beklenen testlerin büyük kısmı kaynakta bulunan hasta tercih edilir
+ * ve vaka ↔ DB eşleştirme doğruluğu artar.
+ */
 export async function listSyntheaConditionRepresentatives(
   db: AuthDb = getDb()
 ): Promise<Array<{ patientId: string; code: string }>> {
   const result = await db.execute(sql`
     SELECT DISTINCT ON (code)
-      patient_id AS "patientId",
-      code
-    FROM synthea_conditions
-    WHERE code IS NOT NULL AND code <> ''
-    ORDER BY code, patient_id
+      code,
+      patient_id AS "patientId"
+    FROM (
+      SELECT
+        c.code,
+        c.patient_id,
+        (SELECT COUNT(*) FROM synthea_observations o WHERE o.patient_id = c.patient_id) * 2
+          + (SELECT COUNT(*) FROM synthea_medications m WHERE m.patient_id = c.patient_id)
+          + (SELECT COUNT(*) FROM synthea_procedures p WHERE p.patient_id = c.patient_id)
+          + (SELECT COUNT(*) FROM synthea_imaging_studies i WHERE i.patient_id = c.patient_id) AS score
+      FROM synthea_conditions c
+      WHERE c.code IS NOT NULL AND c.code <> ''
+    ) ranked
+    ORDER BY code, score DESC, patient_id
   `);
 
   return (result.rows as Array<{ patientId?: string; code?: string }>)
