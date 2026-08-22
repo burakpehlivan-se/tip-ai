@@ -21,6 +21,17 @@ export default function VakaHastaPanel({
   clinicalHistoryLoading = false,
 }: Props) {
   const [kaynaklarAcik, setKaynaklarAcik] = useState(false);
+  const [idKopyalandi, setIdKopyalandi] = useState(false);
+
+  const vakaIdKopyala = async () => {
+    try {
+      await navigator.clipboard.writeText(vaka.id);
+      setIdKopyalandi(true);
+      window.setTimeout(() => setIdKopyalandi(false), 2000);
+    } catch {
+      // Pano erişilemezse kimlik zaten ekranda seçilebilir durumda.
+    }
+  };
 
   return (
     <div
@@ -38,7 +49,14 @@ export default function VakaHastaPanel({
               <div className="text-xs text-steel">
                 {vaka.hasta.yas} yaş · {vaka.hasta.cinsiyet === "E" ? "E" : "K"}
               </div>
-              <div className="text-[10px] text-muted">Vaka kimliği: {vaka.id}</div>
+              <button
+                type="button"
+                onClick={vakaIdKopyala}
+                title="Vaka kimliğini kopyala (hata bildiriminde kullanın)"
+                className="mt-0.5 max-w-full cursor-pointer truncate text-left font-mono text-[10px] text-muted hover:text-ink"
+              >
+                {idKopyalandi ? "✓ Kopyalandı" : `ID: ${vaka.id}`}
+              </button>
             </div>
           </div>
           <div className="border-t border-hairline-soft pt-3">

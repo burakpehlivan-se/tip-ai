@@ -12,7 +12,7 @@ import {
   RubrikAksiyon,
   Hasta,
 } from "@/lib/types";
-import { normalizeSoru } from "@/lib/nlp/normalize";
+import { normalizeSoru, normalizeTest } from "@/lib/nlp/normalize";
 import { degerlendir } from "@/lib/scoring/degerlendir";
 import { birlesikTestKatalogu, TEST_VISIBILITY_MAP } from "@/lib/data/test-catalogue";
 import { CHIP_KATEGORI_ETIKETLERI } from "@/lib/data/chip-labels";
@@ -153,6 +153,9 @@ export default function VakaWorkspace({
   const soruDrawerRef = useRef<HTMLDialogElement>(null);
   const drawerKapatBtnRef = useRef<HTMLButtonElement>(null);
   const drawerTetikleyiciRef = useRef<HTMLButtonElement>(null);
+  /** Aynı milisaniyede eklenen mesajların React key çakışmasını önler. */
+  const mesajIdSayaci = useRef(0);
+  const yeniMesajId = (onek: string) => `${Date.now().toString(36)}-${mesajIdSayaci.current++}-${onek}`;
   const [showCompletionConfirm, setShowCompletionConfirm] = useState(false);
   const completionConfirmRef = useRef<HTMLDialogElement>(null);
   const completionCancelRef = useRef<HTMLButtonElement>(null);
@@ -366,6 +369,15 @@ export default function VakaWorkspace({
   const soruSor = async () => {
     if (!input.trim() || islemYukleniyor) return;
 
+    // Genelleştirilmiş giriş: hekim serbest alana tetkik adı yazarsa
+    // ("ekg çek" gibi) bunu hasta sorusu değil tetkik isteği olarak işle.
+    const testEslesmesi = normalizeTest(input);
+    if (testEslesmesi) {
+      setInput("");
+      await testIstey(testEslesmesi);
+      return;
+    }
+
     const normalized = normalizeSoru(input);
     let aksiyon = normalized;
     if (normalized === "OZEL") {
@@ -380,8 +392,8 @@ export default function VakaWorkspace({
         ? await onAsk(aksiyon)
         : vaka.hastaYanitlari[aksiyon] || vaka.hastaYanitlari["OZEL"];
       const yeniMesajlar: ChatMesaj[] = [
-        { id: `${Date.now()}-q`, rol: "ogrenci", metin: input, zaman: Date.now() },
-        { id: `${Date.now()}-a`, rol: "hasta", metin: hastaYanit, zaman: Date.now() + 1 },
+        { id: yeniMesajId("q"), rol: "ogrenci", metin: input, zaman: Date.now() },
+        { id: yeniMesajId("a"), rol: "hasta", metin: hastaYanit, zaman: Date.now() + 1 },
       ];
       setMesajlar((prev) => [...prev, ...yeniMesajlar]);
       if (aksiyon !== "OZEL" && !sorulanAksiyonlar.includes(aksiyon)) {
@@ -405,7 +417,7 @@ export default function VakaWorkspace({
       setShowClinicalHistory(true);
       setMesajlar((prev) => [
         ...prev,
-        { id: `${Date.now()}-history`, rol: "sistem", metin: clinicalHistoryChatSummary(history), zaman: Date.now() },
+        { id: yeniMesajId("history"), rol: "sistem", metin: clinicalHistoryChatSummary(history), zaman: Date.now() },
       ]);
     } catch (error) {
       setIslemHatasi(error instanceof Error ? error.message : "Klinik geçmiş alınamadı. Lütfen tekrar deneyin.");
@@ -425,8 +437,8 @@ export default function VakaWorkspace({
         ? await onAsk(normalized)
         : vaka.hastaYanitlari[normalized] || vaka.hastaYanitlari["OZEL"];
       const yeniMesajlar: ChatMesaj[] = [
-        { id: `${Date.now()}-q`, rol: "ogrenci", metin: chip.etiket, zaman: Date.now() },
-        { id: `${Date.now()}-a`, rol: "hasta", metin: hastaYanit, zaman: Date.now() + 1 },
+        { id: yeniMesajId("q"), rol: "ogrenci", metin: chip.etiket, zaman: Date.now() },
+        { id: yeniMesajId("a"), rol: "hasta", metin: hastaYanit, zaman: Date.now() + 1 },
       ];
       setMesajlar((prev) => [...prev, ...yeniMesajlar]);
       if (!sorulanAksiyonlar.includes(normalized)) {
@@ -439,38 +451,15 @@ export default function VakaWorkspace({
     }
   };
 
-  const testIstey = async (testKey: string) => {
-    if (islemYukleniyor) return;
-    setIslemYukleniyor(true);
-    setIslemHatasi("");
-    try {
-      const statik = onTestRequest
-        ? await onTestRequest(testKey)
-        : vaka.statikTestler[testKey] || null;
-      if (!statik) {
-        setMesajlar((prev) => {
-          const alreadyWarned = prev.some((m) => m.id.endsWith("-err") && m.metin.includes(testKey));
-          if (alreadyWarned) return prev;
-          return [
-            ...prev,
-            { id: `${Date.now()}-err`, rol: "sistem", metin: `⚠ "${testKey}" testi sistemde kayıtlı değil. "Tüm Test Kataloğu" listesinden seçim yapabilirsiniz.`, zaman: Date.now() },
-          ];
-        });
-        return;
-      }
+  type IstekSonucu = "ok" | "yok" | "dup";
 
-    if (testIstekleri.some((t) => t.testKey === testKey)) {
-      setMesajlar((prev) => [
-        ...prev,
-        {
-          id: `${Date.now()}-dup`,
-          rol: "sistem",
-          metin: `${statik.testAdi} zaten istendi.`,
-          zaman: Date.now(),
-        },
-      ]);
-      return;
-    }
+  /** Tek test isteğinin çekirdeği: guard/özet mesaj yok, çağıran yönetir. */
+  const testIsteyCekirdek = async (testKey: string): Promise<IstekSonucu> => {
+    const statik = onTestRequest
+      ? await onTestRequest(testKey)
+      : vaka.statikTestler[testKey] || null;
+    if (!statik) return "yok";
+    if (testIstekleri.some((t) => t.testKey === testKey)) return "dup";
 
     const yeniIstek: TestIstegi = {
       testKey,
@@ -490,7 +479,7 @@ export default function VakaWorkspace({
     setMesajlar((prev) => [
       ...prev,
       {
-        id: `${Date.now()}-test`,
+        id: yeniMesajId("test"),
         rol: "sistem",
         metin: durumMesaji,
         zaman: Date.now(),
@@ -504,6 +493,37 @@ export default function VakaWorkspace({
     if (mod === "cemicegek" && !effectiveRaporHazir) {
       setTimeout(() => onTestIstendi?.(testKey), 500);
     }
+    return "ok";
+  };
+
+  const testIstey = async (testKey: string) => {
+    if (islemYukleniyor) return;
+    setIslemYukleniyor(true);
+    setIslemHatasi("");
+    try {
+      const sonuc = await testIsteyCekirdek(testKey);
+      if (sonuc === "yok") {
+        setMesajlar((prev) => {
+          const alreadyWarned = prev.some((m) => m.id.endsWith("-err") && m.metin.includes(testKey));
+          if (alreadyWarned) return prev;
+          return [
+            ...prev,
+            { id: yeniMesajId("err"), rol: "sistem", metin: `⚠ "${testKey}" testi sistemde kayıtlı değil. "Tüm Test Kataloğu" listesinden seçim yapabilirsiniz.`, zaman: Date.now() },
+          ];
+        });
+        return;
+      }
+      if (sonuc === "dup") {
+        setMesajlar((prev) => [
+          ...prev,
+          {
+            id: yeniMesajId("dup"),
+            rol: "sistem",
+            metin: `${testKey} zaten istendi.`,
+            zaman: Date.now(),
+          },
+        ]);
+      }
     } catch {
       setIslemHatasi("Test sonucu alınamadı. Bağlantınızı kontrol edip testi yeniden deneyin.");
     } finally {
@@ -518,10 +538,47 @@ export default function VakaWorkspace({
     );
   };
 
+  /**
+   * Seçili tüm tetkikleri sırayla ister. Ağ hatası/kota üst üste 3 kez
+   * tekrar ederse döngü durur ve tek bir özet mesajı gösterilir — böylece
+   * "tümünü iste" yüzlerce başarısız istekle arayüzü kilitmez.
+   */
   const seciliTestleriIste = async () => {
     if (seciliTestKeyleri.length === 0 || islemYukleniyor) return;
-    for (const testKey of seciliTestKeyleri) {
-      await testIstey(testKey);
+    setIslemYukleniyor(true);
+    setIslemHatasi("");
+    const istenen = [...seciliTestKeyleri];
+    let basarili = 0;
+    let ustUsteHata = 0;
+    let kalan = istenen.length;
+    try {
+      for (const testKey of istenen) {
+        try {
+          const sonuc = await testIsteyCekirdek(testKey);
+          if (sonuc === "ok") {
+            basarili += 1;
+            ustUsteHata = 0;
+          } else if (sonuc === "yok") {
+            ustUsteHata += 1;
+          } else {
+            ustUsteHata = 0; // dup sessizce atlanır
+          }
+        } catch {
+          ustUsteHata += 1;
+        }
+        kalan -= 1;
+        if (ustUsteHata >= 3) break;
+      }
+      const parcalar: string[] = [`🧪 ${basarili} tetkik istendi.`];
+      if (kalan > 0) {
+        parcalar.push(`${kalan} tetkik istenemedi — bağlantı/kota sınırı. Kısa süre sonra tek tek deneyin.`);
+      }
+      setMesajlar((prev) => [
+        ...prev,
+        { id: yeniMesajId("batch"), rol: "sistem", metin: parcalar.join(" "), zaman: Date.now() },
+      ]);
+    } finally {
+      setIslemYukleniyor(false);
     }
   };
 
@@ -535,7 +592,7 @@ export default function VakaWorkspace({
     setFaz("tedavi");
     setMesajlar((prev) => [
       ...prev,
-      { id: `${Date.now()}-sys`, rol: "sistem", metin: "🩺 Tanı alındı. Şimdi tedavi planınızı yazın.", zaman: Date.now() },
+      { id: yeniMesajId("sys"), rol: "sistem", metin: "🩺 Tanı alındı. Şimdi tedavi planınızı yazın.", zaman: Date.now() },
     ]);
   };
 
@@ -865,7 +922,7 @@ export default function VakaWorkspace({
           {faz === "anamnez" ? <>
           {/* Mesajlar */}
           <div className="flex-1 overflow-y-auto scrollbar-thin px-4 py-6 lg:px-8">
-            <div className="mx-auto max-w-2xl space-y-4" role="log" aria-label="Vaka sohbeti" aria-live="polite" aria-relevant="additions text">
+            <div className="mx-auto max-w-3xl space-y-4" role="log" aria-label="Vaka sohbeti" aria-live="polite" aria-relevant="additions text">
               {mesajlar.map((msg) => (
                 <MesajBalonu key={msg.id} msg={msg} vaka={vaka} hastaneAdi={hastaneAdi} debugMode={debugMode} />
               ))}
@@ -875,7 +932,7 @@ export default function VakaWorkspace({
 
           {/* Soru Toolbar — dropdown + sabit layout, scroll yok */}
           <div className="border-t border-hairline-soft px-3 lg:px-8 py-1.5">
-            <div className="mx-auto max-w-2xl flex items-center justify-between gap-2">
+            <div className="mx-auto max-w-3xl flex items-center justify-between gap-2">
               <span className="shrink-0 text-[10px] font-semibold uppercase tracking-wide text-muted hidden sm:inline">SORULAR</span>
               {/* Kategori dropdown */}
               <div className="relative">
@@ -889,7 +946,7 @@ export default function VakaWorkspace({
                 </button>
                 {showKatDropdown && (
                   <div id="soru-kategori-listesi" className="absolute bottom-full left-0 mb-1 z-30 w-48 rounded-lg border border-hairline bg-canvas shadow-lg overflow-hidden">
-                    {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => (
+                    {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"] as ChipKategorisi[]).map((kat) => (
                       <button key={kat} onClick={() => { setAcikKategoriler(new Set([kat])); setShowKatDropdown(false); }}
                         className={`flex w-full items-center px-3 py-2 text-left text-xs hover:bg-surface transition-colors ${acikKategoriler.has(kat) ? "bg-surface font-semibold text-ink" : "text-steel"}`}>
                         {CHIP_KATEGORI_ETIKETLERI[kat]}
@@ -907,7 +964,11 @@ export default function VakaWorkspace({
             {faz === "anamnez" && (() => {
               const aktifKat = Array.from(acikKategoriler)[0];
               if (!aktifKat) return null;
-              const all = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === aktifKat);
+              // Cevap hazırlanmamış chip'ler öğrenciye belirsiz soru olarak
+              // göründüğü için debug kapalıyken gizlenir.
+              const all = (vaka.soruChipleri as SoruChipi[]).filter(
+                (c) => c.kategori === aktifKat && (debugMode || vaka.hastaYanitlari[c.aksiyon])
+              );
               // Debug kapalıyken "ilgili soru" sıralaması ve vurgusu kapalı (kör oynama);
               // debug açıkken beklenen sorular öne alınır ve yeşil vurgulanır.
               const relevant = all.filter((c) => relevantAksiyonSeti.has(c.aksiyon));
@@ -915,7 +976,7 @@ export default function VakaWorkspace({
               const chips = debugMode ? [...relevant, ...rest] : all;
               if (chips.length === 0) return null;
               return (
-                <div className="mx-auto flex max-w-2xl gap-1 overflow-x-auto pt-1.5 scrollbar-thin" aria-label="Önerilen anamnez soruları">
+                <div className="mx-auto flex max-w-3xl gap-1 overflow-x-auto pt-1.5 scrollbar-thin" aria-label="Önerilen anamnez soruları">
                   {chips.map((chip) => {
                     const soruldu = sorulanAksiyonSeti.has(chip.aksiyon);
                     const rel = debugMode && relevantAksiyonSeti.has(chip.aksiyon);
@@ -958,7 +1019,7 @@ export default function VakaWorkspace({
                   <h2 id="tum-sorular-baslik" className="sr-only">Tüm anamnez soruları</h2>
                   {/* Kategori seçici */}
                   <div className="flex flex-wrap gap-1">
-                    {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => (
+                    {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"] as ChipKategorisi[]).map((kat) => (
                       <button key={kat} onClick={() => { toggleKategori(kat); }}
                         className={`shrink-0 rounded-full border px-2 py-1 text-[11px] font-medium ${acikKategoriler.has(kat) ? "border-ink/30 bg-ink text-white" : "border-hairline bg-canvas text-steel"}`}>
                         {CHIP_KATEGORI_ETIKETLERI[kat]}
@@ -972,14 +1033,18 @@ export default function VakaWorkspace({
                   <input id="soru-arama" type="text" value={chipArama} onChange={(e) => setChipArama(e.target.value)}
                     placeholder="Sorularda ara…"
                     className="w-full h-8 rounded-full border border-hairline bg-surface px-3 text-xs text-ink placeholder:text-muted focus:border-brand focus:outline-none" />
-                  {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","vital","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
-                    let chips = (vaka.soruChipleri as SoruChipi[]).filter((c) => c.kategori === kat);
+                  {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
+                    // Arama varken tüm kategorilerde ara; arama yokken yalnızca
+                    // seçili kategori(ler) listelensin (butonlar gerçek filtre olur).
+                    if (!chipArama.trim() && acikKategoriler.size > 0 && !acikKategoriler.has(kat)) return null;
+                    let chips = (vaka.soruChipleri as SoruChipi[]).filter(
+                      (c) => c.kategori === kat && (debugMode || vaka.hastaYanitlari[c.aksiyon])
+                    );
                     if (chipArama.trim()) chips = chips.filter((c) => c.etiket.toLowerCase().includes(chipArama.trim().toLowerCase()));
-                    if (chips.length === 0 && !chipArama.trim()) return null;
+                    if (chips.length === 0) return null;
                     return (
                       <div key={kat}>
-                        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">{CHIP_KATEGORI_ETIKETLERI[kat]} ({chips.length})</div>
-                        <div className="flex flex-wrap gap-1.5">
+                        <div className="mb-1 text-[10px] font-semibold uppercase tracking-wide text-muted">{CHIP_KATEGORI_ETIKETLERI[kat]} ({chips.length})</div>                        <div className="flex flex-wrap gap-1.5">
                           {chips.map((chip) => {
                             const soruldu = sorulanAksiyonSeti.has(chip.aksiyon);
                             const rel = debugMode && relevantAksiyonSeti.has(chip.aksiyon);
@@ -998,6 +1063,9 @@ export default function VakaWorkspace({
                       </div>
                     );
                   })}
+                  {!chipArama.trim() && acikKategoriler.size === 0 && (
+                    <p className="py-4 text-center text-xs text-muted">Görüntülemek için yukarıdan kategori seçin.</p>
+                  )}
                 </div>
               </div>
             </dialog>
@@ -1017,7 +1085,7 @@ export default function VakaWorkspace({
 
           {/* Input — faz bazlı */}
           <div className="border-t border-hairline bg-canvas px-3 py-3 lg:px-8 lg:py-4">
-            <div className="mx-auto max-w-2xl">
+            <div className="mx-auto max-w-3xl">
               {faz === "anamnez" ? (
                 <div className="flex gap-2">
                   <label htmlFor="anamnez-sorusu" className="sr-only">Hastaya soru sor</label>
