@@ -36,7 +36,7 @@ export default function SonucEkrani({
           {!embed ? (
             <Link
               href="/vakalar"
-              className="text-sm font-medium text-steel transition-colors hover:text-ink"
+              className="inline-flex min-h-11 items-center text-sm font-medium text-steel transition-colors hover:text-ink"
             >
               ← Vakalar
             </Link>

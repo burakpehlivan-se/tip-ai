@@ -27,7 +27,7 @@ export default function DenemePage() {
         }
 
         const devamEden = await fetch("/api/student/attempts?guest=1&poliklinikKey=*");
-        const devamVerisi = await devamEden.json();
+        const devamVerisi = await devamEden.json().catch(() => null);
         if (cancelled) return;
         if (devamEden.ok && devamVerisi?.vaka) {
           setVaka(publicAttemptToVaka(devamVerisi.vaka));
@@ -41,7 +41,7 @@ export default function DenemePage() {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ poliklinikKey: "*", guest: true }),
         });
-        const yeniVeri = await yeniVaka.json();
+        const yeniVeri = await yeniVaka.json().catch(() => null);
         if (cancelled) return;
         if (!yeniVaka.ok || !yeniVeri?.vaka) throw new Error(yeniVeri?.error || "Deneme vakası yüklenemedi.");
         setVaka(publicAttemptToVaka(yeniVeri.vaka));
@@ -78,7 +78,7 @@ export default function DenemePage() {
     <div className="flex h-[100dvh] flex-col bg-canvas">
       <div className="flex min-h-14 items-center justify-between gap-3 border-b border-hairline bg-canvas px-4 py-2">
         <div className="flex min-w-0 items-center gap-2 sm:gap-3">
-          <Link href="/vakalar" className="shrink-0 text-sm text-steel transition-colors hover:text-ink">
+          <Link href="/vakalar" className="inline-flex min-h-11 shrink-0 items-center text-sm text-steel transition-colors hover:text-ink">
             <span className="sm:hidden">← Geri</span>
             <span className="hidden sm:inline">← Poliklinikler</span>
           </Link>
@@ -107,10 +107,16 @@ export default function DenemePage() {
       {hata && !yukleniyor && (
         <div className="flex flex-1 items-center justify-center">
           <div className="text-center">
-            <p className="text-lg text-clinical-red mb-4">{hata}</p>
-            <Link href="/giris" className="btn-primary">
-              Giriş Yap →
-            </Link>
+            <p className="mb-2 text-lg font-medium text-clinical-red">Bir sorun oluştu</p>
+            <p className="mb-6 text-sm text-steel">{hata}</p>
+            <div className="flex items-center justify-center gap-3">
+              <button type="button" onClick={() => window.location.reload()} className="btn-secondary text-sm">
+                Tekrar Dene
+              </button>
+              <Link href="/giris" className="btn-primary text-sm">
+                Giriş Yap →
+              </Link>
+            </div>
           </div>
         </div>
       )}

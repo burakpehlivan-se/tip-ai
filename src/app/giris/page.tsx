@@ -216,7 +216,7 @@ function GirisForm() {
             <button
               type="button"
               onClick={() => setSekme("kayit")}
-              className="font-medium text-brand hover:underline"
+              className="inline-flex items-center py-1 font-medium text-brand hover:underline"
             >
               Ücretsiz kayıt ol
             </button>
@@ -226,7 +226,7 @@ function GirisForm() {
         <div className="mt-6 border-t border-hairline pt-4 text-center">
           <p className="text-xs text-steel">
             Giriş yapmadan önce{" "}
-            <Link href="/deneme" className="font-medium text-brand hover:underline">
+            <Link href="/deneme" className="inline-flex items-center py-1 font-medium text-brand hover:underline">
               deneme vakasını
             </Link>{" "}
             oynayabilirsin.

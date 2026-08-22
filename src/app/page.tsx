@@ -35,7 +35,8 @@ export default function HomePage() {
           <div className="hidden md:block"><SessionNavigation /></div>
           <div className="md:hidden"><SessionNavigation compact /></div>
         </nav>
-        <nav className="flex gap-1 overflow-x-auto border-t border-hairline-soft px-4 py-2 md:hidden" aria-label="Mobil ana menü">
+      </header>
+      <nav className="flex gap-1 overflow-x-auto border-b border-hairline-soft px-4 py-2 md:hidden" aria-label="Mobil ana menü">
           {navigationItems.map((item) => (
             <Link key={item.href} href={item.href} className="shrink-0 rounded-full px-3 py-3 text-sm font-medium text-steel transition-colors hover:bg-surface hover:text-ink">
               {item.label}
@@ -44,8 +45,7 @@ export default function HomePage() {
           <Link href="/cemicegek" className="shrink-0 rounded-full px-3 py-3 text-sm font-medium text-clinical-red transition-colors hover:bg-clinical-red/10">
             Acil simülatör
           </Link>
-        </nav>
-      </header>
+      </nav>
 
       <main id="ana-icerik" tabIndex={-1}>
         <section className="relative overflow-hidden border-b border-hairline-soft">
