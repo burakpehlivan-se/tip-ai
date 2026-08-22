@@ -13,6 +13,11 @@ const oldCwd = process.cwd();
 const oldPassword = process.env.ADMIN_PASSWORD;
 const oldSecret = process.env.ADMIN_SESSION_SECRET;
 const oldAuthStore = process.env.STORE_MODE;
+const oldDbUrl = process.env.DATABASE_URL;
+
+// Route postgres-only (listRecentLoginEvents drizzle kullanır); canlı DB olmadan skip.
+const TEST_DB_URL = process.env.TEST_DATABASE_URL;
+const describeDb = TEST_DB_URL ? describe : describe.skip;
 
 function request(token?: string) {
   const headers = new Headers();
@@ -20,12 +25,12 @@ function request(token?: string) {
   return new NextRequest("http://localhost/api/admin/users/recent-logins?limit=20", { headers });
 }
 
-describe("recent login events API", () => {
+describeDb("recent login events API", () => {
   beforeAll(() => {
     process.chdir(tmpDir);
     process.env.ADMIN_PASSWORD = "test-admin-password";
     process.env.ADMIN_SESSION_SECRET = "test-admin-session-secret-at-least-32-chars";
-    process.env.DATABASE_URL = "postgresql://tip_ai:tip_ai@localhost:5434/tip_ai";
+    process.env.DATABASE_URL = TEST_DB_URL!;
     process.env.STORE_MODE = "postgres";
   });
 
@@ -36,7 +41,8 @@ describe("recent login events API", () => {
     else process.env.ADMIN_SESSION_SECRET = oldSecret;
     if (oldAuthStore === undefined) delete process.env.STORE_MODE;
     else process.env.STORE_MODE = oldAuthStore;
-    delete process.env.DATABASE_URL;
+    if (oldDbUrl === undefined) delete process.env.DATABASE_URL;
+    else process.env.DATABASE_URL = oldDbUrl;
     process.chdir(oldCwd);
     fs.rmSync(tmpDir, { recursive: true, force: true });
   });
