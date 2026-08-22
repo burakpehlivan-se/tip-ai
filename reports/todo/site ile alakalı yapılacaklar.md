@@ -17,7 +17,7 @@
 |---|---|---|
 | `/vaka/[vakaNo]` çalışma ekranı | Aktif vaka + öğrenci oturumu | `VakaWorkspace` anamnez chip'leri `min-h-11 lg:min-h-8` fix'i görsel doğrulanmadı |
 | `CemicegekSimulator` kuyruk şeridi | Simülasyon başlatma gerektiriyor | Hasta seçme hapları ~22px→44px fix'i doğrulanmadı |
-| `SonucEkrani.tsx:38` "← vakalar" linki | Vaka tamamlama gerektiriyor | Denetlenmedi, muhtemelen küçük hedef |
+| `SonucEkrani.tsx:38` "← vakalar" linki | Vaka tamamlama gerektiriyor | ✅ Statik olarak düzeltildi (`65e51e5e42`): `min-h-11` eklendi; `/deneme` header "← Geri" linki de aynı commit'te düzeltildi |
 | `/atamalar`, `/poliklinik/[key]` | Atama kaydı gerektiriyor | Mobil denetim hiç yapılmadı |
 | `/admin` | Admin rolü gerektiriyor | Tablolarda `overflow-x-auto` sarmalayıcı eksik olabilir |
 
@@ -28,10 +28,10 @@
 
 ## 4. UX İyileştirmeleri (öncelik sırasıyla)
 
-1. **`/deneme` hata mesajı:** JSON parse hatası kullanıcıya ham teknik metin olarak görünüyor (`Failed to execute 'json'`). Dostça Türkçe hata mesajına çevrilmeli + retry butonu eklenebilir.
-2. **Mobil sticky header çok yüksek:** Ana sayfada ~131px — uzun sayfalarda ekranın %15+'ini kaplıyor. Scroll'da gizlenen kompakt header düşünülebilir.
-3. **Admin paneli tabloları:** Mobilde `overflow-x-auto scrollbar-thin` sarmalayıcı eklenmeli (profilim'deki desenle aynı).
-4. **Cümle içi linkler:** "Ücretsiz kayıt ol", "deneme vakasını" gibi inline linkler 14–16px yükseklik — WCAG AAA yönünde en az 24px hedef önerilir (mevcut durum AA-muaf).
+1. **`/deneme` hata mesajı:** ✅ Kod tamamlandı (`65e51e5e42`) — catch'siz `response.json()` çağrıları güvenli hale getirildi, dostça hata ekranı + "Tekrar Dene" butonu eklendi. *Deploy sonrası doğrulanacak.*
+2. **Mobil sticky header çok yüksek:** ✅ Kod tamamlandı (`65e51e5e42`) — ana sayfada chip menüsü sticky kapsamından çıkarıldı; artık sadece 64px üst bar sticky. *Deploy sonrası ölçülecek.*
+3. **Admin paneli tabloları:** ✅ Kontrol edildi — 5 tablonun tamamında zaten `overflow-x-auto` sarmalayıcı var, değişiklik gerekmedi.
+4. **Cümle içi linkler:** ✅ Kod tamamlandı (`65e51e5e42`) — `/giris` inline linkleri `py-1` ile ≥24px hedefe çıkarıldı (WCAG 2.5.8 AA minimum).
 
 ## 5. Ortam Notu (UX dışı)
 
