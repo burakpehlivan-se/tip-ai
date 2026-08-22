@@ -88,14 +88,16 @@ Türkçe tıp eğitimi klinik simülasyon platformu. Next.js (App Router, client
 | 1.5 | `recent-logins` testi `TEST_DATABASE_URL` gate'inde (route postgres-only bulundu) | `afd3cdff43` | ✅ `npm test` yeşil: 62 passed / 0 failed |
 | 1.6 | `global-error.tsx` eklendi (inline stiller + `<html>/<body>`) | `c017e2cab3` | ✅ |
 
-## Faz 2 — Performans (1 gün; mevcut davranış korunur, sadece sorgu/bant genişliği azalır)
+## Faz 2 — Performans (✅ tamamlandı + prod doğrulandı 2026-08-22, tek commit `fde3011aef`)
 
 | Adım | İş | Doğrulama |
 |------|-----|-----------|
-| 2.1 | `ekg-sources`: per-row `getRuntimeCaseById` çağrısını kaldır (schema zaten FK'sız → sonuç zaten boş); label aggregate SQL'e; LIMIT/paginasyon | Route response öncekiyle aynı şekil; query sayısı 536→1 |
-| 2.2 | `attempts/route.ts` GET: sourceCaseId tek sefer çöz, 3 kontrolü `Promise.all` ile paralelleştir | Aynı JSON yanıtı; DB turu 7→~3 |
-| 2.3 | Seed döngüsü → tek bulk insert `onConflictDoNothing()` | Seed çıktısı birebir aynı |
-| 2.4 | `profilim`: `import type` düzeltmesi | Bundle'dan fs/case-templates zinciri düşer (build output karşılaştır) |
+| 2.1 | `ekg-sources`: N+1 kaldırıldı → tek LEFT JOIN (`clinical_cases.content` ile) | ✅ Prod: öğrenci oturumuyla 401 (route sağlam). Not: audit'teki "garanti-miss" iddiası yanlıştı — caseId'ler clinical_cases'ten geliyor; o yüzden lookup silinmedi, JOIN'e taşındı |
+| 2.2 | attempts GET/POST: sourceCaseId tek çözüm + `exposeTestler` paralel kontroller | ✅ Prod: POST 200 (vaka + vakaNo + 19 test); misafir akışı JSON dalını kullanmaya devam eder |
+| 2.3 | Seed: tek bulk `INSERT ... ON CONFLICT DO NOTHING` | ✅ Yerel build + test süiti yeşil; prod'da dormant (seed zaten dolu) |
+| 2.4 | `profilim`: `import type` | ✅ Build yeşil |
+
+**Yeni bulgu (pre-existing, düşük öncelik):** `getPostgresActiveAttempt` poliklinikKey exact-match yapar; `"*"` wildcard yalnızca JSON dalında çalışıyor (`attempt-store.ts:266`). UI'da tetiklenmeyen senaryo (logged-in + guest=1 wildcard lookup) ama istenirse SQL tarafına `or(eq(..., key), eq(key, "*"))` eklenerek kapatılabilir.
 
 **Performans bütçesi:** Bu fazdan sonra ölçüm: öğrenci vaka-açılışı p95 ve admin vaka-listesi p95, önce/sonra kaydet. Regresyon = geri al.
 
