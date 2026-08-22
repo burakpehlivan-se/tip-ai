@@ -44,21 +44,23 @@ function parseArgs(argv: string[]): Args {
   return args;
 }
 
-/** Zenginleştirilmemiş içerik işaretleri — pipeline/enrich placeholder'ları. */
-const ISARETLER = ["Synthea iskeleti", "AI/uzman dolduracak"];
+/** Zenginleştirilmemiş içerik işareti — yalnızca hastaYanitlari içinde aranır. */
+const ISARET = "AI/uzman dolduracak";
 
 async function findCandidates(caseId?: string, limit?: number): Promise<string[]> {
   const db = getDb();
+  // Tüm content üzerinde marker aramak eski/şablon vakaları da yakalayıp aday
+  // sayısını ~500'e çıkarıyordu. Gerçek enrichment eksiği yalnızca hastaYanitlari
+  // alanında placeholder kalan vakalardır; filtre bu yüzden JSON path'e indirildi.
   const kosul = caseId
     ? sql`${clinicalCases.caseId} = ${caseId}`
-    : sql`(${clinicalCases.content}::text LIKE ${"%" + ISARETLER[0] + "%"}
-        OR ${clinicalCases.content}::text LIKE ${"%" + ISARETLER[1] + "%"})`;
+    : sql`(${clinicalCases.content} -> 'hastaYanitlari')::text LIKE ${"%" + ISARET + "%"}`;
 
   const rows = await db
     .select({ caseId: clinicalCases.caseId })
     .from(clinicalCases)
     .where(sql`${kosul} AND ${clinicalCases.status} = 'aktif'`)
-    .limit(limit ?? 500);
+    .limit(limit ?? 200);
   return rows.map((r) => r.caseId);
 }
 

@@ -181,12 +181,23 @@ export async function enrichSyntheaCase(vaka: TipAiCdmDocument): Promise<Synthea
 
       const yanitlar = parsed.hastaYanitlari;
       if (yanitlar && typeof yanitlar === "object") {
-        const beklenen = new Set((vaka.rubric?.beklenenSorular || []).map((s) => s.key));
-        for (const [k, v] of Object.entries(yanitlar as Record<string, unknown>)) {
-          if (beklenen.has(k) && typeof v === "string" && v.trim()) {
-            sonuc.hastaYanitlari[k] = v.trim();
+        const kayit = yanitlar as Record<string, unknown>;
+        const eksikAnahtarlar: string[] = [];
+        for (const s of vaka.rubric?.beklenenSorular || []) {
+          const deger = kayit[s.key];
+          if (typeof deger === "string" && deger.trim()) {
+            sonuc.hastaYanitlari[s.key] = deger.trim();
+          } else {
+            // Sessiz atlama yerine uyarı: aksi halde placeholder cevap
+            // "başarılı" enrichment altında gizli kalıyordu.
+            eksikAnahtarlar.push(s.key);
           }
         }
+        if (eksikAnahtarlar.length) {
+          uyarilar.push(`hastaYanitlari eksik anahtarlar: ${eksikAnahtarlar.join(", ")}`);
+        }
+      } else {
+        uyarilar.push("hastaYanitlari alanı AI yanıtında bulunamadı.");
       }
 
       // Vitaller her zaman objektif değerle korunur (AI ezemez).
