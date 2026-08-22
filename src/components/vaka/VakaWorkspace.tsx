@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useMemo, type MouseEvent } from "react";
+import { useState, useRef, useEffect, useMemo, type KeyboardEvent, type MouseEvent } from "react";
 import {
   Vaka,
   ChatMesaj,
@@ -148,6 +148,7 @@ export default function VakaWorkspace({
   const [testArama, setTestArama] = useState("");
   const [seciliTestKeyleri, setSeciliTestKeyleri] = useState<string[]>([]);
   const [chipArama, setChipArama] = useState("");
+  const [aktifOneri, setAktifOneri] = useState(-1);
   const [acikKategoriler, setAcikKategoriler] = useState<Set<ChipKategorisi>>(new Set<ChipKategorisi>(["anamnez-agri"]));
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
   const soruDrawerRef = useRef<HTMLDialogElement>(null);
@@ -579,6 +580,45 @@ export default function VakaWorkspace({
       ]);
     } finally {
       setIslemYukleniyor(false);
+    }
+  };
+
+  /** Soru girişinde canlı öneri: girilen metinle eşleşen chip soruları (F-arama). */
+  const oneriAdaylari = useMemo(() => {
+    const q = input.trim().toLowerCase();
+    if (q.length < 2) return [];
+    return (vaka.soruChipleri as SoruChipi[])
+      .filter((c) => !sorulanAksiyonSeti.has(c.aksiyon) && c.etiket.toLowerCase().includes(q))
+      .slice(0, 6);
+  }, [input, vaka.soruChipleri, sorulanAksiyonSeti]);
+
+  const oneriSec = async (chip: SoruChipi) => {
+    setInput("");
+    setAktifOneri(-1);
+    await chipSor(chip);
+  };
+
+  const anamnezKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
+    const oneriler = oneriAdaylari;
+    if (!oneriler.length) {
+      if (e.key === "Enter") void soruSor();
+      return;
+    }
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      setAktifOneri((a) => Math.min(a + 1, oneriler.length - 1));
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      setAktifOneri((a) => Math.max(a - 1, -1));
+    } else if (e.key === "Enter") {
+      if (aktifOneri >= 0 && oneriler[aktifOneri]) {
+        e.preventDefault();
+        void oneriSec(oneriler[aktifOneri]);
+      } else {
+        void soruSor();
+      }
+    } else if (e.key === "Escape") {
+      setAktifOneri(-1);
     }
   };
 
@@ -1088,11 +1128,31 @@ export default function VakaWorkspace({
             <div className="mx-auto max-w-3xl">
               {faz === "anamnez" ? (
                 <div className="flex gap-2">
-                  <label htmlFor="anamnez-sorusu" className="sr-only">Hastaya soru sor</label>
-                  <input id="anamnez-sorusu" type="text" value={input} onChange={(e) => setInput(e.target.value)} onKeyDown={(e) => e.key === "Enter" && soruSor()} aria-describedby="simule-vaka-uyarisi"
-                    placeholder="Hastaya soru sor…"
-                    className="flex-1 h-11 lg:h-10 rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
-                  <button onClick={soruSor} disabled={islemYukleniyor} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Gönderiliyor…" : "Sor"}</button>
+                  <label htmlFor="anamnez-sorusu" className="sr-only">Hastaya soru sor veya sorularda ara</label>
+                  <div className="relative flex-1">
+                    <input id="anamnez-sorusu" type="text" value={input}
+                      onChange={(e) => { setInput(e.target.value); setAktifOneri(-1); }}
+                      onKeyDown={anamnezKeyDown}
+                      role="combobox" aria-expanded={oneriAdaylari.length > 0} aria-controls="soru-onerileri" aria-autocomplete="list" aria-activedescendant={aktifOneri >= 0 ? `soru-oneri-${aktifOneri}` : undefined} aria-describedby="simule-vaka-uyarisi"
+                      placeholder="Hastaya sorun veya soru ara…"
+                      className="h-11 lg:h-10 w-full rounded-xl border border-hairline bg-surface px-4 text-sm lg:text-base text-ink placeholder:text-muted focus:border-brand focus:bg-canvas focus:ring-2 focus:ring-brand/20 focus:outline-none" />
+                    {oneriAdaylari.length > 0 && (
+                      <ul id="soru-onerileri" role="listbox" aria-label="Eşleşen sorular"
+                        className="absolute bottom-full left-0 right-0 z-30 mb-1 max-h-56 overflow-y-auto rounded-xl border border-hairline bg-canvas shadow-lg">
+                        {oneriAdaylari.map((chip, i) => (
+                          <li key={chip.aksiyon} role="option" id={`soru-oneri-${i}`} aria-selected={i === aktifOneri}>
+                            <button type="button"
+                              onMouseDown={(e) => { e.preventDefault(); void oneriSec(chip); }}
+                              onMouseEnter={() => setAktifOneri(i)}
+                              className={`w-full px-4 py-2 text-left text-sm transition-colors ${i === aktifOneri ? "bg-surface text-ink" : "bg-canvas text-steel"} hover:bg-surface`}>
+                              {chip.etiket}
+                            </button>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                  <button onClick={() => void soruSor()} disabled={islemYukleniyor} className="btn-primary h-11 lg:h-10 px-5 shrink-0 text-sm">{islemYukleniyor ? "Gönderiliyor…" : "Sor"}</button>
                 </div>
               ) : faz === "tani" ? (
                 <div>

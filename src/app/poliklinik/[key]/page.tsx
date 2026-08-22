@@ -1,10 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import VakaWorkspace, { CompletedAttempt } from "@/components/vaka/VakaWorkspace";
-import { HastaTipiSecici, tipEmoji, type HastaTipiSecim } from "@/components/vaka/HastaTipiSecici";
+import { tipEmoji } from "@/components/vaka/HastaTipiSecici";
 import { Vaka } from "@/lib/types";
 import { AttemptResumeSnapshot, publicAttemptToVaka, resumableAttemptToSnapshot } from "@/lib/student/public-case";
 import type { ClinicalHistory } from "@/lib/clinical-history/types";
@@ -17,20 +17,11 @@ export default function PoliklinikPage() {
   const [resumeSnapshot, setResumeSnapshot] = useState<AttemptResumeSnapshot | null>(null);
   const [hastaTipi, setHastaTipi] = useState<{ id: string; ad: string } | null>(null);
   const [vakaNo, setVakaNo] = useState<string | null>(null);
-  const [tipler, setTipler] = useState<HastaTipiSecim[]>([]);
-  const [seciliTipId, setSeciliTipId] = useState<string | null>(null);
   const [yukleniyor, setYukleniyor] = useState(true);
   const [girisKontrol, setGirisKontrol] = useState(true);
-  const [secimAsamasi, setSecimAsamasi] = useState(false);
   const [hata, setHata] = useState("");
   const [taslakDegisti, setTaslakDegisti] = useState(false);
   const poliklinik = { ad: poliklinikKey };
-
-  const tipleriYukle = useCallback(async () => {
-    const res = await fetch("/api/student/hasta-tipleri");
-    const data = await res.json().catch(() => null);
-    if (Array.isArray(data?.tipler)) setTipler(data.tipler);
-  }, []);
 
   const resumeYukle = useCallback(async () => {
     const devamEden = await fetch(`/api/student/attempts?poliklinikKey=${encodeURIComponent(poliklinikKey)}`);
@@ -81,16 +72,16 @@ export default function PoliklinikPage() {
         }
         setGirisKontrol(false);
         setHata("");
-        const [devam] = await Promise.all([resumeYukle(), tipleriYukle()]);
+        const devam = await resumeYukle();
         if (cancelled) return;
         if (devam) {
           setVaka(devam.vaka);
           setResumeSnapshot(devam.snapshot);
           setHastaTipi(devam.hastaTipi);
           setVakaNo(devam.vakaNo);
-        } else {
-          setSecimAsamasi(true);
         }
+        // Hasta tipi seçim ekranı kaldırıldı: tip her vakada sunucu tarafında
+        // rastgele atanır (hastaTipiId gönderilmez → rastgeleHastaTipiId()).
         setYukleniyor(false);
       } catch (error) {
         if (!cancelled) {
@@ -104,19 +95,21 @@ export default function PoliklinikPage() {
     return () => {
       cancelled = true;
     };
-  }, [poliklinikKey, router, resumeYukle, tipleriYukle]);
+  }, [poliklinikKey, router, resumeYukle]);
+
+  // Devam eden oturum yoksa vaka otomatik başlatılır (hasta tipi rastgele atanır).
+  const otomatikBasladi = useRef(false);
 
   const baslat = async () => {
     if (yukleniyor) return;
     setYukleniyor(true);
     setHata("");
     try {
-      const yeni = await yeniBaslat(seciliTipId);
+      const yeni = await yeniBaslat(null);
       setVaka(yeni.vaka);
       setResumeSnapshot(null);
       setHastaTipi(yeni.hastaTipi);
       setVakaNo(yeni.vakaNo);
-      setSecimAsamasi(false);
       setTaslakDegisti(false);
     } catch (error) {
       setHata(error instanceof Error ? error.message : "Vaka hazırlanamadı.");
@@ -125,17 +118,24 @@ export default function PoliklinikPage() {
     }
   };
 
+  useEffect(() => {
+    if (otomatikBasladi.current || yukleniyor || girisKontrol || vaka) return;
+    if (hata) return;
+    otomatikBasladi.current = true;
+    void baslat();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [yukleniyor, girisKontrol, vaka, hata]);
+
   const yeniVakaAl = () => {
     if (yukleniyor) return;
     if (taslakDegisti && !window.confirm("Tanı veya tedavi taslağınız bu cihazda kaydedildi. Yine de vakayı değiştirmek istiyor musunuz?")) return;
-    setSeciliTipId(null);
-    setSecimAsamasi(true);
     setVaka(null);
     setResumeSnapshot(null);
     setHastaTipi(null);
     setVakaNo(null);
     setTaslakDegisti(false);
     setHata("");
+    void baslat();
   };
 
   async function attemptAction(type: "ask" | "test" | "reasoning" | "complete", payload: Record<string, unknown>) {
@@ -169,39 +169,6 @@ export default function PoliklinikPage() {
           <p className="text-lg font-medium text-ink mb-2">{poliklinik.ad} Polikliniği</p>
           <p className="text-sm text-steel">Oturum kontrol ediliyor...</p>
         </div>
-      </div>
-    );
-  }
-
-  if (secimAsamasi) {
-    return (
-      <div className="flex min-h-[100dvh] flex-col bg-canvas">
-        <header className="flex min-h-14 items-center gap-3 border-b border-hairline bg-canvas px-4 py-2">
-          <Link href="/vakalar" className="inline-flex min-h-11 shrink-0 items-center text-sm text-steel transition-colors hover:text-ink">
-            <span className="sm:hidden">← Geri</span>
-            <span className="hidden sm:inline">← Poliklinikler</span>
-          </Link>
-          <span className="text-muted" aria-hidden="true">/</span>
-          <span className="truncate text-sm font-medium text-ink">{poliklinik.ad}</span>
-        </header>
-        <main className="mx-auto w-full max-w-2xl flex-1 px-4 py-10 sm:py-14">
-          <h1 className="text-3xl font-semibold tracking-tight text-ink">Hasta Tipi Seç</h1>
-          <p className="mt-3 text-steel">
-            Bu vaka için hastanın konuşma tarzını seçin. Seçmezseniz sistem rastgele bir tip atar.
-          </p>
-          <div className="mt-6">
-            <HastaTipiSecici tipler={tipler} seciliTipId={seciliTipId} onSelect={setSeciliTipId} />
-          </div>
-          {hata && <p role="alert" className="mt-4 text-sm text-clinical-red">{hata}</p>}
-          <button
-            type="button"
-            onClick={() => void baslat()}
-            disabled={yukleniyor}
-            className="btn-primary mt-6 w-full justify-center disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {yukleniyor ? "Hazırlanıyor…" : "Vakayı Başlat →"}
-          </button>
-        </main>
       </div>
     );
   }
