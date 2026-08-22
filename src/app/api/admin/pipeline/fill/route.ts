@@ -17,29 +17,30 @@ export async function POST(req: NextRequest) {
   const denied = requirePermission(session, "system.migrate");
   if (denied) return denied;
 
-  let body: { id?: string } = {};
+  let body: { id?: unknown } = {};
   try {
-    body = (await req.json()) as { id?: string };
+    body = (await req.json()) as { id?: unknown };
   } catch {
     /* ignore */
   }
+  const hedefId = typeof body.id === "string" ? body.id : undefined;
 
-  if (body.id) {
+  if (hedefId) {
     let filled: string[] = [];
     const result = await recordRuntimeCaseMutation({
       actor: session!.username,
       action: "add_test",
-      message: `Pipeline: ${body.id} eksik testleri lab motoruyla dolduruldu`,
+      message: `Pipeline: ${hedefId} eksik testleri lab motoruyla dolduruldu`,
       patches: [],
       mutate: (store) => {
-        const idx = store.cases.findIndex((c) => c.id === body.id);
+        const idx = store.cases.findIndex((c) => c.id === hedefId);
         if (idx < 0) return;
         const out = fillCaseGeneratedTests(store.cases[idx]);
         store.cases[idx] = out.vaka;
         filled = out.fill.filled;
       },
     });
-    const target = result.store.cases.find((c) => c.id === body.id);
+    const target = result.store.cases.find((c) => c.id === hedefId);
     return NextResponse.json({
       ok: true,
       filled,
