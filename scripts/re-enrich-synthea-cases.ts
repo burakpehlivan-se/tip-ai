@@ -101,6 +101,9 @@ async function main(): Promise<void> {
         }
         vaka.hastaYanitlari = { ...vaka.hastaYanitlari, ...sonuc.vaka.hastaYanitlari };
         const checksum = caseContentChecksum(vaka);
+        // Fail-closed bütünlük kontrolü gövde alanıyla kolonu karşılaştırır;
+        // ikisi de aynı değerle güncellenmezse katalog 500 üretir.
+        vaka.contentChecksum = checksum;
         await db
           .update(clinicalCases)
           .set({
