@@ -7,9 +7,17 @@ import { appendLog } from "@/lib/admin/store";
 import { createStudentSessionToken, studentSessionCookieOptions } from "@/lib/student/auth";
 import { deviceLabelFromUserAgent } from "@/lib/auth/client-device";
 import { clientRateLimitKey, rateLimitHeaders, takeRateLimit } from "@/lib/security/rate-limit";
+import { getRequestId, logger } from "@/lib/logger";
 
 const REGISTER_WINDOW_MS = 60 * 60 * 1000;
 const REGISTER_IP_LIMIT = 5;
+
+/** registerStudent'ın istemciye iletilebilir doğrulama hataları. */
+const KAYIT_DOGRULAMA_MESAJLARI = new Set([
+  "Kullanıcı adı 3-30 karakter olmalı; yalnızca harf, rakam, nokta ve tire kullanılabilir.",
+  "Şifre en az 6 karakter olmalı.",
+  "Bu kullanıcı adı zaten kullanılıyor.",
+]);
 
 export async function POST(req: NextRequest) {
   try {
@@ -49,7 +57,17 @@ export async function POST(req: NextRequest) {
     res.cookies.set("tip_ai_student_session", token, studentSessionCookieOptions());
     return res;
   } catch (e) {
-    const message = e instanceof Error ? e.message : "Kayıt başarısız";
-    return NextResponse.json({ error: message }, { status: 400 });
+    if (e instanceof SyntaxError) {
+      return NextResponse.json({ error: "Geçersiz istek gövdesi." }, { status: 400 });
+    }
+    const message = e instanceof Error ? e.message : "";
+    if (KAYIT_DOGRULAMA_MESAJLARI.has(message)) {
+      return NextResponse.json({ error: message }, { status: 400 });
+    }
+    logger.exception("Öğrenci kaydı beklenmeyen hata", e, {
+      requestId: getRequestId(req),
+      route: "/api/student/register",
+    });
+    return NextResponse.json({ error: "Kayıt başarısız. Lütfen kısa süre sonra tekrar deneyin." }, { status: 503 });
   }
 }
