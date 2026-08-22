@@ -98,6 +98,18 @@ function rubrikAksiyonlariniGenislet(rubrikAnahtarlari: string[]): string[] {
   return Array.from(new Set([...rubrikAnahtarlari, ...harcanan, ...HER_ZAMAN_RELEVANT]));
 }
 
+/** Şablon değişkenlerini oynanış demografisiyle doldurur (F1). */
+function sablonDoldur(
+  metin: string,
+  yas: number,
+  cinsiyet: Cinsiyet
+): string {
+  if (!metin) return metin;
+  return metin
+    .replace(/\{\{\s*yas\s*\}\}/gi, String(yas))
+    .replace(/\{\{\s*cinsiyet\s*\}\}/gi, cinsiyet === "E" ? "erkek" : "kadın");
+}
+
 /** Admin deposundaki vaka şablonundan oynanabilir Vaka üretir */
 export function adminVakaToPlayable(av: AdminVaka): Vaka {  const source = caseVersionStamp(av);
   const cinsiyet: Cinsiyet =
@@ -188,7 +200,7 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {  const source = caseV
 
   return {
     id: vakaId,
-    semptom: av.semptomSablon || av.hastalikAdi,
+    semptom: sablonDoldur(av.semptomSablon || av.hastalikAdi, yas, cinsiyet),
     hastalik: av.hastalikKey,
     alan: av.poliklinikAd,
     seviye: av.seviye,
@@ -201,7 +213,7 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {  const source = caseV
     soruChipleri,
     hastaYanitlari: enrichHastaYanitlari(av.hastaYanitlari || {}, {
       chipHavuzu: soruChipleri,
-      anaSikayet: av.anaSikayet,
+    anaSikayet: sablonDoldur(av.anaSikayet, yas, cinsiyet),
       semptom: av.semptomSablon,
     }),
     relevantAksiyonlar,

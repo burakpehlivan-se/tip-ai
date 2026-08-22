@@ -71,6 +71,8 @@ MUTLAK KURALLAR:
 3. Hasta bilmediği bir şeyi biliyormuş gibi söylemesin.
 4. Tıbbi terimleri gündelik Türkçeyle söyle.
 5. Cevap uzunluğu kişiliğe uygun olsun (ketum = kısa, konuşkan/endişeli = uzun).
+6. En fazla üç cümle yaz; kişilik ne kadar konuşkan olursa olsun bu sınırı aşma.
+7. Aynı duygu veya endişe kalıbını her cevapta tekrar etme; her cevap sorulan soruya odaklansın.
 ${baglamSatirlari ? `\nHASTA BAĞLAMI:\n${baglamSatirlari}` : ""}
 
 Aşağıdaki klinik cevabı yukarıdaki hasta kişiliğine göre yalnızca üslup olarak dönüştür. Yalnızca hasta cevabını yaz; tırnak, etiket veya açıklama ekleme.

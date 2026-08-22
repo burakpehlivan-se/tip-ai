@@ -323,6 +323,30 @@ function agriBaglam(anaSikayet: string, semptom: string, sablon: Record<string, 
 }
 
 /**
+ * Ana şikayet/semptom metninde adı geçen belirti soruları için koruma (F2):
+ * vakanın konusu "nefes darlığı" iken NEFES_DARLIGI'ne "yok" default'u
+ * üretilemez. Açık şablon cevabı yoksa şikayeti yineleyen pozitif cevap verilir.
+ */
+const BELIRTI_KORUMA: Array<[RegExp, string]> = [
+  [/nefes dar|dispne|hışılt|hishilt|hışır/i, "NEFES_DARLIGI"],
+  [/öksürük|oksuruk/i, "OKSURUK"],
+  [/balgam/i, "BALGAM"],
+  [/ateş|ates/i, "ATES_SORGU"],
+  [/geniz/i, "GENIZ_AKINTISI"],
+  [/baş ağr|bas agr/i, "BAS_AGRISI"],
+  [/uyuşma|uyusma|karıncalanma/i, "UYUSMA"],
+  [/kilo kayb/i, "KILO_KAYBI"],
+  [/burun tık|burun tik/i, "BURUN_TIKANIKLIGI"],
+];
+
+function belirtiMetni(anaSikayet: string, semptom?: string): string {
+  return `${anaSikayet} ${semptom ?? ""}`
+    .replace(/\{\{\s*\w+\s*\}\}/g, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
+/**
  * Şablon + varsayılanları birleştirir, ağrı tutarlılığını sağlar.
  */
 export function enrichHastaYanitlari(
@@ -338,6 +362,17 @@ export function enrichHastaYanitlari(
 
   if (!sablonYanitlari.SIKAYET && opts.anaSikayet) {
     out.SIKAYET = opts.anaSikayet;
+  }
+
+  // F2: belirtilen semptomlar için negatif default'u engelle
+  const sikayetMetni = belirtiMetni(opts.anaSikayet, opts.semptom);
+  for (const [desen, key] of BELIRTI_KORUMA) {
+    if (!desen.test(sikayetMetni)) continue;
+    if (!opts.chipHavuzu.some((c) => c.aksiyon === key)) continue;
+    if (sablonYanitlari[key]) continue;
+    const temiz = opts.anaSikayet.replace(/\{\{\s*\w+\s*\}\}/g, "").trim();
+    if (!temiz) continue;
+    out[key] = `Evet, ${temiz.charAt(0).toLowerCase()}${temiz.slice(1)} şikayetim var.`;
   }
 
   const baglam = agriBaglam(opts.anaSikayet, opts.semptom || "", sablonYanitlari);

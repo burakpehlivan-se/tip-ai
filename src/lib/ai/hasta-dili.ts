@@ -4,6 +4,10 @@
  */
 
 const GUNLUK_DIL_DONUSUMLERI: Array<[RegExp, string]> = [
+  // Ek alan biçimler önce: "diyabetim" → "şeker hastalığım" (genel kural
+  // sonradan "şeker hastalığıım" üretmesin).
+  [/diyabetim\b/gi, "şeker hastalığım"],
+  [/diyabetlerim\b/gi, "şeker hastalıklarım"],
   [/miyokard enfarktüs[üu]/gi, "kalp krizi"],
   [/akut koroner sendrom/gi, "kalple ilgili acil bir sorun"],
   [/koroner arter hastal[ıi]ğ[ıi]/gi, "kalp damarlarında daralma"],
@@ -55,6 +59,8 @@ export function hastaDilineCevir(metin: string): string {
   for (const terim of YUKSEK_TIBBI_TERIMLER) {
     sonuc = sonuc.replace(new RegExp(`\\b${terim}[\\p{L}]*\\b`, "giu"), "sağlık sorunu");
   }
+  // Ek uyumu güvenlik ağı: "hastalığıım" gibi çift ünlü kalıplarını düzelt.
+  sonuc = sonuc.replace(/ıım\b/g, "ım").replace(/ığıın\b/g, "ığın");
   return sonuc.replace(/\s{2,}/g, " ").trim();
 }
 
