@@ -2,11 +2,11 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
+import { eq } from "drizzle-orm";
 import { getSessionFromRequest } from "@/lib/admin/auth";
 import { requirePermission } from "@/lib/admin/permissions";
 import { getDb } from "@/lib/auth/db";
-import { ekgSources } from "@/lib/auth/schema";
-import { getRuntimeCaseById } from "@/lib/admin/runtime-case-store";
+import { clinicalCases, ekgSources } from "@/lib/auth/schema";
 import { resolveEkgImagePath } from "@/lib/student/ekg-image";
 import type { AdminVaka } from "@/lib/admin/types";
 
@@ -38,6 +38,9 @@ export async function GET(req: NextRequest) {
   if (denied) return denied;
 
   try {
+    // N+1 yerine tek LEFT JOIN: satır başına getRuntimeCaseById çağrısı
+    // (sayfa yüklemesi başına yüzlerce sorgu) kaldırıldı; eşleşmeyen caseId'ler
+    // için vaka preview alanları boş kalır — davranış aynı.
     const rows = await getDb()
       .select({
         caseId: ekgSources.caseId,
@@ -47,25 +50,25 @@ export async function GET(req: NextRequest) {
         findingLabel: ekgSources.findingLabel,
         source: ekgSources.source,
         createdAt: ekgSources.createdAt,
+        vakaContent: clinicalCases.content,
       })
-      .from(ekgSources);
+      .from(ekgSources)
+      .leftJoin(clinicalCases, eq(ekgSources.caseId, clinicalCases.caseId));
 
-    const items = await Promise.all(
-      rows.map(async (row) => {
-        const vaka = await getRuntimeCaseById(row.caseId);
-        return {
-          caseId: row.caseId,
-          ecgId: row.ecgId,
-          imageIndex: row.imageIndex,
-          scpCodes: row.scpCodes,
-          findingLabel: row.findingLabel,
-          source: row.source,
-          createdAt: row.createdAt,
-          imageAvailable: Boolean(resolveEkgImagePath(row.imageIndex)),
-          vaka: casePreview(vaka),
-        };
-      })
-    );
+    const items = rows.map((row) => {
+      const vaka = row.vakaContent ? (row.vakaContent as AdminVaka) : undefined;
+      return {
+        caseId: row.caseId,
+        ecgId: row.ecgId,
+        imageIndex: row.imageIndex,
+        scpCodes: row.scpCodes,
+        findingLabel: row.findingLabel,
+        source: row.source,
+        createdAt: row.createdAt,
+        imageAvailable: Boolean(resolveEkgImagePath(row.imageIndex)),
+        vaka: casePreview(vaka),
+      };
+    });
 
     const labels = items.reduce<Record<string, number>>((result, item) => {
       result[item.findingLabel] = (result[item.findingLabel] || 0) + 1;

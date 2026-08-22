@@ -142,15 +142,11 @@ export async function loadPostgresCasesStore(): Promise<CasesStore> {
     const missing = seeded.filter((vaka) => !existingIds.has(vaka.id));
     const shouldSeed = caseRows.length === 0 ? seeded : missing;
     if (shouldSeed.length > 0) {
-      await db.transaction(async (tx) => {
-        for (const vaka of shouldSeed) {
-          try {
-            await tx.insert(clinicalCases).values(caseInsertValues(vaka));
-          } catch {
-            // duplicate caseId → atla
-          }
-        }
-      });
+      // Tek INSERT + ON CONFLICT: satır satır try/catch akış kontrolü yerine.
+      await db
+        .insert(clinicalCases)
+        .values(shouldSeed.map((vaka) => caseInsertValues(vaka)))
+        .onConflictDoNothing();
       [caseRows, versionRows] = await Promise.all([
         db.select().from(clinicalCases).orderBy(asc(clinicalCases.caseId)),
         db

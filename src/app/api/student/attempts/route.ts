@@ -29,28 +29,26 @@ function poliklinikKeyFrom(value: string | null) {
   return value === "*" || /^[a-z0-9-]{2,80}$/.test(value) ? value : null;
 }
 
-async function exposeRadiologyTest(
-  vaka: PublicAttemptCase | null,
-  actor: string,
-  studentId?: string
-): Promise<PublicAttemptCase | null> {
-  if (!vaka) return null;
-  const caseId = await getStudentAttemptSourceCaseId(vaka.id, actor, studentId);
-  if (!caseId || !(await hasRadiologyTest(caseId))) return vaka;
-  if (vaka.testler.some((test) => test.testKey === RADIOLOGY_TEST_KEY)) return vaka;
-  return { ...vaka, testler: [...vaka.testler, { testKey: RADIOLOGY_TEST_KEY, testAdi: RADIOLOGY_TEST_NAME }] };
-}
-
-async function exposeEkgTest(
-  vaka: PublicAttemptCase | null,
-  actor: string,
-  studentId?: string
-): Promise<PublicAttemptCase | null> {
-  if (!vaka) return null;
-  const caseId = await getStudentAttemptSourceCaseId(vaka.id, actor, studentId);
-  if (!caseId || !(await hasEkgTest(caseId))) return vaka;
-  if (vaka.testler.some((test) => test.testKey === EKG_TEST_KEY)) return vaka;
-  return { ...vaka, testler: [...vaka.testler, { testKey: EKG_TEST_KEY, testAdi: EKG_TEST_NAME }] };
+/**
+ * sourceCaseId tek sefer çözülür; radyoloji/EKG varlık kontrolleri paralel yapılır.
+ * (Eski akış aynı ID'yi 3 kez çözüyor ve kontrolleri sıralı çalıştırıyordu.)
+ */
+async function exposeTestler(
+  vaka: PublicAttemptCase,
+  sourceCaseId: string | null
+): Promise<PublicAttemptCase> {
+  const [radiolojiVar, ekgVar] = await Promise.all([
+    sourceCaseId ? hasRadiologyTest(sourceCaseId) : Promise.resolve(false),
+    sourceCaseId ? hasEkgTest(sourceCaseId) : Promise.resolve(false),
+  ]);
+  let testler = vaka.testler;
+  if (radiolojiVar && !testler.some((test) => test.testKey === RADIOLOGY_TEST_KEY)) {
+    testler = [...testler, { testKey: RADIOLOGY_TEST_KEY, testAdi: RADIOLOGY_TEST_NAME }];
+  }
+  if (ekgVar && !testler.some((test) => test.testKey === EKG_TEST_KEY)) {
+    testler = [...testler, { testKey: EKG_TEST_KEY, testAdi: EKG_TEST_NAME }];
+  }
+  return testler === vaka.testler ? vaka : { ...vaka, testler };
 }
 
 export async function GET(req: NextRequest) {
@@ -69,12 +67,12 @@ export async function GET(req: NextRequest) {
   const actor = session?.username || `guest:${guestId}`;
   try {
     const vaka = await getActiveStudentAttempt(actor, poliklinikKey, session?.userId);
-    const sonuc = await exposeEkgTest(await exposeRadiologyTest(vaka, actor, session?.userId), actor, session?.userId);
-    if (!sonuc) return NextResponse.json({ vaka: null });
-    const caseId = await getStudentAttemptSourceCaseId(sonuc.id, actor, session?.userId);
+    if (!vaka) return NextResponse.json({ vaka: null });
+    const sourceCaseId = await getStudentAttemptSourceCaseId(vaka.id, actor, session?.userId);
+    const sonuc = await exposeTestler(vaka, sourceCaseId);
     return NextResponse.json({
       vaka: sonuc,
-      vakaNo: caseId ? await vakaNoFromCaseId(caseId) : null,
+      vakaNo: sourceCaseId ? await vakaNoFromCaseId(sourceCaseId) : null,
     });
   } catch (error) {
     if (error instanceof JsonStoreReadError) return attemptStoreUnavailable(req, error);
@@ -115,16 +113,20 @@ export async function POST(req: NextRequest) {
   }
   const hastaTipiId = typeof body?.hastaTipiId === "string" && body.hastaTipiId ? body.hastaTipiId : null;
   const guestId = req.cookies.get(GUEST_COOKIE)?.value || crypto.randomUUID();
+  const actor = session?.username || `guest:${guestId}`;
   let vaka;
+  let sourceCaseId: string | null = null;
   try {
-    vaka = await startStudentAttempt(session?.username || `guest:${guestId}`, poliklinikKey, session?.userId, hastaTipiId, caseId);
-    vaka = await exposeEkgTest(await exposeRadiologyTest(vaka, session?.username || `guest:${guestId}`, session?.userId), session?.username || `guest:${guestId}`, session?.userId);
+    vaka = await startStudentAttempt(actor, poliklinikKey, session?.userId, hastaTipiId, caseId);
+    if (vaka) {
+      sourceCaseId = await getStudentAttemptSourceCaseId(vaka.id, actor, session?.userId);
+      vaka = await exposeTestler(vaka, sourceCaseId);
+    }
   } catch (error) {
     if (error instanceof JsonStoreReadError) return attemptStoreUnavailable(req, error);
     throw error;
   }
   if (!vaka) return NextResponse.json({ error: "Aktif vaka bulunamadı." }, { status: 404 });
-  const sourceCaseId = await getStudentAttemptSourceCaseId(vaka.id, session?.username || `guest:${guestId}`, session?.userId);
   const response = NextResponse.json({ vaka, poliklinikKey, vakaNo: sourceCaseId ? await vakaNoFromCaseId(sourceCaseId) : null });
   for (const [k, v] of Object.entries(rateLimitHeaders(quota))) response.headers.set(k, v);
   if (!session) response.cookies.set(GUEST_COOKIE, guestId, { httpOnly: true, sameSite: "lax", secure: process.env.NODE_ENV === "production", path: "/", maxAge: 60 * 60 * 12 });

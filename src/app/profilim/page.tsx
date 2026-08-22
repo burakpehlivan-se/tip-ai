@@ -3,8 +3,8 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { StudentProgress } from "@/lib/student/progress";
-import { StudentPerformanceInsights } from "@/lib/student/performance-insights";
+import type { StudentProgress } from "@/lib/student/progress";
+import type { StudentPerformanceInsights } from "@/lib/student/performance-insights";
 import type { NextCaseRecommendation } from "@/lib/student/next-case-recommendation";
 
 type MeInfo = { username: string; displayName: string };
