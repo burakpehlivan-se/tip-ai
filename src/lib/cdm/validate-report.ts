@@ -580,6 +580,22 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
         "NO_FALLBACK_ANSWER"
       );
     }
+    // Placeholder iskelet yanıtları yayınlanamaz (K3): enrichment başarısız
+    // vakalar "(Synthea iskeleti — AI/uzman dolduracak)" metnini öğrenciye
+    // göstermemeli. Taslakta uyarıdır; aktif/yayın kapısında hatadır.
+    const PLACEHOLDER_RE = /\(?\s*(?:Synthea\s*iskeleti|dolduracak)/i;
+    const placeholderTarget = doc.meta?.durum === "aktif" ? errors : warnings;
+    const addPlaceholder = placeholderTarget === errors ? addError : addWarning;
+    for (const [key, value] of Object.entries(yanitlar)) {
+      if (typeof value === "string" && PLACEHOLDER_RE.test(value)) {
+        addPlaceholder(
+          placeholderTarget,
+          `hastaYanitlari.${key}`,
+          `Placeholder iskelet yanıtı yayınlanamaz: ${key}`,
+          "PLACEHOLDER_ANSWER"
+        );
+      }
+    }
     // Beklenen sorular için yanıt
     for (const s of rub?.beklenenSorular || []) {
       if (s?.key && !nonEmptyText(yanitlar[s.key])) {
@@ -592,6 +608,39 @@ export function validateVakaDocument(doc: TipAiCdmDocument): VakaValidationResul
           "MISSING_ANSWER_FOR_QUESTION"
         );
       }
+    }
+
+    // K5 — vaka içi çelişki uyarıları (editör kalite kapısı)
+    const pozitif = (v: unknown): boolean =>
+      typeof v === "string" ? !/^\s*(yok|hayır|hayir|no|negatif)/i.test(v) : Boolean(v);
+    const sayiCikar = (v: unknown): number | null => {
+      const m = typeof v === "string" ? v.match(/\d+(?:[.,]\d+)?/) : null;
+      return m ? Number(m[0].replace(",", ".")) : null;
+    };
+
+    // Ateş sorgusu ↔ vital ateş çelişkisi
+    const atesSorgu = sayiCikar(yanitlar.ATES_SORGU);
+    const vitalAtes = sayiCikar(yanitlar.VITAL_ATES);
+    if (atesSorgu != null && vitalAtes != null && Math.abs(atesSorgu - vitalAtes) > 0.5) {
+      addWarning(
+        warnings,
+        "hastaYanitlari.VITAL_ATES",
+        `Ateş anlatısı (${atesSorgu}) vital ile çelişiyor (${vitalAtes})`,
+        "FEVER_CONTRADICTION"
+      );
+    }
+
+    // Kronik hastalık + "ilaç yok" çelişkisi
+    const kronikPozitif = pozitif(yanitlar.DIYABET) || pozitif(yanitlar.HT_OYKUSU);
+    const ilacYok =
+      typeof yanitlar.ILAC === "string" && /^\s*(yok|no)\b/i.test(yanitlar.ILAC);
+    if (kronikPozitif && ilacYok) {
+      addWarning(
+        warnings,
+        "hastaYanitlari.ILAC",
+        "Kronik hastalık öyküsü var ama ilaç yanıtı 'yok' — klinik tutarlılık kontrol edilmeli",
+        "MEDICATION_INCONSISTENCY"
+      );
     }
   }
 

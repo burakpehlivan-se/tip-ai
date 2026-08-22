@@ -156,8 +156,27 @@ function mapLabs(bundle: SyntheaEpisodeBundle): {
   return { tests, mapped: Object.keys(tests).length, unmapped };
 }
 
+/**
+ * Yaşa uygun vital fallback değerleri (K4). Synthea gözlemi eksikse erişkin
+ * sabiti bebek/çocuk vakasına kopyalamak tıbbi hata üretir; yaş grubuna göre
+ * tipik değerler kullanılır.
+ */
+function yasUyumluVitalsFallback(yas: number): {
+  tansiyon: string;
+  nabiz: number;
+  ates: number;
+  spo2: number;
+} {
+  if (yas < 1) return { tansiyon: "80/50", nabiz: 120, ates: 36.6, spo2: 98 };
+  if (yas < 4) return { tansiyon: "90/55", nabiz: 110, ates: 36.6, spo2: 98 };
+  if (yas < 10) return { tansiyon: "95/60", nabiz: 95, ates: 36.6, spo2: 98 };
+  if (yas < 15) return { tansiyon: "105/65", nabiz: 85, ates: 36.6, spo2: 98 };
+  return { tansiyon: "120/80", nabiz: 78, ates: 36.6, spo2: 98 };
+}
+
 function mapVitals(
-  bundle: SyntheaEpisodeBundle
+  bundle: SyntheaEpisodeBundle,
+  yas: number
 ): { vitals: NonNullable<TipAiCdmDocument["vitals"]>; bmi?: number; smoking?: string } {
   const numeric = (code: string): number | undefined => {
     const obs = latestObservation(bundle.observations, code);
@@ -177,13 +196,14 @@ function mapVitals(
   const spo2 = numeric("2708-6");
   const bmi = numeric("39156-5");
   const smokingObs = latestObservation(bundle.observations, "72166-2");
+  const fallback = yasUyumluVitalsFallback(yas);
 
   return {
     vitals: {
-      tansiyon: tansiyon || "120/80",
-      nabiz: Math.round(numeric("8867-4") ?? 78),
-      ates: ates != null ? Math.round(ates * 10) / 10 : 36.6,
-      spo2: spo2 != null ? Math.round(spo2) : 98,
+      tansiyon: tansiyon || fallback.tansiyon,
+      nabiz: Math.round(numeric("8867-4") ?? fallback.nabiz),
+      ates: ates != null ? Math.round(ates * 10) / 10 : fallback.ates,
+      spo2: spo2 != null ? Math.round(spo2) : fallback.spo2,
       solunum: numeric("9279-1") != null ? Math.round(numeric("9279-1")!) : undefined,
     },
     bmi: bmi != null ? Math.round(bmi * 10) / 10 : undefined,
@@ -313,7 +333,7 @@ export function etlSyntheaPatientToCdm(
 
   // ── Step 4: vitals ──
   steps.push("map_vitals");
-  const { vitals, bmi, smoking } = mapVitals(bundle);
+  const { vitals, bmi, smoking } = mapVitals(bundle, age);
 
   // ── Step 5: imaging ──
   steps.push("map_imaging");

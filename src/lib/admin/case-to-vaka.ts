@@ -2,7 +2,7 @@ import { AdminVaka } from "./types";
 import { Vaka, Hasta, Cinsiyet } from "../types";
 import { birlestirTestler, buildClinicalProfile } from "../data/lab-katalog";
 import { enrichHastaYanitlari } from "../data/hasta-yanit-enrich";
-import { CHIP_HAVUZU } from "../data/case-generator";
+import { vakaChipleriniUret } from "../data/vaka-chip-uretici";
 import { caseVersionStamp } from "./case-integrity";
 
 function rastgeleInt(min: number, max: number): number {
@@ -181,6 +181,11 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {  const source = caseV
       }
     : undefined;
 
+  // Chip havuzu vakanın kendi yanıtlarından türetilir (K1/K2 düzeltmesi):
+  // global ~100'lük havuz yerine yalnızca cevabı olan + rubriğin beklediği
+  // sorular listelenir; Synthea EN kodları Türkçe chip'e çevrilir.
+  const soruChipleri = vakaChipleriniUret(av.hastaYanitlari, relevantAksiyonlar);
+
   return {
     id: vakaId,
     semptom: av.semptomSablon || av.hastalikAdi,
@@ -193,12 +198,12 @@ export function adminVakaToPlayable(av: AdminVaka): Vaka {  const source = caseV
     beklenenTani: av.rubric?.kabulEdilenTani || [],
     rubric: structuredClone(av.rubric),
     statikTestler,
+    soruChipleri,
     hastaYanitlari: enrichHastaYanitlari(av.hastaYanitlari || {}, {
-      chipHavuzu: CHIP_HAVUZU,
+      chipHavuzu: soruChipleri,
       anaSikayet: av.anaSikayet,
       semptom: av.semptomSablon,
     }),
-    soruChipleri: [...CHIP_HAVUZU],
     relevantAksiyonlar,
     idealYol: [...av.idealYol],
     egitimNotu: av.egitimNotu,
