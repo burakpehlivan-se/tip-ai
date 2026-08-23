@@ -6,14 +6,15 @@ import VakaWorkspace, { CompletedAttempt, WorkspaceSnapshot } from "./VakaWorksp
 import { Vaka, DegerlendirmeSonuc } from "@/lib/types";
 import { publicAttemptToVaka } from "@/lib/student/public-case";
 
-async function uretVaka(): Promise<Vaka> {
+async function uretVaka(): Promise<{ vaka: Vaka; vakaNo: string | null }> {
   const response = await fetch("/api/student/attempts", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ poliklinikKey: "*" }),
   });
   if (!response.ok) throw new Error("Vaka hazırlanamadı.");
-  return publicAttemptToVaka((await response.json()).vaka);
+  const data = await response.json();
+  return { vaka: publicAttemptToVaka(data.vaka), vakaNo: typeof data.vakaNo === "string" ? data.vakaNo : null };
 }
 
 /** Fallback — admin ayarlarından override edilir */
@@ -22,6 +23,7 @@ const DEFAULT_GERI_DONUS = 2;
 interface HastaKayit {
   id: string;
   vaka: Vaka;
+  vakaNo: string | null;
   siraNo: number;
   /** Sohbet + test durumu (hasta lab’a gidince saklanır, dönüşte restore) */
   snapshot: WorkspaceSnapshot;
@@ -102,11 +104,12 @@ export default function CemicegekSimulator() {
   }, []);
 
   const ilkHastayiGetir = useCallback(async () => {
-    const vaka = await uretVaka();
+    const { vaka, vakaNo } = await uretVaka();
     const yeniSira = 1;
     const kayit: HastaKayit = {
       id: vaka.id,
       vaka,
+      vakaNo,
       siraNo: yeniSira,
       snapshot: bosSnapshot(),
       labda: false,
@@ -200,12 +203,13 @@ export default function CemicegekSimulator() {
 
       // 3) Yeni üret
       if (opts.uretYeni) {
-        const vaka = await uretVaka();
+        const { vaka, vakaNo } = await uretVaka();
         const yeniSira = opts.sira + 1;
         const yeniToplam = opts.toplam + 1;
         const kayit: HastaKayit = {
           id: vaka.id,
           vaka,
+          vakaNo,
           siraNo: yeniSira,
           snapshot: bosSnapshot(),
           labda: false,
@@ -267,12 +271,13 @@ export default function CemicegekSimulator() {
       );
 
       // Yeni hasta her lab gönderiminde kuyruğu besler (kalabalık)
-      const vaka = await uretVaka();
+      const { vaka, vakaNo } = await uretVaka();
       const yeniSira = siraRef.current + 1;
       const yeniToplam = toplamRef.current + 1;
       liste.push({
         id: vaka.id,
         vaka,
+        vakaNo,
         siraNo: yeniSira,
         snapshot: bosSnapshot(),
         labda: false,
@@ -422,7 +427,7 @@ export default function CemicegekSimulator() {
           </Link>
           <span className="text-sm font-semibold text-ink truncate">🚑 Çemiçgezek Acil</span>
           <span className="text-[10px] text-steel hidden sm:inline shrink-0">
-            #{aktif.siraNo} · {toplamGorulen} görüldü
+            #{aktif.vakaNo || aktif.siraNo} · {toplamGorulen} görüldü
             {labdaBekleyen > 0 ? ` · ${labdaBekleyen} lab’da` : ""}
             {kuyruktaBekleyen > 0 ? ` · ${kuyruktaBekleyen} kuyrukta` : ""}
           </span>
@@ -497,14 +502,14 @@ export default function CemicegekSimulator() {
             <button
               key={k.id}
               type="button"
-              aria-label={`${k.siraNo}. vaka — ${durumMetni}`}
+              aria-label={`${k.vakaNo || k.siraNo}. vaka — ${durumMetni}`}
               onClick={() => {
                 if (k.labda && !k.raporHazir) {
-                  bannerGoster(`#${k.siraNo} lab’da — eşik dolunca veya «sıradaki» ile dönebilir.`);
+                  bannerGoster(`#${k.vakaNo || k.siraNo} lab’da — eşik dolunca veya «sıradaki» ile dönebilir.`);
                   return;
                 }
                 if (k.tamamlandiMi) {
-                  bannerGoster(`#${k.siraNo} muayenesi tamamlandı.`);
+                  bannerGoster(`#${k.vakaNo || k.siraNo} muayenesi tamamlandı.`);
                   return;
                 }
                 setAktifIndex(i);
@@ -520,7 +525,7 @@ export default function CemicegekSimulator() {
               }`}
               title={k.vaka.hasta.tamAd}
             >
-              {durum} #{k.siraNo}
+              {durum} #{k.vakaNo || k.siraNo}
             </button>
           );
         })}
@@ -529,6 +534,7 @@ export default function CemicegekSimulator() {
       <VakaWorkspace
         key={`${aktif.id}-${aktif.raporHazir ? "donus" : "ilk"}-${aktif.tamamlandiMi ? "done" : "act"}`}
         vaka={aktif.vaka}
+        vakaNo={aktif.vakaNo}
         mod="cemicegek"
         embed
         raporHazir={aktif.raporHazir}

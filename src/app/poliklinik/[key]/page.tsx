@@ -233,6 +233,7 @@ export default function PoliklinikPage() {
       <main id="vaka-calismasi" tabIndex={-1} className="flex min-h-0 flex-1">
         <VakaWorkspace
           vaka={vaka}
+          vakaNo={vakaNo}
           key={vaka.id}
           embed
           initialSnapshot={resumeSnapshot}

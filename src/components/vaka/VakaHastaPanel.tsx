@@ -5,6 +5,7 @@ import { Vaka } from "@/lib/types";
 
 interface Props {
   vaka: Vaka;
+  vakaNo?: string | null;
   mobilGorunur: boolean;
   sorulanAksiyonSayisi: number;
   istenenTestSayisi: number;
@@ -14,6 +15,7 @@ interface Props {
 
 export default function VakaHastaPanel({
   vaka,
+  vakaNo,
   mobilGorunur,
   sorulanAksiyonSayisi,
   istenenTestSayisi,
@@ -23,9 +25,11 @@ export default function VakaHastaPanel({
   const [kaynaklarAcik, setKaynaklarAcik] = useState(false);
   const [idKopyalandi, setIdKopyalandi] = useState(false);
 
+  const gosterilenId = vakaNo || vaka.id.slice(0, 8);
+
   const vakaIdKopyala = async () => {
     try {
-      await navigator.clipboard.writeText(vaka.id);
+      await navigator.clipboard.writeText(gosterilenId);
       setIdKopyalandi(true);
       window.setTimeout(() => setIdKopyalandi(false), 2000);
     } catch {
@@ -55,7 +59,7 @@ export default function VakaHastaPanel({
                 title="Vaka kimliğini kopyala (hata bildiriminde kullanın)"
                 className="mt-0.5 max-w-full cursor-pointer truncate text-left font-mono text-[10px] text-muted hover:text-ink"
               >
-                {idKopyalandi ? "✓ Kopyalandı" : `ID: ${vaka.id}`}
+                {idKopyalandi ? "✓ Kopyalandı" : `Vaka #${gosterilenId}`}
               </button>
             </div>
           </div>

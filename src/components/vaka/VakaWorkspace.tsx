@@ -96,10 +96,13 @@ interface Props {
   onDebugSnapshot?: (snapshot: DebugJson) => void;
   /** Kullanıcı isterse, sahip olduğu vaka oturumunun kimliksiz klinik geçmişini getirir. */
   onClinicalHistoryRequest?: () => Promise<ClinicalHistory>;
+  /** Kısa vaka numarası (örn. 0307) — verilirse hasta kartında uzun ID yerine gösterilir. */
+  vakaNo?: string | null;
 }
 
 export default function VakaWorkspace({
   vaka,
+  vakaNo,
   mod = "normal",
   raporHazir = true,
   onTestIstendi,
@@ -944,6 +947,7 @@ export default function VakaWorkspace({
       <div className="flex min-h-0 flex-1 overflow-hidden">
         <VakaHastaPanel
           vaka={vaka}
+          vakaNo={vakaNo ?? null}
           mobilGorunur={mobilPanel === "hasta"}
           sorulanAksiyonSayisi={sorulanAksiyonlar.length}
           istenenTestSayisi={testIstekleri.length}
