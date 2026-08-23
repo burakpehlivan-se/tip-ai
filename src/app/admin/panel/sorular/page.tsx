@@ -45,6 +45,11 @@ export default function AdminSorularPage() {
   const [poliklinikKey, setPoliklinikKey] = useState("");
   const [busy, setBusy] = useState(false);
   const [showForm, setShowForm] = useState(false);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editEtiket, setEditEtiket] = useState("");
+  const [editKategori, setEditKategori] = useState<ChipKategorisi>("anamnez-agri");
+  const [editScope, setEditScope] = useState<QuestionScope>("global");
+  const [editPoliklinikKey, setEditPoliklinikKey] = useState("");
 
   async function load() {
     setLoading(true);
@@ -155,6 +160,63 @@ export default function AdminSorularPage() {
     }
     setMsg(currentlyDisabled ? `Soru etkinleştirildi: ${aksiyon}` : `Soru devre dışı bırakıldı: ${aksiyon}`);
     load();
+  }
+
+  function startEditStatic(item: QuestionItem) {
+    setEditingId(`static-${item.chip.aksiyon}`);
+    setEditEtiket(item.chip.etiket);
+    setEditKategori(item.chip.kategori);
+    setEditScope("global");
+    setEditPoliklinikKey("");
+  }
+
+  function startEditCustom(item: QuestionItem) {
+    if (!item.custom) return;
+    setEditingId(item.custom.id);
+    setEditEtiket(item.chip.etiket);
+    setEditKategori(item.chip.kategori);
+    setEditScope(item.custom.scope);
+    setEditPoliklinikKey(item.custom.poliklinikKey || poliklinikler[0]?.key || "");
+  }
+
+  async function handleEditSave() {
+    if (!editingId) return;
+    setErr("");
+    setMsg("");
+    setBusy(true);
+    try {
+      if (editingId.startsWith("static-")) {
+        const aksiyon = editingId.replace("static-", "");
+        const res = await fetch("/api/admin/questions/toggle", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ aksiyon, etiket: editEtiket.trim(), kategori: editKategori }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Güncellenemedi");
+        setMsg(`Soru güncellendi: ${aksiyon}`);
+      } else {
+        const res = await fetch(`/api/admin/questions/${encodeURIComponent(editingId)}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            etiket: editEtiket.trim(),
+            kategori: editKategori,
+            scope: editScope,
+            poliklinikKey: editScope === "poliklinik" ? editPoliklinikKey : null,
+          }),
+        });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || "Güncellenemedi");
+        setMsg(`Soru güncellendi: ${editEtiket}`);
+      }
+      setEditingId(null);
+      load();
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : "Güncellenemedi");
+    } finally {
+      setBusy(false);
+    }
   }
 
   return (
@@ -321,24 +383,79 @@ export default function AdminSorularPage() {
                       </div>
                     </div>
                     <div className="flex shrink-0 items-center gap-2">
-                      {it.source === "static" ? (
-                        <button
-                          type="button"
-                          className={`text-xs font-medium hover:underline ${it.disabled ? "text-brand-deep" : "text-clinical-red"}`}
-                          onClick={() => handleToggleStatic(it.chip.aksiyon, !!it.disabled)}
-                        >
-                          {it.disabled ? "Etkinleştir" : "Devre dışı bırak"}
-                        </button>
+                      {editingId === (it.source === "static" ? `static-${it.chip.aksiyon}` : it.custom?.id) ? (
+                        <>
+                          <button type="button" className="text-xs font-medium text-brand-deep hover:underline" onClick={handleEditSave} disabled={busy}>
+                            Kaydet
+                          </button>
+                          <button type="button" className="text-xs text-steel hover:underline" onClick={() => setEditingId(null)}>
+                            İptal
+                          </button>
+                        </>
                       ) : (
-                        <button
-                          type="button"
-                          className="text-xs font-medium text-clinical-red hover:underline"
-                          onClick={() => handleDelete(it.custom!.id)}
-                        >
-                          Sil
-                        </button>
+                        <>
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-steel hover:underline"
+                            onClick={() => (it.source === "static" ? startEditStatic(it) : startEditCustom(it))}
+                          >
+                            Düzenle
+                          </button>
+                          {it.source === "static" ? (
+                            <button
+                              type="button"
+                              className={`text-xs font-medium hover:underline ${it.disabled ? "text-brand-deep" : "text-clinical-red"}`}
+                              onClick={() => handleToggleStatic(it.chip.aksiyon, !!it.disabled)}
+                            >
+                              {it.disabled ? "Etkinleştir" : "Devre dışı bırak"}
+                            </button>
+                          ) : (
+                            <button
+                              type="button"
+                              className="text-xs font-medium text-clinical-red hover:underline"
+                              onClick={() => handleDelete(it.custom!.id)}
+                            >
+                              Sil
+                            </button>
+                          )}
+                        </>
                       )}
                     </div>
+                    {editingId === (it.source === "static" ? `static-${it.chip.aksiyon}` : it.custom?.id) && (
+                      <div className="mt-3 flex w-full flex-wrap gap-3 rounded-lg border border-hairline bg-surface-soft p-3">
+                        <input
+                          className="input flex-1 min-w-[200px]"
+                          value={editEtiket}
+                          onChange={(e) => setEditEtiket(e.target.value)}
+                          placeholder="Soru metni"
+                          maxLength={120}
+                        />
+                        <select className="input w-40" value={editKategori} onChange={(e) => setEditKategori(e.target.value as ChipKategorisi)}>
+                          {KATEGORILER.map((k) => (
+                            <option key={k.value} value={k.value}>
+                              {k.label}
+                            </option>
+                          ))}
+                        </select>
+                        {it.source === "custom" && (
+                          <>
+                            <select className="input w-40" value={editScope} onChange={(e) => setEditScope(e.target.value as QuestionScope)}>
+                              <option value="global">Global</option>
+                              <option value="poliklinik">Kliniğe özel</option>
+                            </select>
+                            {editScope === "poliklinik" && (
+                              <select className="input w-40" value={editPoliklinikKey} onChange={(e) => setEditPoliklinikKey(e.target.value)}>
+                                {poliklinikler.map((p) => (
+                                  <option key={p.key} value={p.key}>
+                                    {p.ad}
+                                  </option>
+                                ))}
+                              </select>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>

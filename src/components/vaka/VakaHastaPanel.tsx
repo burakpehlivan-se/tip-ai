@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Vaka } from "@/lib/types";
+import { SoruChipi, Vaka } from "@/lib/types";
 
 interface Props {
   vaka: Vaka;
@@ -11,6 +11,10 @@ interface Props {
   istenenTestSayisi: number;
   onClinicalHistoryRequest?: () => void;
   clinicalHistoryLoading?: boolean;
+  vitalChips?: SoruChipi[];
+  onVitalAsk?: (chip: SoruChipi) => void;
+  sorulanAksiyonlar?: Set<string>;
+  islemYukleniyor?: boolean;
 }
 
 export default function VakaHastaPanel({
@@ -21,8 +25,13 @@ export default function VakaHastaPanel({
   istenenTestSayisi,
   onClinicalHistoryRequest,
   clinicalHistoryLoading = false,
+  vitalChips,
+  onVitalAsk,
+  sorulanAksiyonlar,
+  islemYukleniyor = false,
 }: Props) {
   const [kaynaklarAcik, setKaynaklarAcik] = useState(false);
+  const [vitalAcik, setVitalAcik] = useState(false);
   const [idKopyalandi, setIdKopyalandi] = useState(false);
 
   const gosterilenId = vakaNo || vaka.id.slice(0, 8);
@@ -84,6 +93,44 @@ export default function VakaHastaPanel({
             </div>
           </div>
         </div>
+
+        {vitalChips && vitalChips.length > 0 && onVitalAsk && (
+          <div className="mt-4 border-t border-hairline pt-4">
+            <button
+              type="button"
+              onClick={() => setVitalAcik(!vitalAcik)}
+              aria-expanded={vitalAcik}
+              className="flex min-h-11 w-full items-center justify-between text-left"
+            >
+              <h4 className="text-xs font-semibold uppercase tracking-wide text-muted">
+                Vital Bulgular
+              </h4>
+              <span className={`text-xs text-muted transition-transform ${vitalAcik ? "rotate-180" : ""}`}>▾</span>
+            </button>
+            {vitalAcik && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {vitalChips.map((chip) => {
+                  const soruldu = sorulanAksiyonlar?.has(chip.aksiyon);
+                  return (
+                    <button
+                      key={chip.aksiyon}
+                      type="button"
+                      onClick={() => onVitalAsk(chip)}
+                      disabled={!!soruldu || islemYukleniyor}
+                      className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
+                        soruldu
+                          ? "cursor-default border-hairline bg-surface text-muted/60 line-through"
+                          : "border-hairline bg-canvas text-steel hover:border-ink/40 hover:text-ink hover:bg-surface"
+                      }`}
+                    >
+                      {chip.etiket}
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
 
         {onClinicalHistoryRequest && (
           <div className="mt-4 border-t border-hairline pt-4">

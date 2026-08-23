@@ -175,6 +175,8 @@ export default function VakaWorkspace({
     };
   }, [poliklinikKey, (vaka as unknown as { poliklinikKey?: string })?.poliklinikKey]);
 
+  const vitalChips = useMemo(() => effectiveChipHavuzu.filter((c) => c.kategori === "vital"), [effectiveChipHavuzu]);
+
   const drawerEfektifKategoriler = useMemo(() => {
     if (chipArama.trim()) return acikKategoriler;
     const hasAny = Array.from(acikKategoriler).some((kat) =>
@@ -638,7 +640,7 @@ export default function VakaWorkspace({
     const q = input.trim().toLowerCase();
     if (q.length < 2) return [];
     return effectiveChipHavuzu
-      .filter((c) => !sorulanAksiyonSeti.has(c.aksiyon) && c.etiket.toLowerCase().includes(q))
+      .filter((c) => c.kategori !== "vital" && !sorulanAksiyonSeti.has(c.aksiyon) && c.etiket.toLowerCase().includes(q))
       .slice(0, 6);
   }, [input, sorulanAksiyonSeti, effectiveChipHavuzu]);
   const oneriAdaylari = onerilerGizli ? [] : oneriAdaylariHam;
@@ -1000,6 +1002,10 @@ export default function VakaWorkspace({
           istenenTestSayisi={testIstekleri.length}
           onClinicalHistoryRequest={onClinicalHistoryRequest ? klinikGecmisiIste : undefined}
           clinicalHistoryLoading={clinicalHistoryLoading}
+          vitalChips={vitalChips}
+          onVitalAsk={chipSor}
+          sorulanAksiyonlar={sorulanAksiyonSeti}
+          islemYukleniyor={islemYukleniyor}
         />
 
         {/* Orta Panel — aktif klinik görev */}
