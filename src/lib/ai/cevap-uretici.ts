@@ -4,7 +4,7 @@
  * Akış:
  *   1. AdminVaka → metin profil
  *   2. Chip havuzu gruplara bölünür (truncation koruması)
- *   3. Her grup için DeepSeek'e tek seferde JSON istenç gönderilir
+ *   3. Her grup için Gemini'ye tek seferde JSON istenç gönderilir
  *   4. Eksik anahtarlar ikinci bir tamamlama turuyla doldurulur
  *   5. Varsayılan negatif yanıtlarla birleştirilir, vitaller garantilenir
  *   6. Güvenlik kontrolünden geçirilir
@@ -14,7 +14,7 @@ import { AdminVaka, HastaTipi } from "@/lib/admin/types";
 import { SoruChipi } from "@/lib/types";
 import { CHIP_HAVUZU } from "@/lib/data/case-generator";
 import { buildDefaultYanitlar } from "@/lib/data/hasta-yanit-enrich";
-import { deepseekChat, deepseekYapilandirilmisMi, jsonCikar } from "./deepseek";
+import { geminiChat, geminiYapilandirilmisMi, jsonCikar } from "./gemini";
 import { KISILIK_TIPLERI, KisilikTipiKey } from "./kisilik-tipleri";
 import { hastaDilineCevir, yuksekTibbiTerimVarMi } from "./hasta-dili";
 import { auditSyntheaClinicalHistoryAccess, getSyntheaClinicalHistory } from "@/lib/clinical-history/synthea-history";
@@ -313,7 +313,7 @@ function chipKeyKumesi(): Set<string> {
   return new Set(CHIP_HAVUZU.map((c) => c.aksiyon));
 }
 
-/** Bir grup için tek DeepSeek çağrısı → cevap haritası + debug izi */
+/** Bir grup için tek Gemini çağrısı → cevap haritası + debug izi */
 async function grupUret(
   profilJsonStr: string,
   index: number,
@@ -323,7 +323,7 @@ async function grupUret(
   const prompt = `${promptBasligi(profilJsonStr, konusma)}\n\nSORULAR:\n${soruListesiMetni(chips)}`;
 
   try {
-    const yanit = await deepseekChat({
+    const yanit = await geminiChat({
       messages: [
         { role: "system", content: "Sen JSON formatında hasta cevapları üreten bir sistemsin." },
         { role: "user", content: prompt },
@@ -332,7 +332,7 @@ async function grupUret(
       maxTokens: 16000,
     });
 
-    const hamYanit = yanit.content || yanit.reasoningContent || "";
+    const hamYanit = yanit.content;
     const parsed = jsonCikar(hamYanit) as { cevaplar?: Record<string, unknown> } | null;
     const debug: GrupDebug = { index, chipSayisi: chips.length, prompt, hamYanit };
     if (!parsed) return { cevaplar: {}, debug };
@@ -379,7 +379,7 @@ export async function vakaCevaplariniUret(
   }
   const profil = JSON.stringify(profilJson(vaka, secenekler.hastaTipi, history), null, 2);
 
-  if (!deepseekYapilandirilmisMi()) {
+  if (!geminiYapilandirilmisMi()) {
     return {
       basarili: false,
       cevaplar: {},
@@ -387,7 +387,7 @@ export async function vakaCevaplariniUret(
         toplamSoru: CHIP_HAVUZU.length,
         cevaplananSoru: 0,
         eksikSoru: CHIP_HAVUZU.map((c) => c.aksiyon),
-        uyarilar: ["DEEPSEEK_API_KEY tanımlı değil. Sunucu ortamında .env/.env.local yüklenmediyse uygulamayı yeniden başlatın."],
+        uyarilar: ["GEMINI_API_KEY tanımlı değil. Sunucu ortamında ortam değişkenini tanımlayıp uygulamayı yeniden başlatın."],
       },
       debug: { profil, gruplar: [] },
     };
@@ -403,7 +403,7 @@ export async function vakaCevaplariniUret(
   const cevaplar: Record<string, string> = {};
   const debugGruplar: GrupDebug[] = [];
 
-  // Sıralı üretim — reasoning modeli eşzamanlı isteklerde sunucu tarafı yavaşlatılıyor.
+  // Sıralı üretim — büyük vaka üretimlerinde kota ve zaman aşımı riskini sınırlar.
   for (let i = 0; i < gruplar.length; i++) {
     const { cevaplar: uretilen, debug } = await grupUret(profil, i, gruplar[i], konusma);
     debugGruplar.push(debug);
@@ -439,7 +439,7 @@ export async function vakaCevaplariniUret(
     birlestirilmis.OZEL = "Bunu tam anlayamadım; başka şekilde sorabilir misiniz?";
   }
 
-  // ── Tutarlılık katmanı: önce yerel ağrı kuralı, sonra DeepSeek denetimi ──
+  // ── Tutarlılık katmanı: önce yerel ağrı kuralı, sonra Gemini denetimi ──
   const yerelOnarim = agriTutarliliginiZorla(birlestirilmis, vaka);
   for (const [k, v] of Object.entries(yerelOnarim.duzeltmeler)) {
     birlestirilmis[k] = v;
@@ -455,7 +455,7 @@ export async function vakaCevaplariniUret(
     uyarilar.push(`${key}: ana şikayetle çelişti — yerel kural ile düzeltildi.`);
   }
   for (const key of aiDenetim.sorunluKeys) {
-    uyarilar.push(`${key}: DeepSeek tutarlılık denetimi düzeltti.`);
+    uyarilar.push(`${key}: Gemini tutarlılık denetimi düzeltti.`);
   }
   for (const [key, value] of Object.entries(birlestirilmis)) {
     if (yuksekTibbiTerimVarMi(value)) uyarilar.push(`${key}: yüksek tıbbi terim filtresinden geçemedi.`);
@@ -526,14 +526,14 @@ function agriTutarliliginiZorla(
 }
 
 /**
- * DeepSeek tutarlılık denetimi: üretilen tüm yanıtları ana şikayet + profile karşı
+ * Gemini tutarlılık denetimi: üretilen tüm yanıtları ana şikayet + profile karşı
  * kontrol eder; çelişenleri tek turda düzeltir. Anahtar yoksa/hata olursa no-op.
  */
 async function tutarliligiDenetleVeOnar(
   cevaplar: Record<string, string>,
   vaka: AdminVaka
 ): Promise<{ duzeltmeler: Record<string, string>; sorunluKeys: string[] }> {
-  if (!deepseekYapilandirilmisMi()) return { duzeltmeler: {}, sorunluKeys: [] };
+  if (!geminiYapilandirilmisMi()) return { duzeltmeler: {}, sorunluKeys: [] };
 
   const satirlar = Object.entries(cevaplar)
     .map(([key, cevap]) => `- ${key}: ${cevap.replace(/\n+/g, " ")}`)
@@ -558,7 +558,7 @@ SADECE şu JSON formatında döndür:
 Çelişki yoksa boş nesne/liste döndür.`;
 
   try {
-    const yanit = await deepseekChat({
+    const yanit = await geminiChat({
       messages: [
         { role: "system", content: "Sen tıp eğitimi senaryolarında tutarlılık denetleyicisisin. Sadece JSON döndür." },
         { role: "user", content: prompt },
@@ -566,7 +566,7 @@ SADECE şu JSON formatında döndür:
       temperature: 0.2,
       maxTokens: 8000,
     });
-    const parsed = jsonCikar(yanit.content || yanit.reasoningContent || "") as
+    const parsed = jsonCikar(yanit.content) as
       | { duzeltmeler?: Record<string, unknown>; sorunluKeys?: unknown }
       | null;
     if (!parsed) return { duzeltmeler: {}, sorunluKeys: [] };

@@ -2,7 +2,7 @@
  * Synthea → PostgreSQL vaka üretici.
  *
  * Synthea hastalarını okur, her birini CDM v1 taslağına çevirir, isteğe bağlı
- * DeepSeek zenginleştirmesi uygular ve `clinical_cases` tablosuna yazar.
+ * Gemini zenginleştirmesi uygular ve `clinical_cases` tablosuna yazar.
  * JSON vaka deposuna dokunmaz; runtime `CASE_STORE=postgres` ile bu tabloyu okur.
  *
  * Kullanım:
@@ -12,7 +12,7 @@
  * --dry      : yalnızca üretir + doğrular, DB'ye yazmaz.
  * --wipe     : yazmadan önce clinical_cases + yayın sürümleri + audit'i temizler.
  * --publish  : doğrulamadan geçenleri "aktif" yapar (varsayılan "taslak").
- * --no-ai    : DeepSeek zenginleştirmesini atlar.
+ * --no-ai    : Gemini zenginleştirmesini atlar.
  * --limit N  : yalnızca ilk N hastayı işler.
  * --all-diseases : Her farklı Synthea tanı kodu için bir temsilî vaka üretir.
  */

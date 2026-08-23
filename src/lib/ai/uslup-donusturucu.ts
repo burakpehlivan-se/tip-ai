@@ -13,7 +13,7 @@ import { and, eq } from "drizzle-orm";
 import { getDb } from "@/lib/auth/db";
 import { cevapCache } from "@/lib/auth/schema";
 import type { HastaTipi } from "@/lib/admin/types";
-import { deepseekChat, deepseekYapilandirilmisMi } from "./deepseek";
+import { geminiChat, geminiYapilandirilmisMi } from "./gemini";
 import { hastaDilineCevir } from "./hasta-dili";
 
 /** Üslup dönüşümü gerektirmeyen nötr hasta tipi kimliği. */
@@ -80,7 +80,7 @@ Aşağıdaki klinik cevabı yukarıdaki hasta kişiliğine göre yalnızca üslu
 ORİJİNAL KLİNİK CEVAP:
 "${baseCevap}"`;
 
-  const yanit = await deepseekChat({
+  const yanit = await geminiChat({
     messages: [
       { role: "system", content: "Sen bir hasta simülasyonunda yalnızca konuşma üslubunu dönüştüren bir sistemsin." },
       { role: "user", content: prompt },
@@ -103,7 +103,7 @@ ORİJİNAL KLİNİK CEVAP:
 /** Klinik cevabı hasta tipine göre dönüştürür (tembel + önbellekli). */
 export async function uslupDonustur(args: UslupDonusturArgs): Promise<string> {
   const { vakaId, tip, actionKey, baseCevap } = args;
-  if (!tip || tip.id === NOTR_HASTA_TIPI || !deepseekYapilandirilmisMi()) {
+  if (!tip || tip.id === NOTR_HASTA_TIPI || !geminiYapilandirilmisMi()) {
     return baseCevap;
   }
 

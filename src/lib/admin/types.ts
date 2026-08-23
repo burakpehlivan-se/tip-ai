@@ -219,7 +219,7 @@ export interface CemicegekAyarlari {
 }
 
 export interface AiAyarlari {
-  /** Serbest metin sorular için DeepSeek eşleştirme fallback'i. */
+  /** Serbest metin sorular için Gemini eşleştirme fallback'i. */
   eslestirme?: boolean;
 }
 

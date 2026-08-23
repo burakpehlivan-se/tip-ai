@@ -1,12 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import { pneumoniaBundle } from "./fixtures";
 
-vi.mock("../../ai/deepseek", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../ai/deepseek")>();
+vi.mock("../../ai/gemini", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../ai/gemini")>();
   return {
     ...actual,
-    deepseekYapilandirilmisMi: () => true,
-    deepseekChat: async () => ({
+    geminiYapilandirilmisMi: () => true,
+    geminiChat: async () => ({
       content: JSON.stringify({
         anaSikayet: "Cough with fever for three days",
         ozetBilgiler: [
@@ -23,7 +23,6 @@ vi.mock("../../ai/deepseek", async (importOriginal) => {
           IMMUNOSUPPRESSION: "No immune problems that I know of.",
         },
       }),
-      reasoningContent: "",
     }),
   };
 });
@@ -31,7 +30,7 @@ vi.mock("../../ai/deepseek", async (importOriginal) => {
 import { enrichSyntheaCase } from "./enrich";
 import { etlSyntheaPatientToCdm } from "./pipeline";
 
-describe("Synthea AI zenginleştirme (mocked DeepSeek)", () => {
+describe("Synthea AI zenginleştirme (mocked Gemini)", () => {
   it("AI yanıtını presentation + hastaYanitlari'na birleştirir, vitalleri korur", async () => {
     const result = etlSyntheaPatientToCdm(pneumoniaBundle());
     expect(result).not.toBeNull();

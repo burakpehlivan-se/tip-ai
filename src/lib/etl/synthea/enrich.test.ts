@@ -13,7 +13,7 @@ describe("Synthea AI zenginleştirme", () => {
     expect(profil).toContain("CRP");
   });
 
-  it("DEEPSEEK_API_KEY yoksa vakayı değiştirmeden döner", async () => {
+  it("GEMINI_API_KEY yoksa vakayı değiştirmeden döner", async () => {
     const result = etlSyntheaPatientToCdm(pneumoniaBundle());
     expect(result).not.toBeNull();
     const onceki = JSON.stringify(result!.vaka);
@@ -22,6 +22,6 @@ describe("Synthea AI zenginleştirme", () => {
     expect(enrich.basarili).toBe(false);
     expect(enrich.vaka).toEqual(result!.vaka);
     expect(JSON.stringify(enrich.vaka)).toBe(onceki);
-    expect(enrich.rapor.uyarilar).toContain("DEEPSEEK_API_KEY tanımlı değil.");
+    expect(enrich.rapor.uyarilar).toContain("GEMINI_API_KEY tanımlı değil.");
   });
 });

@@ -164,7 +164,7 @@ export default function AdminDiagnosticsPage() {
           key: "ai",
           label: "AI servisi",
           mode: diagnostics.ai.configured ? diagnostics.ai.model : "Yapılandırılmamış",
-          detail: diagnostics.ai.configured ? "Çalışmaya hazır" : "DEEPSEEK_API_KEY tanımlı değil",
+          detail: diagnostics.ai.configured ? "Çalışmaya hazır" : "GEMINI_API_KEY tanımlı değil",
         }
       );
     }

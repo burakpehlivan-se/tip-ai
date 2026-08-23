@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from "vitest";
-import type { DeepseekSonuc } from "../../ai/deepseek";
+import type { GeminiSonuc } from "../../ai/gemini";
 
-const deepseekMock = vi.fn<() => Promise<DeepseekSonuc>>(() => Promise.resolve({ content: "" }));
+const geminiMock = vi.fn<() => Promise<GeminiSonuc>>(() => Promise.resolve({ content: "" }));
 
-vi.mock("../../ai/deepseek", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../../ai/deepseek")>();
+vi.mock("../../ai/gemini", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("../../ai/gemini")>();
   return {
     ...actual,
-    deepseekYapilandirilmisMi: () => true,
-    deepseekChat: () => deepseekMock(),
+    geminiYapilandirilmisMi: () => true,
+    geminiChat: () => geminiMock(),
   };
 });
 
@@ -16,7 +16,7 @@ import { enrichSyntheaCase } from "./enrich";
 import { etlSyntheaPatientToCdm } from "./pipeline";
 import { pneumoniaBundle } from "./fixtures";
 
-function aiYaniti(hastaYanitlari: Record<string, string>): DeepseekSonuc {
+function aiYaniti(hastaYanitlari: Record<string, string>): GeminiSonuc {
   return {
     content: JSON.stringify({
       anaSikayet: "Üç gün önce başlayan öksürük ve ateş şikayetim var.",
@@ -35,7 +35,7 @@ describe("enrich eksik anahtar uyarısı", () => {
     const tumAnahtarlar = Object.fromEntries(
       (vaka.rubric?.beklenenSorular || []).map((s) => [s.key, "Cevap örneği."])
     );
-    deepseekMock.mockResolvedValue(aiYaniti(tumAnahtarlar));
+    geminiMock.mockResolvedValue(aiYaniti(tumAnahtarlar));
 
     const sonuc = await enrichSyntheaCase(vaka);
     expect(sonuc.basarili).toBe(true);
@@ -52,7 +52,7 @@ describe("enrich eksik anahtar uyarısı", () => {
     const kismi = Object.fromEntries(
       beklenenKeys.slice(1).map((k) => [k, "Cevap örneği."])
     );
-    deepseekMock.mockResolvedValue(aiYaniti(kismi));
+    geminiMock.mockResolvedValue(aiYaniti(kismi));
 
     const sonuc = await enrichSyntheaCase(vaka);
     expect(sonuc.basarili).toBe(false);

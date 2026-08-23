@@ -4,7 +4,7 @@
  */
 
 import { HastaTipi } from "@/lib/admin/types";
-import { deepseekChat, deepseekYapilandirilmisMi, jsonCikar } from "./deepseek";
+import { geminiChat, geminiYapilandirilmisMi, jsonCikar } from "./gemini";
 import { KISILIK_TIPLERI, KisilikTipiKey } from "./kisilik-tipleri";
 import { hastaDilineCevir } from "./hasta-dili";
 
@@ -103,14 +103,14 @@ ${ORNEK_SORULAR.map((s) => `- ${s.key}: "${s.soru}"`).join("\n")}`;
 export async function hastaTipiOrnekCevaplariniUret(tip: HastaTipi): Promise<HastaTipiUretimSonucu> {
   const profil = profilOlustur(tip);
 
-  if (!deepseekYapilandirilmisMi()) {
+  if (!geminiYapilandirilmisMi()) {
     return {
       basarili: false,
       cevaplar: {},
       rapor: {
         toplamSoru: ORNEK_SORULAR.length,
         cevaplananSoru: 0,
-        uyarilar: ["DEEPSEEK_API_KEY tanımlı değil."],
+        uyarilar: ["GEMINI_API_KEY tanımlı değil."],
       },
       debug: { profil, prompt: "", hamYanit: "" },
     };
@@ -118,7 +118,7 @@ export async function hastaTipiOrnekCevaplariniUret(tip: HastaTipi): Promise<Has
 
   const prompt = promptOlustur(profil, tip.kisilikTipi);
   try {
-    const yanit = await deepseekChat({
+    const yanit = await geminiChat({
       messages: [
         { role: "system", content: "Sen JSON formatında hasta cevapları üreten bir sistemsin." },
         { role: "user", content: prompt },
@@ -127,7 +127,7 @@ export async function hastaTipiOrnekCevaplariniUret(tip: HastaTipi): Promise<Has
       maxTokens: 4000,
     });
 
-    const hamYanit = yanit.content || yanit.reasoningContent || "";
+    const hamYanit = yanit.content;
     const parsed = jsonCikar(hamYanit) as { cevaplar?: Record<string, unknown> } | null;
     const kaynak = parsed && typeof parsed.cevaplar === "object" ? parsed.cevaplar : (parsed as Record<string, unknown> | null);
 

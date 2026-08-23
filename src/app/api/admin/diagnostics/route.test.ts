@@ -66,7 +66,7 @@ describe("admin diagnostics API", () => {
       readiness: { status: "ok", auth: { store: "json" } },
       stores: { auth: "json", attempts: "json", rateLimit: "memory" },
       runtime: { node: expect.stringMatching(/^v\d+/), uptimeSeconds: expect.any(Number) },
-      ai: { configured: expect.any(Boolean), model: expect.stringMatching(/^deepseek|^$/) },
+      ai: { configured: expect.any(Boolean), model: expect.stringMatching(/^gemini|^$/) },
     });
     expect(JSON.stringify(body)).not.toContain("hidden-password");
     expect(JSON.stringify(body)).not.toContain("db.example.test");

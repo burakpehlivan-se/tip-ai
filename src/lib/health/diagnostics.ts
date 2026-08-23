@@ -1,4 +1,4 @@
-import { deepseekYapilandirilmisMi, DEEPSEEK_MODEL } from "@/lib/ai/deepseek";
+import { geminiYapilandirilmisMi, GEMINI_MODEL } from "@/lib/ai/gemini";
 import { storeMode } from "@/lib/store-mode";
 import { rateLimitStoreMode } from "@/lib/security/rate-limit";
 import { getReadiness, type ReadinessPayload } from "./readiness";
@@ -49,8 +49,8 @@ export async function getAdminDiagnostics(): Promise<AdminDiagnostics> {
       rateLimit: safeMode(rateLimitStoreMode),
     },
     ai: {
-      configured: deepseekYapilandirilmisMi(),
-      model: DEEPSEEK_MODEL,
+      configured: geminiYapilandirilmisMi(),
+      model: GEMINI_MODEL,
     },
   };
 }

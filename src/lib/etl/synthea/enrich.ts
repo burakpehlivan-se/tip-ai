@@ -1,14 +1,14 @@
 /**
- * Synthea vaka zenginleştirme — DeepSeek ile OSCE sunum + hasta yanıtları.
+ * Synthea vaka zenginleştirme — Gemini ile OSCE sunum + hasta yanıtları.
  *
  * Objektif Synthea verisinden (tanı, lab, vital, ilaç) Türkçe ana şikayet,
  * HPI özet maddeleri ve beklenen sorulara hasta yanıtları üretir.
  *
- * DEEPSEEK_API_KEY tanımlı değilse vaka değişmeden döner (basarili: false).
+ * GEMINI_API_KEY tanımlı değilse vaka değişmeden döner (basarili: false).
  */
 
 import { CdmLabResult, TipAiCdmDocument } from "../../cdm/types";
-import { deepseekChat, deepseekYapilandirilmisMi, jsonCikar } from "../../ai/deepseek";
+import { geminiChat, geminiYapilandirilmisMi, jsonCikar } from "../../ai/gemini";
 
 export interface SyntheaEnrichResult {
   basarili: boolean;
@@ -131,24 +131,24 @@ function gecerliSayidaOzet(items: unknown): boolean {
 }
 
 /**
- * Bir Synthea CDM taslağını DeepSeek ile zenginleştirir (presentation + hastaYanitlari).
+ * Bir Synthea CDM taslağını Gemini ile zenginleştirir (presentation + hastaYanitlari).
  * Başarısız/anahtarsız durumda vaka değişmeden döner.
  */
 export async function enrichSyntheaCase(vaka: TipAiCdmDocument): Promise<SyntheaEnrichResult> {
   const profil = syntheaProfilOlustur(vaka);
 
-  if (!deepseekYapilandirilmisMi()) {
+  if (!geminiYapilandirilmisMi()) {
     return {
       basarili: false,
       vaka,
-      rapor: { uyarilar: ["DEEPSEEK_API_KEY tanımlı değil."] },
+      rapor: { uyarilar: ["GEMINI_API_KEY tanımlı değil."] },
       debug: { profil, prompt: "", hamYanit: "" },
     };
   }
 
   const prompt = promptOlustur(profil, vaka);
   try {
-    const yanit = await deepseekChat({
+    const yanit = await geminiChat({
       messages: [
         { role: "system", content: "Sen yalnızca JSON üreten bir tıp eğitimi vaka sistemisin." },
         { role: "user", content: prompt },
@@ -157,7 +157,7 @@ export async function enrichSyntheaCase(vaka: TipAiCdmDocument): Promise<Synthea
       maxTokens: 4000,
     });
 
-    let hamYanit = yanit.content || yanit.reasoningContent || "";
+    let hamYanit = yanit.content;
     let parsed = jsonCikar(hamYanit) as
       | { anaSikayet?: unknown; ozetBilgiler?: unknown; hastaYanitlari?: unknown }
       | null;
@@ -165,7 +165,7 @@ export async function enrichSyntheaCase(vaka: TipAiCdmDocument): Promise<Synthea
     // JSON çıkmadıysa (tipik neden: "length" ile kesilmiş yanıt) bir kez daha
     // dene — daha yüksek token limiti ile. Tek tur; maliyeti sınırlı tutar.
     if (!parsed) {
-      const ikinci = await deepseekChat({
+      const ikinci = await geminiChat({
         messages: [
           { role: "system", content: "Sen yalnızca JSON üreten bir tıp eğitimi vaka sistemisin." },
           { role: "user", content: prompt + "\n\nÖNEMLİ: Yanıtı TEK geçerli JSON bloğu olarak ver, kısaltma." },
@@ -173,7 +173,7 @@ export async function enrichSyntheaCase(vaka: TipAiCdmDocument): Promise<Synthea
         temperature: 0.4,
         maxTokens: 8000,
       });
-      const hamIkinci = ikinci.content || ikinci.reasoningContent || "";
+      const hamIkinci = ikinci.content;
       if (hamIkinci) {
         hamYanit = hamIkinci;
         parsed = jsonCikar(hamIkinci) as typeof parsed;

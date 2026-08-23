@@ -552,7 +552,7 @@ export default function AdminAyarlarPage() {
                     <span>
                       <span className="block text-sm font-medium text-ink">Serbest metin sorularını AI ile eşleştir</span>
                       <span className="block text-xs text-muted">
-                        Öğrenci serbest metin yazdığında soru chip&apos;lerine AI (DeepSeek) ile eşlenir. Kapalıysa metin doğrudan değerlendirilir.
+                        Öğrenci serbest metin yazdığında soru chip&apos;lerine AI (Gemini) ile eşlenir. Kapalıysa metin doğrudan değerlendirilir.
                       </span>
                     </span>
                   </label>

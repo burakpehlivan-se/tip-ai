@@ -1,11 +1,10 @@
 export {
-  deepseekChat,
-  deepseekYapilandirilmisMi,
+  geminiChat,
+  geminiYapilandirilmisMi,
   jsonCikar,
-  DEEPSEEK_BASE_URL,
-  DEEPSEEK_MODEL,
-} from "./deepseek";
-export type { DeepseekMesaj, DeepseekChatParametreleri, DeepseekSonuc } from "./deepseek";
+  GEMINI_MODEL,
+} from "./gemini";
+export type { GeminiMesaj, GeminiChatParametreleri, GeminiSonuc } from "./gemini";
 
 export { KISILIK_TIPLERI, KISILIK_TIPI_KEYLERI } from "./kisilik-tipleri";
 export type { KisilikTipi, KisilikTipiKey } from "./kisilik-tipleri";

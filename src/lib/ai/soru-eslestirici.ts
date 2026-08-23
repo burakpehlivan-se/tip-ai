@@ -1,12 +1,12 @@
 /**
  * Serbest metin → chip eşleştirici (AI fallback).
  *
- * Yerel sözlük (normalizeSoru) bulamadığında DeepSeek en yakın chip'i seçer.
+ * Yerel sözlük (normalizeSoru) bulamadığında Gemini en yakın chip'i seçer.
  * Düşük güven veya "OZEL" durumunda null döner.
  */
 
 import { CHIP_HAVUZU } from "@/lib/data/case-generator";
-import { deepseekChat, deepseekYapilandirilmisMi, jsonCikar } from "./deepseek";
+import { geminiChat, geminiYapilandirilmisMi, jsonCikar } from "./gemini";
 
 export interface EslesmeSonucu {
   chipKey: string | null;
@@ -14,7 +14,7 @@ export interface EslesmeSonucu {
 }
 
 export async function serbestMetinEslestir(metin: string): Promise<EslesmeSonucu> {
-  if (!deepseekYapilandirilmisMi()) return { chipKey: null, guvenSkor: 0 };
+  if (!geminiYapilandirilmisMi()) return { chipKey: null, guvenSkor: 0 };
 
   const chipListesi = CHIP_HAVUZU.map((c) => `${c.aksiyon}: "${c.etiket}"`).join("\n");
 
@@ -39,7 +39,7 @@ Hiçbir soru uymuyorsa:
 }`;
 
   try {
-    const yanit = await deepseekChat({
+    const yanit = await geminiChat({
       messages: [
         { role: "system", content: "Soru eşleştirme sistemisin. Sadece JSON döndür." },
         { role: "user", content: prompt },
@@ -48,7 +48,7 @@ Hiçbir soru uymuyorsa:
       maxTokens: 2000,
     });
 
-    const sonuc = jsonCikar(yanit.content || yanit.reasoningContent || "") as { chipKey?: unknown; guvenSkor?: unknown } | null;
+    const sonuc = jsonCikar(yanit.content) as { chipKey?: unknown; guvenSkor?: unknown } | null;
     if (!sonuc) return { chipKey: null, guvenSkor: 0 };
 
     const chipKey = typeof sonuc.chipKey === "string" ? sonuc.chipKey : "OZEL";

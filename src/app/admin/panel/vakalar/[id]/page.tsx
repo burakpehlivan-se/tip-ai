@@ -1608,7 +1608,7 @@ export default function AdminVakaDetailPage() {
                 Serbest metin AI eşleştirme (öğrenci akışı)
               </label>
               <p className="text-[11px] text-muted">
-                Açıkken sözlükte bulunamayan serbest metin sorular DeepSeek ile en yakın
+                Açıkken sözlükte bulunamayan serbest metin sorular Gemini ile en yakın
                 chip'e eşleştirilir. Global ayardır; tüm vakalarda geçerlidir.
               </p>
             </div>

@@ -3,7 +3,7 @@ export const runtime = "nodejs";
 
 import { NextRequest, NextResponse } from "next/server";
 import { loadSettings } from "@/lib/admin/store";
-import { deepseekYapilandirilmisMi } from "@/lib/ai/deepseek";
+import { geminiYapilandirilmisMi } from "@/lib/ai/gemini";
 import { serbestMetinEslestir } from "@/lib/ai";
 import { getRequestId, logger } from "@/lib/logger";
 import { getStudentSessionFromRequest } from "@/lib/student/auth";
@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   const metin = typeof body?.metin === "string" ? body.metin.trim().slice(0, 400) : "";
   if (!metin) return NextResponse.json({ chipKey: null });
 
-  const etkin = loadSettings().ai?.eslestirme === true && deepseekYapilandirilmisMi();
+  const etkin = loadSettings().ai?.eslestirme === true && geminiYapilandirilmisMi();
   if (!etkin) return NextResponse.json({ chipKey: null });
 
   try {
