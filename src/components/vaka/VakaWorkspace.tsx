@@ -154,6 +154,20 @@ export default function VakaWorkspace({
   const [aktifOneri, setAktifOneri] = useState(-1);
   const [onerilerGizli, setOnerilerGizli] = useState(false);
   const [acikKategoriler, setAcikKategoriler] = useState<Set<ChipKategorisi>>(new Set<ChipKategorisi>(["anamnez-agri"]));
+  const drawerEfektifKategoriler = useMemo(() => {
+    if (chipArama.trim()) return acikKategoriler;
+    const hasAny = Array.from(acikKategoriler).some((kat) =>
+      (vaka.soruChipleri as SoruChipi[]).some((c) => c.kategori === kat && (debugMode || vaka.hastaYanitlari[c.aksiyon]))
+    );
+    if (hasAny) return acikKategoriler;
+    const sira: ChipKategorisi[] = ["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"];
+    for (const kat of sira) {
+      if ((vaka.soruChipleri as SoruChipi[]).some((c) => c.kategori === kat && (debugMode || vaka.hastaYanitlari[c.aksiyon]))) {
+        return new Set<ChipKategorisi>([kat]);
+      }
+    }
+    return acikKategoriler;
+  }, [acikKategoriler, chipArama, vaka.soruChipleri, debugMode]);
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
   const soruDrawerRef = useRef<HTMLDialogElement>(null);
   const drawerKapatBtnRef = useRef<HTMLButtonElement>(null);
@@ -1021,13 +1035,28 @@ export default function VakaWorkspace({
             </div>
             {/* Aktif kategoriden 2 satır chip */}
             {faz === "anamnez" && (() => {
-              const aktifKat = Array.from(acikKategoriler)[0];
+              let aktifKat = Array.from(acikKategoriler)[0];
               if (!aktifKat) return null;
               // Cevap hazırlanmamış chip'ler öğrenciye belirsiz soru olarak
               // göründüğü için debug kapalıyken gizlenir.
-              const all = (vaka.soruChipleri as SoruChipi[]).filter(
+              let all = (vaka.soruChipleri as SoruChipi[]).filter(
                 (c) => c.kategori === aktifKat && (debugMode || vaka.hastaYanitlari[c.aksiyon])
               );
+              // Seçili kategori boşsa ilk dolu kategoriye otomatik düş (boş ekranı önler)
+              if (all.length === 0 && !debugMode) {
+                const sira: ChipKategorisi[] = ["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"];
+                for (const kat of sira) {
+                  if (kat === aktifKat) continue;
+                  const aday = (vaka.soruChipleri as SoruChipi[]).filter(
+                    (c) => c.kategori === kat && vaka.hastaYanitlari[c.aksiyon]
+                  );
+                  if (aday.length > 0) {
+                    aktifKat = kat;
+                    all = aday;
+                    break;
+                  }
+                }
+              }
               // Debug kapalıyken "ilgili soru" sıralaması ve vurgusu kapalı (kör oynama);
               // debug açıkken beklenen sorular öne alınır ve yeşil vurgulanır.
               const relevant = all.filter((c) => relevantAksiyonSeti.has(c.aksiyon));
@@ -1093,9 +1122,7 @@ export default function VakaWorkspace({
                     placeholder="Sorularda ara…"
                     className="w-full h-8 rounded-full border border-hairline bg-surface px-3 text-xs text-ink placeholder:text-muted focus:border-brand focus:outline-none" />
                   {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
-                    // Arama varken tüm kategorilerde ara; arama yokken yalnızca
-                    // seçili kategori(ler) listelensin (butonlar gerçek filtre olur).
-                    if (!chipArama.trim() && acikKategoriler.size > 0 && !acikKategoriler.has(kat)) return null;
+                    if (!chipArama.trim() && drawerEfektifKategoriler.size > 0 && !drawerEfektifKategoriler.has(kat)) return null;
                     let chips = (vaka.soruChipleri as SoruChipi[]).filter(
                       (c) => c.kategori === kat && (debugMode || vaka.hastaYanitlari[c.aksiyon])
                     );
@@ -1119,9 +1146,9 @@ export default function VakaWorkspace({
                             );
                           })}
                         </div>
-                      </div>
-                    );
-                  })}
+                       </div>
+                     );
+                   })}
                   {!chipArama.trim() && acikKategoriler.size === 0 && (
                     <p className="py-4 text-center text-xs text-muted">Görüntülemek için yukarıdan kategori seçin.</p>
                   )}
