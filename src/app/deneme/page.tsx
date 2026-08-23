@@ -74,6 +74,29 @@ export default function DenemePage() {
     return response.json();
   }
 
+  async function vakayiSifirla() {
+    if (!vaka || yukleniyor) return;
+    if (!window.confirm("Bu deneme vakasındaki tüm ilerleme ve taslak silinecek. Vakayı baştan başlatmak istiyor musunuz?")) return;
+    setYukleniyor(true);
+    setHata("");
+    try {
+      const response = await fetch(`/api/student/attempts/${vaka.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "reset" }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.vaka) throw new Error(data?.error || "Vaka sıfırlanamadı.");
+      window.localStorage.removeItem(`tip-ai-vaka-taslagi:${vaka.id}`);
+      setVaka(publicAttemptToVaka(data.vaka));
+      setResumeSnapshot(null);
+    } catch (error) {
+      setHata(error instanceof Error ? error.message : "Vaka sıfırlanamadı.");
+    } finally {
+      setYukleniyor(false);
+    }
+  }
+
   return (
     <div className="flex h-[100dvh] flex-col bg-canvas">
       <div className="flex min-h-14 items-center justify-between gap-3 border-b border-hairline bg-canvas px-4 py-2">
@@ -85,10 +108,18 @@ export default function DenemePage() {
           <span className="text-muted" aria-hidden="true">/</span>
           <span className="truncate text-sm font-medium text-ink">🔓 Deneme Vakası</span>
         </div>
-        <span className="badge badge-brand shrink-0 text-[11px]">
-          <span className="sm:hidden">Ücretsiz</span>
-          <span className="hidden sm:inline">Ücretsiz — giriş gerekmez</span>
-        </span>
+        <div className="flex shrink-0 items-center gap-2">
+          <span className="badge badge-brand text-[11px]">
+            <span className="sm:hidden">Ücretsiz</span>
+            <span className="hidden sm:inline">Ücretsiz — giriş gerekmez</span>
+          </span>
+          {vaka && !yukleniyor && (
+            <button type="button" onClick={() => void vakayiSifirla()} className="btn-secondary px-3 text-sm sm:px-5">
+              <span className="sm:hidden">Sıfırla</span>
+              <span className="hidden sm:inline">Vakayı sıfırla</span>
+            </button>
+          )}
+        </div>
       </div>
 
       {yukleniyor && (

@@ -29,6 +29,7 @@ import {
   getPostgresAttemptSourceCaseId,
   requestPostgresAttemptTest,
   requestPostgresAttemptExam,
+  resetPostgresStudentAttempt,
   savePostgresAttemptClinicalReasoning,
   startPostgresAssignedAttempt,
   startPostgresStudentAttempt,
@@ -317,6 +318,37 @@ export async function getStudentAttemptSourceCaseId(
   return withJsonStoreLock(() => {
     const found = ownAttempt(id, actor);
     return found?.attempt.vaka.sourceCaseId || null;
+  });
+}
+
+/** Aynı vakayı tüm aktif ilerleme verileri silinmiş yeni bir denemeyle başlatır. */
+export function resetStudentAttempt(id: string, actor: string, studentId?: string): Promise<PublicAttemptCase | null> {
+  if (shouldUsePostgresStore(actor)) {
+    if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
+    return resetPostgresStudentAttempt(id, studentId);
+  }
+  return withJsonStoreLock(() => {
+    const found = ownAttempt(id, actor);
+    if (!found) return null;
+    const fresh: AttemptRecord = {
+      id: crypto.randomUUID(),
+      actor: found.attempt.actor,
+      assignmentId: found.attempt.assignmentId,
+      poliklinikKey: found.attempt.poliklinikKey,
+      hastaTipiId: found.attempt.hastaTipiId,
+      vaka: found.attempt.vaka,
+      sorulanAksiyonlar: [],
+      istenenTestler: [],
+      muayeneBulgulari: [],
+      konusma: [],
+      clinicalReasoning: null,
+      createdAt: Date.now(),
+      updatedAt: Date.now(),
+    };
+    found.store.attempts = found.store.attempts.filter((attempt) => attempt.id !== id);
+    found.store.attempts.push(fresh);
+    save(found.store);
+    return toPublicAttempt(fresh);
   });
 }
 

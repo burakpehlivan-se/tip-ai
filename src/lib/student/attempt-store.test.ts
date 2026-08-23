@@ -10,6 +10,7 @@ import {
   getActiveStudentAttemptForAssignment,
   requestStudentAttemptTest,
   requestStudentAttemptExam,
+  resetStudentAttempt,
   saveStudentAttemptClinicalReasoning,
   startAssignedStudentAttempt,
   startStudentAttempt,
@@ -64,6 +65,22 @@ describe("student attempt store", () => {
     const resumed = await getActiveStudentAttempt("ogrenci.muayene", "kardiyoloji");
     expect(resumed?.ilerleme.muayeneBulgulari).toContainEqual(expect.objectContaining({ action: "VITAL_TANSIYON" }));
     expect(resumed?.ilerleme.yanitlar).toEqual([]);
+  });
+
+  it("aktif vakayı aynı senaryoda boş bir denemeyle sıfırlar", async () => {
+    const vaka = await startStudentAttempt("ogrenci.sifirla", "kardiyoloji");
+    expect(vaka).not.toBeNull();
+    await answerStudentAttempt(vaka!.id, "ogrenci.sifirla", "VITAL_TANSIYON");
+    await requestStudentAttemptTest(vaka!.id, "ogrenci.sifirla", vaka!.testler[0].testKey);
+
+    const fresh = await resetStudentAttempt(vaka!.id, "ogrenci.sifirla");
+    expect(fresh).toEqual(expect.objectContaining({ semptom: vaka!.semptom }));
+    expect(fresh?.id).not.toBe(vaka!.id);
+    await expect(answerStudentAttempt(vaka!.id, "ogrenci.sifirla", "VITAL_TANSIYON")).resolves.toBeNull();
+
+    const resumed = await getActiveStudentAttempt("ogrenci.sifirla", "kardiyoloji");
+    expect(resumed?.id).toBe(fresh?.id);
+    expect(resumed?.ilerleme).toEqual(expect.objectContaining({ yanitlar: [], testSonuclari: [], muayeneBulgulari: [], clinicalReasoning: null }));
   });
 
   it("klinik muhakeme taslağını aktif vakada saklar ve değerlendirmeye kalibrasyon özeti ekler", async () => {

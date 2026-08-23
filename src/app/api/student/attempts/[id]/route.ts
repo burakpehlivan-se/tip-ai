@@ -8,6 +8,7 @@ import {
   completeStudentAttempt,
   requestStudentAttemptTest,
   requestStudentAttemptExam,
+  resetStudentAttempt,
   saveStudentAttemptClinicalReasoning,
 } from "@/lib/student/attempt-store";
 import { ClinicalReasoningValidationError, normalizeClinicalReasoning } from "@/lib/student/clinical-reasoning";
@@ -74,6 +75,14 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       if (!reasoning) return NextResponse.json({ error: "Klinik muhakeme bilgisi gerekli." }, { status: 400 });
       const saved = await saveStudentAttemptClinicalReasoning(id, actor, reasoning, session?.userId);
       const res = saved ? NextResponse.json({ saved: true }) : NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 });
+      for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
+      return res;
+    }
+    if (body.type === "reset") {
+      const vaka = await resetStudentAttempt(id, actor, session?.userId);
+      const res = vaka == null
+        ? NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 })
+        : NextResponse.json({ vaka }, { headers: { "Cache-Control": "no-store" } });
       for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
       return res;
     }

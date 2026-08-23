@@ -71,22 +71,33 @@ describe("student attempt API", () => {
     expect(typeof askBody.yanit).toBe("string");
     expect(askBody.reply).toEqual(expect.objectContaining({ actions: expect.any(Array), channel: expect.any(String) }));
 
-    const examReq = new NextRequest(`http://localhost/api/student/attempts/${attemptId}`, {
+    const resetReq = new NextRequest(`http://localhost/api/student/attempts/${attemptId}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieHeader },
+      body: JSON.stringify({ type: "reset" }),
+    });
+    const resetRes = await postAttemptAction(resetReq, { params: Promise.resolve({ id: attemptId }) });
+    expect(resetRes.status).toBe(200);
+    const resetBody = await resetRes.json();
+    expect(resetBody.vaka?.id).not.toBe(attemptId);
+    const resetId: string = resetBody.vaka.id;
+
+    const examReq = new NextRequest(`http://localhost/api/student/attempts/${resetId}`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie: cookieHeader },
       body: JSON.stringify({ type: "exam", action: "VITAL_TANSIYON" }),
     });
-    const examRes = await postAttemptAction(examReq, { params: Promise.resolve({ id: attemptId }) });
+    const examRes = await postAttemptAction(examReq, { params: Promise.resolve({ id: resetId }) });
     expect(examRes.status).toBe(200);
     expect((await examRes.json()).finding).toEqual(expect.objectContaining({ action: "VITAL_TANSIYON" }));
 
     // request test
-    const testReq = new NextRequest(`http://localhost/api/student/attempts/${attemptId}`, {
+    const testReq = new NextRequest(`http://localhost/api/student/attempts/${resetId}`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie: cookieHeader },
       body: JSON.stringify({ type: "test", testKey: "TROPONIN" }),
     });
-    const testRes = await postAttemptAction(testReq, { params: Promise.resolve({ id: attemptId }) });
+    const testRes = await postAttemptAction(testReq, { params: Promise.resolve({ id: resetId }) });
     // TROPONIN may be not in this random case's statikTestler, but fallback via lab-motor should provide
     // If not found, it returns 404, which is also acceptable for this generic test
     expect([200, 404]).toContain(testRes.status);
@@ -96,12 +107,12 @@ describe("student attempt API", () => {
     }
 
     // complete
-    const completeReq = new NextRequest(`http://localhost/api/student/attempts/${attemptId}`, {
+    const completeReq = new NextRequest(`http://localhost/api/student/attempts/${resetId}`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie: cookieHeader },
       body: JSON.stringify({ type: "complete", taniGirildi: "Akut Koroner Sendrom", tedaviGirildi: "Aspirin 300mg, PCI planlandı", reasoning: null }),
     });
-    const completeRes = await postAttemptAction(completeReq, { params: Promise.resolve({ id: attemptId }) });
+    const completeRes = await postAttemptAction(completeReq, { params: Promise.resolve({ id: resetId }) });
     expect(completeRes.status).toBe(200);
     const completeBody = await completeRes.json();
     expect(completeBody.sonuc).toBeDefined();

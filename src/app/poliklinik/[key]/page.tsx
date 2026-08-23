@@ -138,6 +138,31 @@ export default function PoliklinikPage() {
     void baslat();
   };
 
+  const vakayiSifirla = async () => {
+    if (!vaka || yukleniyor) return;
+    if (!window.confirm("Bu vakadaki tüm sorular, testler, muayene bulguları ve taslak silinecek. Vakayı baştan başlatmak istiyor musunuz?")) return;
+    setYukleniyor(true);
+    setHata("");
+    try {
+      const response = await fetch(`/api/student/attempts/${vaka.id}`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "reset" }),
+      });
+      const data = await response.json().catch(() => null);
+      if (!response.ok || !data?.vaka) throw new Error(data?.error || "Vaka sıfırlanamadı.");
+      window.localStorage.removeItem(`tip-ai-vaka-taslagi:${vaka.id}`);
+      setVaka(publicAttemptToVaka(data.vaka));
+      setResumeSnapshot(null);
+      setHastaTipi(data.vaka.hastaTipi ?? null);
+      setTaslakDegisti(false);
+    } catch (error) {
+      setHata(error instanceof Error ? error.message : "Vaka sıfırlanamadı.");
+    } finally {
+      setYukleniyor(false);
+    }
+  };
+
   async function attemptAction(type: "ask" | "test" | "exam" | "reasoning" | "complete", payload: Record<string, unknown>) {
     if (!vaka) throw new Error("Vaka oturumu bulunamadı.");
     const response = await fetch(`/api/student/attempts/${vaka.id}`, {
@@ -224,10 +249,16 @@ export default function PoliklinikPage() {
             </span>
           )}
         </div>
-        <button type="button" onClick={yeniVakaAl} disabled={yukleniyor} className="btn-secondary shrink-0 px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60 sm:px-5">
-          <span className="sm:hidden">Değiştir</span>
-          <span className="hidden sm:inline">Vakayı değiştir</span>
-        </button>
+        <div className="flex shrink-0 items-center gap-2">
+          <button type="button" onClick={() => void vakayiSifirla()} disabled={yukleniyor} className="btn-secondary px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60 sm:px-5">
+            <span className="sm:hidden">Sıfırla</span>
+            <span className="hidden sm:inline">Vakayı sıfırla</span>
+          </button>
+          <button type="button" onClick={yeniVakaAl} disabled={yukleniyor} className="btn-secondary px-3 text-sm disabled:cursor-not-allowed disabled:opacity-60 sm:px-5">
+            <span className="sm:hidden">Değiştir</span>
+            <span className="hidden sm:inline">Vakayı değiştir</span>
+          </button>
+        </div>
       </header>
 
       <main id="vaka-calismasi" tabIndex={-1} className="flex min-h-0 flex-1">

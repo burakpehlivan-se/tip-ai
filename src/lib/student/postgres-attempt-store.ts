@@ -206,6 +206,43 @@ export async function getPostgresAttemptSourceCaseId(id: string, studentId: stri
   return typeof snapshot?.sourceCaseId === "string" ? snapshot.sourceCaseId : null;
 }
 
+/** Aynı senaryoyu, önceki aktif çalışma verileri olmadan yeniden başlatır. */
+export async function resetPostgresStudentAttempt(id: string, studentId: string): Promise<PublicAttemptCase | null> {
+  return getDb().transaction(async (tx) => {
+    const [row] = await tx
+      .select()
+      .from(learningAttempts)
+      .where(and(eq(learningAttempts.id, id), eq(learningAttempts.studentId, studentId), eq(learningAttempts.status, "active")))
+      .limit(1)
+      .for("update");
+    if (!row) return null;
+
+    // Tamamlanmış denemeler değil, yalnızca devam eden çalışma önbelleği yenilenir.
+    await tx.delete(learningAttempts).where(eq(learningAttempts.id, id));
+    const now = new Date();
+    const [fresh] = await tx
+      .insert(learningAttempts)
+      .values({
+        studentId: row.studentId,
+        assignmentId: row.assignmentId,
+        caseId: row.caseId,
+        caseVersion: row.caseVersion,
+        poliklinikKey: row.poliklinikKey,
+        hastaTipiId: row.hastaTipiId,
+        caseSnapshot: row.caseSnapshot,
+        askedActions: [],
+        requestedTests: [],
+        examFindings: [],
+        answers: [],
+        clinicalReasoning: null,
+        startedAt: now,
+        updatedAt: now,
+      })
+      .returning();
+    return publicAttempt(fromRow(fresh));
+  });
+}
+
 export async function answerPostgresAttempt(id: string, studentId: string, action: string): Promise<string | null> {
   return askPostgresAttempt(id, studentId, action).then((reply) => reply?.answer ?? null);
 }
