@@ -157,17 +157,17 @@ export default function VakaWorkspace({
   const drawerEfektifKategoriler = useMemo(() => {
     if (chipArama.trim()) return acikKategoriler;
     const hasAny = Array.from(acikKategoriler).some((kat) =>
-      (vaka.soruChipleri as SoruChipi[]).some((c) => c.kategori === kat && (debugMode || vaka.hastaYanitlari[c.aksiyon]))
+      (vaka.soruChipleri as SoruChipi[]).some((c) => c.kategori === kat)
     );
     if (hasAny) return acikKategoriler;
     const sira: ChipKategorisi[] = ["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"];
     for (const kat of sira) {
-      if ((vaka.soruChipleri as SoruChipi[]).some((c) => c.kategori === kat && (debugMode || vaka.hastaYanitlari[c.aksiyon]))) {
+      if ((vaka.soruChipleri as SoruChipi[]).some((c) => c.kategori === kat)) {
         return new Set<ChipKategorisi>([kat]);
       }
     }
     return acikKategoriler;
-  }, [acikKategoriler, chipArama, vaka.soruChipleri, debugMode]);
+  }, [acikKategoriler, chipArama, vaka.soruChipleri]);
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
   const soruDrawerRef = useRef<HTMLDialogElement>(null);
   const drawerKapatBtnRef = useRef<HTMLButtonElement>(null);
@@ -1040,15 +1040,15 @@ export default function VakaWorkspace({
               // Cevap hazırlanmamış chip'ler öğrenciye belirsiz soru olarak
               // göründüğü için debug kapalıyken gizlenir.
               let all = (vaka.soruChipleri as SoruChipi[]).filter(
-                (c) => c.kategori === aktifKat && (debugMode || vaka.hastaYanitlari[c.aksiyon])
+                (c) => c.kategori === aktifKat
               );
               // Seçili kategori boşsa ilk dolu kategoriye otomatik düş (boş ekranı önler)
-              if (all.length === 0 && !debugMode) {
+              if (all.length === 0) {
                 const sira: ChipKategorisi[] = ["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"];
                 for (const kat of sira) {
                   if (kat === aktifKat) continue;
                   const aday = (vaka.soruChipleri as SoruChipi[]).filter(
-                    (c) => c.kategori === kat && vaka.hastaYanitlari[c.aksiyon]
+                    (c) => c.kategori === kat
                   );
                   if (aday.length > 0) {
                     aktifKat = kat;
@@ -1124,7 +1124,7 @@ export default function VakaWorkspace({
                   {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
                     if (!chipArama.trim() && drawerEfektifKategoriler.size > 0 && !drawerEfektifKategoriler.has(kat)) return null;
                     let chips = (vaka.soruChipleri as SoruChipi[]).filter(
-                      (c) => c.kategori === kat && (debugMode || vaka.hastaYanitlari[c.aksiyon])
+                      (c) => c.kategori === kat
                     );
                     if (chipArama.trim()) chips = chips.filter((c) => c.etiket.toLowerCase().includes(chipArama.trim().toLowerCase()));
                     if (chips.length === 0) return null;
