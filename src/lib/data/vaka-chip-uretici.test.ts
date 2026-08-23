@@ -53,8 +53,11 @@ describe("vakaChipleriniUret", () => {
     expect(chips.filter((c) => c.aksiyon === "SIGARA").length).toBe(1);
   });
 
-  it("boş yanıtla boş liste döner", () => {
-    expect(vakaChipleriniUret({}, [])).toEqual([]);
-    expect(vakaChipleriniUret(undefined, [])).toEqual([]);
+  it("boş yanıtla çalışma alanını boş bırakmayan temel chipleri döner", () => {
+    for (const chips of [vakaChipleriniUret({}, []), vakaChipleriniUret(undefined, [])]) {
+      expect(chips.map((chip) => chip.aksiyon)).toEqual([
+        "SIKAYET", "SIKAYET_SURE", "ALERJI", "ILAC", "SIGARA", "DIYABET",
+      ]);
+    }
   });
 });

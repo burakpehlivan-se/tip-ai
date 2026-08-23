@@ -1,4 +1,5 @@
 import { normalizeSorular } from "@/lib/nlp/normalize";
+import { kanonikHastaAksiyonu } from "@/lib/data/answer-action-aliases";
 import type { ChipKategorisi, Vaka } from "@/lib/types";
 
 export type SimulatedPatientChannel = "hasta" | "muayene" | "tetkik" | "belirsiz";
@@ -43,6 +44,19 @@ const TETKIK_ISTEGI_IFADELERI = [
   /kan tahlili/i,
 ];
 
+/** Genel Türkçe slotların Synthea/AI vaka sözlüğündeki karşılıkları. */
+const GENELDEN_VAKA_AKSIYONUNA: Record<string, string[]> = {
+  SIKAYET: ["CHIEF_COMPLAINT"],
+  SIKAYET_SURE: ["HISTORY_OF_PRESENT"],
+  ESLIK_EDEN: ["HISTORY_OF_PRESENT"],
+  PAST_MEDICAL: ["PAST_MEDICAL"],
+  ILAC: ["MEDICATIONS"],
+  AILE_OYKUSU: ["FAMILY_HISTORY"],
+  SIGARA: ["SOCIAL_HISTORY"],
+  ALKOL: ["SOCIAL_HISTORY"],
+  SOCIAL_HISTORY: ["SOCIAL_HISTORY"],
+};
+
 function actionKategori(vaka: Vaka, action: string): ChipKategorisi | undefined {
   return vaka.soruChipleri.find((chip) => chip.aksiyon === action)?.kategori;
 }
@@ -50,6 +64,27 @@ function actionKategori(vaka: Vaka, action: string): ChipKategorisi | undefined 
 function hastaKanaliDisiMi(vaka: Vaka, action: string): boolean {
   const kategori = actionKategori(vaka, action);
   return action.startsWith("VITAL_") || action.startsWith("FIZIK_") || (kategori != null && MUAYENE_KATEGORILERI.has(kategori));
+}
+
+function vakaAksiyonlariniCoz(vaka: Vaka, question: string): string[] {
+  const canonicalQuestion = kanonikHastaAksiyonu(question);
+  const rawActions = Object.prototype.hasOwnProperty.call(vaka.hastaYanitlari, question) ||
+    Object.prototype.hasOwnProperty.call(vaka.hastaYanitlari, canonicalQuestion)
+    ? [question]
+    : normalizeSorular(question);
+  const resolved: string[] = [];
+  const add = (action: string) => {
+    if (Object.prototype.hasOwnProperty.call(vaka.hastaYanitlari, action) && !resolved.includes(action)) {
+      resolved.push(action);
+    }
+  };
+
+  for (const rawAction of rawActions) {
+    const action = kanonikHastaAksiyonu(rawAction);
+    add(action);
+    for (const candidate of GENELDEN_VAKA_AKSIYONUNA[action] || []) add(candidate);
+  }
+  return resolved;
 }
 
 function metinIceriyorMu(metin: string, ifade: string): boolean {
@@ -102,9 +137,7 @@ function birlestir(cevaplar: string[]): string {
 export function simulatedPatientAnswer(vaka: Vaka, question: string): SimulatedPatientReply {
   // Eski istemciler yalnız chip anahtarını gönderiyordu. Geçiş boyunca bu
   // anahtarlar da aynı güvenlik duvarından geçirilir; istemci yanıtı seçemez.
-  const actions = Object.prototype.hasOwnProperty.call(vaka.hastaYanitlari, question)
-    ? [question]
-    : normalizeSorular(question);
+  const actions = vakaAksiyonlariniCoz(vaka, question);
   const hastaActions = actions.filter((action) => !hastaKanaliDisiMi(vaka, action));
   const muayeneIstegiVar = actions.some((action) => hastaKanaliDisiMi(vaka, action));
 

@@ -1,5 +1,6 @@
 import { Vaka, DegerlendirmeSonuc, AnamnezAnalizi, ChipKategorisi } from "../types";
 import { CHIP_KATEGORI_ETIKETLERI } from "../data/chip-labels";
+import { kanonikHastaAksiyonu } from "../data/answer-action-aliases";
 
 export function degerlendir(
   vaka: Vaka,
@@ -9,7 +10,7 @@ export function degerlendir(
 ): DegerlendirmeSonuc {
   const { rubric } = vaka;
   const p = rubric.puanlama;
-  const sorulanAksiyonSeti = new Set(sorulanAksiyonlar);
+  const sorulanAksiyonSeti = new Set(sorulanAksiyonlar.map(kanonikHastaAksiyonu));
   const istenenTestSeti = new Set(istenenTestler);
 
   const dogruSorular: string[] = [];
@@ -25,9 +26,14 @@ export function degerlendir(
   let maxPuan = 0;
 
   // Beklenen sorular
+  const puanlananSoruAksiyonlari = new Set<string>();
   for (const soru of rubric.beklenenSorular) {
+    const action = kanonikHastaAksiyonu(soru.key);
+    // Eski alias'lar aynı klinik gerçeği temsil eder; iki kez puanlanamaz.
+    if (puanlananSoruAksiyonlari.has(action)) continue;
+    puanlananSoruAksiyonlari.add(action);
     maxPuan += p.dogru_kritik_soru;
-    if (sorulanAksiyonSeti.has(soru.key)) {
+    if (sorulanAksiyonSeti.has(action)) {
       puan += p.dogru_kritik_soru;
       dogruSorular.push(soru.etiket);
     } else {
@@ -36,9 +42,13 @@ export function degerlendir(
   }
 
   // Red flag'ler
+  const puanlananRedFlagAksiyonlari = new Set<string>();
   for (const rf of rubric.redFlagler) {
+    const action = kanonikHastaAksiyonu(rf.key);
+    if (puanlananRedFlagAksiyonlari.has(action)) continue;
+    puanlananRedFlagAksiyonlari.add(action);
     maxPuan += p.dogru_kritik_soru;
-    if (sorulanAksiyonSeti.has(rf.key)) {
+    if (sorulanAksiyonSeti.has(action)) {
       puan += p.dogru_kritik_soru;
       dogruSorular.push(rf.etiket);
     } else {
@@ -135,8 +145,8 @@ function hesaplaAnamnezAnalizi(
   vaka: Vaka,
   sorulanAksiyonlar: string[]
 ): AnamnezAnalizi {
-  const sorulanAksiyonSeti = new Set(sorulanAksiyonlar);
-  const relevantAksiyonSeti = new Set(vaka.relevantAksiyonlar);
+  const sorulanAksiyonSeti = new Set(sorulanAksiyonlar.map(kanonikHastaAksiyonu));
+  const relevantAksiyonSeti = new Set(vaka.relevantAksiyonlar.map(kanonikHastaAksiyonu));
   const kategoriler: ChipKategorisi[] = [
     "anamnez-agri",
     "anamnez-sistemik",
@@ -153,9 +163,10 @@ function hesaplaAnamnezAnalizi(
     const eksik: string[] = [];
 
     for (const chip of vaka.soruChipleri) {
-      if (chip.kategori !== kat || !relevantAksiyonSeti.has(chip.aksiyon)) continue;
+      const action = kanonikHastaAksiyonu(chip.aksiyon);
+      if (chip.kategori !== kat || !relevantAksiyonSeti.has(action)) continue;
       beklenen += 1;
-      if (sorulanAksiyonSeti.has(chip.aksiyon)) soruldu += 1;
+      if (sorulanAksiyonSeti.has(action)) soruldu += 1;
       else eksik.push(chip.etiket);
     }
 

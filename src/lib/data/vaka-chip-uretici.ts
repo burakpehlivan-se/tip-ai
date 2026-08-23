@@ -14,6 +14,7 @@
  */
 import { ChipKategorisi, SoruChipi } from "../types";
 import { CHIP_HAVUZU } from "./chip-havuzu";
+import { kanonikHastaAksiyonu } from "./answer-action-aliases";
 
 /** Synthea/EN aksiyon kodu → öğrenciye sorulacak Türkçe soru. */
 export const EN_AKSIYON_CHIPLERI: Record<string, { etiket: string; kategori: ChipKategorisi }> = {
@@ -43,15 +44,18 @@ export function vakaChipleriniUret(
 ): SoruChipi[] {
   const havuz = new Map(CHIP_HAVUZU.map((c) => [c.aksiyon, c]));
   const rawKeys = new Set(
-    Object.keys(rawYanitlar || {}).filter((k) => !vitalAnahtariMi(k))
+    Object.keys(rawYanitlar || {})
+      .filter((key) => !vitalAnahtariMi(key))
+      .map(kanonikHastaAksiyonu)
   );
+  const canonicalExtras = ekstraAksiyonlar.map(kanonikHastaAksiyonu);
 
   const secilen: SoruChipi[] = [];
   const eklendi = new Set<string>();
 
   // 1) Havuzdan: yanlı olanlar önce, sonra rubriğin beklediği ekstra aksiyonlar
   for (const chip of CHIP_HAVUZU) {
-    if (!rawKeys.has(chip.aksiyon) && !ekstraAksiyonlar.includes(chip.aksiyon)) continue;
+    if (!rawKeys.has(chip.aksiyon) && !canonicalExtras.includes(chip.aksiyon)) continue;
     secilen.push(chip);
     eklendi.add(chip.aksiyon);
   }

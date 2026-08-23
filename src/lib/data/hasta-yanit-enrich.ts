@@ -11,6 +11,7 @@
  */
 
 import { SoruChipi } from "../types";
+import { kanonikHastaYanitlari } from "./answer-action-aliases";
 
 /** Yanıt negatif/yok mu? */
 export function yanitNegatifMi(metin: string | undefined): boolean {
@@ -358,9 +359,10 @@ export function enrichHastaYanitlari(
   }
 ): Record<string, string> {
   const defaults = buildDefaultYanitlar(opts.chipHavuzu);
-  const out: Record<string, string> = { ...defaults, ...sablonYanitlari };
+  const tutarliSablon = kanonikHastaYanitlari(sablonYanitlari);
+  const out: Record<string, string> = { ...defaults, ...tutarliSablon };
 
-  if (!sablonYanitlari.SIKAYET && opts.anaSikayet) {
+  if (!tutarliSablon.SIKAYET && opts.anaSikayet) {
     out.SIKAYET = opts.anaSikayet;
   }
 
@@ -369,14 +371,14 @@ export function enrichHastaYanitlari(
   for (const [desen, key] of BELIRTI_KORUMA) {
     if (!desen.test(sikayetMetni)) continue;
     if (!opts.chipHavuzu.some((c) => c.aksiyon === key)) continue;
-    if (sablonYanitlari[key]) continue;
+    if (tutarliSablon[key]) continue;
     const temiz = opts.anaSikayet.replace(/\{\{\s*\w+\s*\}\}/g, "").trim();
     if (!temiz) continue;
     out[key] = `Evet, ${temiz.charAt(0).toLowerCase()}${temiz.slice(1)} şikayetim var.`;
   }
 
-  const baglam = agriBaglam(opts.anaSikayet, opts.semptom || "", sablonYanitlari);
-  const sablonPozitifAgri = AGRI_SINYAL_KEYS.some((k) => yanitPozitifMi(sablonYanitlari[k]));
+  const baglam = agriBaglam(opts.anaSikayet, opts.semptom || "", tutarliSablon);
+  const sablonPozitifAgri = AGRI_SINYAL_KEYS.some((k) => yanitPozitifMi(tutarliSablon[k]));
 
   if (baglam !== "yok" || sablonPozitifAgri) {
     const dolgu =
@@ -388,24 +390,26 @@ export function enrichHastaYanitlari(
 
     for (const [k, v] of Object.entries(dolgu)) {
       // Şablon açıkça yazmışsa koru (pozitif veya bilinçli negatif)
-      if (sablonYanitlari[k] && yanitPozitifMi(sablonYanitlari[k])) continue;
-      if (sablonYanitlari[k] && yanitNegatifMi(sablonYanitlari[k]) && !sablonPozitifAgri) continue;
+      if (tutarliSablon[k] && yanitPozitifMi(tutarliSablon[k])) continue;
+      if (tutarliSablon[k] && yanitNegatifMi(tutarliSablon[k]) && !sablonPozitifAgri) continue;
       // Şablon negatif ama vaka ağrılı → düzelt (AGRI_SKALA: "0" bug'ı)
-      if (sablonYanitlari[k] && yanitNegatifMi(sablonYanitlari[k]) && sablonPozitifAgri) {
+      if (tutarliSablon[k] && yanitNegatifMi(tutarliSablon[k]) && sablonPozitifAgri) {
         out[k] = v;
         continue;
       }
-      if (!sablonYanitlari[k] || yanitNegatifMi(out[k])) {
+      if (!tutarliSablon[k] || yanitNegatifMi(out[k])) {
         out[k] = v;
       }
     }
 
     // Skala/şiddet zayıf genel cümleleri iyileştir
-    if (sablonYanitlari.AGRI_SIDDAT && /net bir şey söyleyemem|bilmiyorum/i.test(sablonYanitlari.AGRI_SIDDAT)) {
+    if (tutarliSablon.AGRI_SIDDAT && /net bir şey söyleyemem|bilmiyorum/i.test(tutarliSablon.AGRI_SIDDAT)) {
       out.AGRI_SIDDAT = dolgu.AGRI_SIDDAT || AGRI_GENEL_POZITIF.AGRI_SIDDAT;
     }
   }
 
   if (!out.OZEL) out.OZEL = defaults.OZEL;
-  return out;
+  // Varsayılan sözlük de eski alias'ları içerir; oynanışa dönmeden önce
+  // bunları yeniden tek klinik gerçekte toplar.
+  return kanonikHastaYanitlari(out);
 }

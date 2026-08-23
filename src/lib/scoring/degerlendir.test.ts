@@ -113,4 +113,23 @@ describe("degerlendir", () => {
       ])
     );
   });
+
+  it("eski eşdeğer aksiyonla sorulan klinik bilgiyi rubrikte puanlar", () => {
+    const sonuc = degerlendir(
+      makeVaka({
+        rubric: makeRubric({
+          beklenenSorular: [{ key: "SIGARA_OYKUSU", etiket: "Sigara öyküsü", aciklama: "Paket-yıl" }],
+          redFlagler: [],
+          beklenenTestler: [],
+          gereksizTestler: [],
+        }),
+      }),
+      ["SIGARA"],
+      [],
+      "Pnömoni"
+    );
+
+    expect(sonuc.dogruSorular).toContain("Sigara öyküsü");
+    expect(sonuc.eksikSorular).not.toContain("Sigara öyküsü");
+  });
 });
