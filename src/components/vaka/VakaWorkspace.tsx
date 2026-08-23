@@ -16,6 +16,7 @@ import { normalizeSoru, normalizeTest } from "@/lib/nlp/normalize";
 import { degerlendir } from "@/lib/scoring/degerlendir";
 import { birlesikTestKatalogu, TEST_VISIBILITY_MAP } from "@/lib/data/test-catalogue";
 import { CHIP_KATEGORI_ETIKETLERI } from "@/lib/data/chip-labels";
+import { CHIP_HAVUZU } from "@/lib/data/chip-havuzu";
 import SonucEkrani from "./SonucEkrani";
 import { DebugTestKarti, TestSonucKarti } from "./TestResultCards";
 import VakaHastaPanel from "./VakaHastaPanel";
@@ -157,17 +158,17 @@ export default function VakaWorkspace({
   const drawerEfektifKategoriler = useMemo(() => {
     if (chipArama.trim()) return acikKategoriler;
     const hasAny = Array.from(acikKategoriler).some((kat) =>
-      (vaka.soruChipleri as SoruChipi[]).some((c) => c.kategori === kat)
+      CHIP_HAVUZU.some((c) => c.kategori === kat)
     );
     if (hasAny) return acikKategoriler;
     const sira: ChipKategorisi[] = ["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"];
     for (const kat of sira) {
-      if ((vaka.soruChipleri as SoruChipi[]).some((c) => c.kategori === kat)) {
+      if (CHIP_HAVUZU.some((c) => c.kategori === kat)) {
         return new Set<ChipKategorisi>([kat]);
       }
     }
     return acikKategoriler;
-  }, [acikKategoriler, chipArama, vaka.soruChipleri]);
+  }, [acikKategoriler, chipArama]);
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
   const soruDrawerRef = useRef<HTMLDialogElement>(null);
   const drawerKapatBtnRef = useRef<HTMLButtonElement>(null);
@@ -616,10 +617,10 @@ export default function VakaWorkspace({
   const oneriAdaylariHam = useMemo(() => {
     const q = input.trim().toLowerCase();
     if (q.length < 2) return [];
-    return (vaka.soruChipleri as SoruChipi[])
+    return CHIP_HAVUZU
       .filter((c) => !sorulanAksiyonSeti.has(c.aksiyon) && c.etiket.toLowerCase().includes(q))
       .slice(0, 6);
-  }, [input, vaka.soruChipleri, sorulanAksiyonSeti]);
+  }, [input, sorulanAksiyonSeti]);
   const oneriAdaylari = onerilerGizli ? [] : oneriAdaylariHam;
 
   const oneriSec = async (chip: SoruChipi) => {
@@ -670,6 +671,7 @@ export default function VakaWorkspace({
 
   const soruDrawerAc = (event: MouseEvent<HTMLButtonElement>) => {
     drawerTetikleyiciRef.current = event.currentTarget;
+    setAcikKategoriler(new Set<ChipKategorisi>(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"]));
     setShowSoruDrawer(true);
   };
 
@@ -1039,7 +1041,7 @@ export default function VakaWorkspace({
               if (!aktifKat) return null;
               // Cevap hazırlanmamış chip'ler öğrenciye belirsiz soru olarak
               // göründüğü için debug kapalıyken gizlenir.
-              let all = (vaka.soruChipleri as SoruChipi[]).filter(
+              let all = CHIP_HAVUZU.filter(
                 (c) => c.kategori === aktifKat
               );
               // Seçili kategori boşsa ilk dolu kategoriye otomatik düş (boş ekranı önler)
@@ -1047,7 +1049,7 @@ export default function VakaWorkspace({
                 const sira: ChipKategorisi[] = ["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"];
                 for (const kat of sira) {
                   if (kat === aktifKat) continue;
-                  const aday = (vaka.soruChipleri as SoruChipi[]).filter(
+                  const aday = CHIP_HAVUZU.filter(
                     (c) => c.kategori === kat
                   );
                   if (aday.length > 0) {
@@ -1123,7 +1125,7 @@ export default function VakaWorkspace({
                     className="w-full h-8 rounded-full border border-hairline bg-surface px-3 text-xs text-ink placeholder:text-muted focus:border-brand focus:outline-none" />
                   {(["anamnez-agri","anamnez-sistemik","anamnez-oyku","soygecmis","fizik","red-flag"] as ChipKategorisi[]).map((kat) => {
                     if (!chipArama.trim() && drawerEfektifKategoriler.size > 0 && !drawerEfektifKategoriler.has(kat)) return null;
-                    let chips = (vaka.soruChipleri as SoruChipi[]).filter(
+                    let chips = CHIP_HAVUZU.filter(
                       (c) => c.kategori === kat
                     );
                     if (chipArama.trim()) chips = chips.filter((c) => c.etiket.toLowerCase().includes(chipArama.trim().toLowerCase()));
