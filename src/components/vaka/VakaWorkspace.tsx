@@ -371,6 +371,17 @@ export default function VakaWorkspace({
     }
   }, [onboarding]);
 
+  // Vaka değiştiğinde en az bir chip içeren ilk kategoriyi seç (boş kategori varsayılanını önler)
+  useEffect(() => {
+    const sira: ChipKategorisi[] = ["anamnez-agri", "anamnez-sistemik", "anamnez-oyku", "soygecmis", "fizik", "red-flag"];
+    for (const kat of sira) {
+      if ((vaka.soruChipleri as SoruChipi[]).some((c) => c.kategori === kat)) {
+        setAcikKategoriler(new Set([kat]));
+        break;
+      }
+    }
+  }, [vaka.id]);
+
   const soruSor = async () => {
     if (!input.trim() || islemYukleniyor) return;
 

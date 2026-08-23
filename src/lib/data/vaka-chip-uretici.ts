@@ -65,5 +65,17 @@ export function vakaChipleriniUret(
     eklendi.add(key);
   }
 
+  // Güvenlik: hiçbir chip seçilemediyse temel soruları göster (boş ekranı önler)
+  if (secilen.length === 0) {
+    const fallbackKeys = ["SIKAYET", "SIKAYET_SURE", "ALERJI", "ILAC", "SIGARA", "DIYABET"];
+    for (const key of fallbackKeys) {
+      const chip = havuz.get(key);
+      if (chip && !eklendi.has(key)) {
+        secilen.push(chip);
+        eklendi.add(key);
+      }
+    }
+  }
+
   return secilen;
 }

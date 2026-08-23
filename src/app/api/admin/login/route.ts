@@ -57,8 +57,8 @@ export async function POST(req: NextRequest) {
     }
     if (!isPanelRole(user.role)) {
       return NextResponse.json(
-        { error: "Yönetim paneli yalnızca admin ve doktor hesaplarına açıktır." },
-        { status: 403 }
+        { error: "Geçersiz kullanıcı adı veya şifre." },
+        { status: 401 }
       );
     }
     await Promise.all([
