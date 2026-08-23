@@ -64,6 +64,34 @@ describe("simulatedPatientAnswer", () => {
     expect(reply.answer).not.toMatch(/stemi/i);
   });
 
+  it("kısa test anahtarını hasta dilindeki kelimenin içinde sızıntı saymaz", () => {
+    const socialHistoryCase: Vaka = {
+      ...vaka,
+      hastaYanitlari: {
+        ...vaka.hastaYanitlari,
+        SOCIAL_HISTORY: "Hiç sigara içmedim. Evde eşimle yaşıyorum ama o da hasta.",
+      },
+    };
+
+    expect(simulatedPatientAnswer(socialHistoryCase, "Sigara kullanıyor musunuz?")).toEqual(expect.objectContaining({
+      channel: "hasta",
+      actions: ["SOCIAL_HISTORY"],
+      answer: expect.stringContaining("hasta"),
+    }));
+  });
+
+  it("bağımsız kısa test anahtarını hasta yanıtından engellemeyi sürdürür", () => {
+    const leakCase: Vaka = {
+      ...vaka,
+      statikTestler: {
+        AST: { testKey: "AST", testAdi: "AST", tip: "text", sonuc: "42 U/L" },
+      },
+      hastaYanitlari: { ...vaka.hastaYanitlari, AGRI_SURE: "AST sonucum 42 U/L çıktı." },
+    };
+    const reply = simulatedPatientAnswer(leakCase, "Ağrı ne zamandır var?");
+    expect(reply.answer).not.toMatch(/\bast\b/i);
+  });
+
   it("tetkik isteğini hasta sohbetinden ayırır", () => {
     const reply = simulatedPatientAnswer(vaka, "Troponin ve EKG istiyorum.");
     expect(reply.channel).toBe("tetkik");

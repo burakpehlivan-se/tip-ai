@@ -99,7 +99,13 @@ function vakaAksiyonlariniCoz(vaka: Vaka, question: string): string[] {
 
 function metinIceriyorMu(metin: string, ifade: string): boolean {
   const temiz = ifade.trim().toLocaleLowerCase("tr");
-  return temiz.length >= 3 && metin.toLocaleLowerCase("tr").includes(temiz);
+  if (temiz.length < 3) return false;
+
+  // Test anahtarları (AST gibi) hasta dilindeki kelimelerin içinde
+  // geçebilir. Gizli terim yalnız bağımsız bir ifade olduğunda sızıntıdır.
+  const kacisli = temiz.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(^|[^\\p{L}\\p{N}_])${kacisli}(?=$|[^\\p{L}\\p{N}_])`, "u")
+    .test(metin.toLocaleLowerCase("tr"));
 }
 
 function sizintiVarMi(vaka: Vaka, metin: string): boolean {
