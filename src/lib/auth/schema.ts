@@ -134,8 +134,15 @@ export const learningAttempts = pgTable(
     caseSnapshot: jsonb("case_snapshot").notNull(),
     askedActions: jsonb("asked_actions").notNull(),
     requestedTests: jsonb("requested_tests").notNull(),
-    /** Aksiyon → dönüştürülmüş hasta cevabı; devam eden oturumun birebir tekrarı için. */
-    answers: jsonb("answers").$type<Record<string, string>>(),
+    /** İstenen vital/fizik muayene bulguları; tetkik sonuçlarından ayrıdır. */
+    examFindings: jsonb("exam_findings").$type<Array<{ action: string; label: string; answer: string }>>().notNull().default([]),
+    /** Ham soru, açılan slotlar ve hasta yanıtı; devam eden oturumun birebir tekrarı için. */
+    answers: jsonb("answers").$type<Array<{
+      question: string;
+      actions: string[];
+      answer: string;
+      channel: "hasta" | "muayene" | "tetkik" | "belirsiz";
+    }>>(),
     /** Aktif denemenin öğrencinin sahip olduğu, doğrulanmış muhakeme taslağı. */
     clinicalReasoning: jsonb("clinical_reasoning"),
     evaluation: jsonb("evaluation"),

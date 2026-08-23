@@ -9,6 +9,7 @@ import {
   getActiveStudentAttempt,
   getActiveStudentAttemptForAssignment,
   requestStudentAttemptTest,
+  requestStudentAttemptExam,
   saveStudentAttemptClinicalReasoning,
   startAssignedStudentAttempt,
   startStudentAttempt,
@@ -53,6 +54,16 @@ describe("student attempt store", () => {
     expect(resumed?.ilerleme.testSonuclari[0]?.testKey).toBe(vaka!.testler[0].testKey);
     await expect(getActiveStudentAttempt("baska.ogrenci", "kardiyoloji")).resolves.toBeNull();
     await expect(getActiveStudentAttempt("ogrenci.devam", "noroloji")).resolves.toBeNull();
+  });
+
+  it("muayene bulgusunu hasta sohbetinden ayrı açar ve oturumda saklar", async () => {
+    const vaka = await startStudentAttempt("ogrenci.muayene", "kardiyoloji");
+    expect(vaka).not.toBeNull();
+    const finding = await requestStudentAttemptExam(vaka!.id, "ogrenci.muayene", "VITAL_TANSIYON");
+    expect(finding?.action).toBe("VITAL_TANSIYON");
+    const resumed = await getActiveStudentAttempt("ogrenci.muayene", "kardiyoloji");
+    expect(resumed?.ilerleme.muayeneBulgulari).toContainEqual(expect.objectContaining({ action: "VITAL_TANSIYON" }));
+    expect(resumed?.ilerleme.yanitlar).toEqual([]);
   });
 
   it("klinik muhakeme taslağını aktif vakada saklar ve değerlendirmeye kalibrasyon özeti ekler", async () => {

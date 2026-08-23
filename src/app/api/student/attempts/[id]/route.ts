@@ -4,9 +4,10 @@ export const runtime = "nodejs";
 import { NextRequest, NextResponse } from "next/server";
 import { getStudentSessionFromRequest } from "@/lib/student/auth";
 import {
-  answerStudentAttempt,
+  askStudentAttempt,
   completeStudentAttempt,
   requestStudentAttemptTest,
+  requestStudentAttemptExam,
   saveStudentAttemptClinicalReasoning,
 } from "@/lib/student/attempt-store";
 import { ClinicalReasoningValidationError, normalizeClinicalReasoning } from "@/lib/student/clinical-reasoning";
@@ -49,15 +50,22 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
   const body = await req.json().catch(() => null);
   if (!body || typeof body.type !== "string") return NextResponse.json({ error: "Geçersiz istek." }, { status: 400 });
   try {
-    if (body.type === "ask" && typeof body.action === "string" && KEY.test(body.action)) {
-      const yanit = await answerStudentAttempt(id, actor, body.action, session?.userId);
-      const res = yanit == null ? NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ yanit });
+    const question = typeof body.question === "string" ? body.question : body.action;
+    if (body.type === "ask" && typeof question === "string" && question.trim().length > 0 && question.trim().length <= 400) {
+      const reply = await askStudentAttempt(id, actor, question.trim(), session?.userId);
+      const res = reply == null ? NextResponse.json({ error: "Vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ reply, yanit: reply.answer });
       for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
       return res;
     }
     if (body.type === "test" && typeof body.testKey === "string" && KEY.test(body.testKey)) {
       const sonuc = await requestStudentAttemptTest(id, actor, body.testKey, session?.userId);
       const res = sonuc == null ? NextResponse.json({ error: "Test veya vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ sonuc });
+      for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
+      return res;
+    }
+    if (body.type === "exam" && typeof body.action === "string" && KEY.test(body.action)) {
+      const finding = await requestStudentAttemptExam(id, actor, body.action, session?.userId);
+      const res = finding == null ? NextResponse.json({ error: "Muayene bulgusu veya vaka oturumu bulunamadı." }, { status: 404 }) : NextResponse.json({ finding });
       for (const [k, v] of Object.entries(headers)) res.headers.set(k, v);
       return res;
     }

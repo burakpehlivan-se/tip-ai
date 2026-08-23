@@ -47,7 +47,7 @@ export default function AtananVakaPage() {
     });
   }, [yukle]);
 
-  async function attemptAction(type: "ask" | "test" | "reasoning" | "complete", payload: Record<string, unknown>) {
+  async function attemptAction(type: "ask" | "test" | "exam" | "reasoning" | "complete", payload: Record<string, unknown>) {
     if (!vaka) throw new Error("Vaka oturumu bulunamadı.");
     const response = await fetch(`/api/student/attempts/${vaka.id}`, {
       method: "POST",
@@ -88,15 +88,20 @@ export default function AtananVakaPage() {
         embed
         initialSnapshot={resumeSnapshot}
         onboarding={!resumeSnapshot}
-        onAsk={async (action) => {
-          const yanit = (await attemptAction("ask", { action }))?.yanit;
-          if (!yanit) throw new Error("Hasta yanıtı alınamadı.");
-          return yanit;
+        onAsk={async (question) => {
+          const reply = (await attemptAction("ask", { question }))?.reply;
+          if (!reply?.answer || !Array.isArray(reply.actions)) throw new Error("Hasta yanıtı alınamadı.");
+          return reply;
         }}
         onTestRequest={async (testKey) => {
           const sonuc = (await attemptAction("test", { testKey }))?.sonuc;
           if (!sonuc) throw new Error("Test sonucu alınamadı.");
           return sonuc;
+        }}
+        onExamRequest={async (action) => {
+          const finding = (await attemptAction("exam", { action }))?.finding;
+          if (!finding) throw new Error("Muayene bulgusu alınamadı.");
+          return finding;
         }}
         onReasoningSave={async (reasoning) => {
           await attemptAction("reasoning", { reasoning });

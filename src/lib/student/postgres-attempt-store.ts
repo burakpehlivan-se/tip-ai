@@ -3,14 +3,14 @@ import { getDb } from "@/lib/auth/db";
 import { learningAttempts } from "@/lib/auth/schema";
 import { adminVakaToPlayable } from "@/lib/admin/case-to-vaka";
 import { getHastaTipiById, loadHastaTipleriStore, recordPlaySession } from "@/lib/admin/store";
-import { uslupDonustur } from "@/lib/ai/uslup-donusturucu";
 import { getRadiologyTestResult, RADIOLOGY_TEST_KEY } from "@/lib/student/radiology-test";
 import { getEkgTestResult, EKG_TEST_KEY } from "@/lib/student/ekg-test";
 import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import type { AdminVaka } from "@/lib/admin/types";
 import { buildInjectedRules, getLabResult } from "@/lib/lab-motor";
 import { degerlendir } from "@/lib/scoring/degerlendir";
-import { hastaDilineCevir } from "@/lib/ai/hasta-dili";
+import { simulatedPatientAnswer, type SimulatedPatientReply, type SimulatedPatientTurn } from "@/lib/simulated-patient/engine";
+import { requestExamFinding, type ExamFinding } from "@/lib/simulated-patient/exam";
 import type { DegerlendirmeSonuc, TestSonucu, Vaka } from "@/lib/types";
 import type { PublicAttemptCase, ResumableAttemptCase } from "./attempt-store";
 import {
@@ -28,13 +28,20 @@ interface StoredAttempt {
   hastaTipiId?: string;
   askedActions: string[];
   requestedTests: string[];
+  examFindings: ExamFinding[];
   /** Aksiyon → dönüştürülmüş cevap (devam eden oturumun birebir tekrarı). */
-  answers?: Record<string, string>;
+  conversation: SimulatedPatientTurn[];
   clinicalReasoning: ClinicalReasoningInput | null;
 }
 
 function stringList(value: unknown): string[] {
   return Array.isArray(value) ? value.filter((item): item is string => typeof item === "string") : [];
+}
+
+function examFindingList(value: unknown): ExamFinding[] {
+  return Array.isArray(value)
+    ? value.filter((item): item is ExamFinding => item != null && typeof item === "object" && typeof item.action === "string" && typeof item.label === "string" && typeof item.answer === "string")
+    : [];
 }
 
 function fromRow(row: AttemptRow): StoredAttempt {
@@ -48,7 +55,16 @@ function fromRow(row: AttemptRow): StoredAttempt {
     hastaTipiId: row.hastaTipiId ?? undefined,
     askedActions: stringList(row.askedActions),
     requestedTests: stringList(row.requestedTests),
-    answers: row.answers ? Object.fromEntries(Object.entries(row.answers).filter(([, v]) => typeof v === "string")) : undefined,
+    examFindings: examFindingList(row.examFindings),
+    conversation: Array.isArray(row.answers)
+      ? row.answers.filter((item): item is SimulatedPatientTurn =>
+        item != null && typeof item === "object" && typeof item.question === "string" &&
+        typeof item.answer === "string" && Array.isArray(item.actions) &&
+        (item.channel === "hasta" || item.channel === "muayene" || item.channel === "tetkik" || item.channel === "belirsiz")
+      )
+      : Object.entries((row.answers || {}) as Record<string, unknown>)
+        .filter((entry): entry is [string, string] => typeof entry[1] === "string")
+        .map(([action, answer]): SimulatedPatientTurn => ({ question: action, actions: [action], answer, channel: "hasta", aksiyon: action })),
     clinicalReasoning: normalizeClinicalReasoning(row.clinicalReasoning),
   };
 }
@@ -67,31 +83,12 @@ function publicAttempt(record: StoredAttempt): PublicAttemptCase {
   };
 }
 
-function baseAnswer(record: StoredAttempt, action: string): string {
-  return hastaDilineCevir(record.vaka.hastaYanitlari[action] || record.vaka.hastaYanitlari.OZEL || "Bu konuda ek bilgi veremiyorum.");
-}
-
-function answer(record: StoredAttempt, action: string): string {
-  return record.answers?.[action] || baseAnswer(record, action);
-}
-
-/** Taban cevabı hasta tipi üslubuna dönüştürür ve kayda yazar. */
-async function computeAnswer(record: StoredAttempt, action: string): Promise<string> {
-  const tip = record.hastaTipiId ? getHastaTipiById(record.hastaTipiId) : undefined;
-  const yanit = await uslupDonustur({
-    vakaId: record.vaka.sourceCaseId || record.vaka.id,
-    tip,
-    actionKey: action,
-    baseCevap: baseAnswer(record, action),
-    baglam: {
-      yas: record.vaka.hasta.yas != null ? String(record.vaka.hasta.yas) : undefined,
-      cinsiyet: record.vaka.hasta.cinsiyet === "E" ? "Erkek" : record.vaka.hasta.cinsiyet === "K" ? "Kadın" : undefined,
-      anaSikayet: record.vaka.hasta.anaSikayet,
-    },
-  });
-  record.answers = record.answers || {};
-  record.answers[action] = yanit;
-  return yanit;
+function conversationTurn(record: StoredAttempt, question: string, reply: SimulatedPatientReply): SimulatedPatientTurn {
+  const existing = record.conversation.find((item) => item.question === question && item.channel === reply.channel);
+  if (existing) return existing;
+  const turn: SimulatedPatientTurn = { ...reply, question, aksiyon: reply.actions[0] };
+  record.conversation.push(turn);
+  return turn;
 }
 
 function testResult(record: StoredAttempt, testKey: string): TestSonucu | null {
@@ -116,7 +113,8 @@ function resumableAttempt(record: StoredAttempt): ResumableAttemptCase {
   return {
     ...publicAttempt(record),
     ilerleme: {
-      yanitlar: record.askedActions.map((aksiyon) => ({ aksiyon, yanit: answer(record, aksiyon) })),
+      yanitlar: record.conversation,
+      muayeneBulgulari: record.examFindings,
       testSonuclari: record.requestedTests.map((testKey) => testResult(record, testKey)).filter((item): item is TestSonucu => item !== null),
       clinicalReasoning: record.clinicalReasoning,
     },
@@ -165,7 +163,8 @@ async function insertAttempt(studentId: string, template: AdminVaka, assignmentI
       caseSnapshot: vaka,
       askedActions: [],
       requestedTests: [],
-      answers: null,
+      examFindings: [],
+      answers: [],
       clinicalReasoning: null,
       startedAt: now,
       updatedAt: now,
@@ -209,6 +208,11 @@ export async function getPostgresAttemptSourceCaseId(id: string, studentId: stri
 }
 
 export async function answerPostgresAttempt(id: string, studentId: string, action: string): Promise<string | null> {
+  return askPostgresAttempt(id, studentId, action).then((reply) => reply?.answer ?? null);
+}
+
+/** PostgreSQL denemesinde ham soruyu slotlara yönlendirir ve konuşma durumunu kilit altında yazar. */
+export async function askPostgresAttempt(id: string, studentId: string, question: string): Promise<SimulatedPatientReply | null> {
   return getDb().transaction(async (tx) => {
     // Aynı denemeye gelen paralel istekler, read-modify-write yarışında
     // birbirinin aksiyonlarını ezmemelidir. Satır kilidi, değerlendirme
@@ -222,10 +226,13 @@ export async function answerPostgresAttempt(id: string, studentId: string, actio
     if (!row) return null;
 
     const record = fromRow(row);
-    const askedActions = record.askedActions.includes(action) ? record.askedActions : [...record.askedActions, action];
-    const yanit = await computeAnswer(record, action);
-    await tx.update(learningAttempts).set({ askedActions, answers: record.answers ?? null, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
-    return yanit;
+    const reply = simulatedPatientAnswer(record.vaka, question);
+    const askedActions = reply.channel === "hasta"
+      ? Array.from(new Set([...record.askedActions, ...reply.actions]))
+      : record.askedActions;
+    conversationTurn(record, question, reply);
+    await tx.update(learningAttempts).set({ askedActions, answers: record.conversation, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
+    return reply;
   });
 }
 
@@ -249,6 +256,24 @@ export async function requestPostgresAttemptTest(id: string, studentId: string, 
     const requestedTests = record.requestedTests.includes(testKey) ? record.requestedTests : [...record.requestedTests, testKey];
     await tx.update(learningAttempts).set({ requestedTests, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
     return result;
+  });
+}
+
+/** PostgreSQL denemesinde istenen vital/fizik muayene bulgusunu kilit altında saklar. */
+export async function requestPostgresAttemptExam(id: string, studentId: string, action: string): Promise<ExamFinding | null> {
+  return getDb().transaction(async (tx) => {
+    const [row] = await tx.select().from(learningAttempts)
+      .where(and(eq(learningAttempts.id, id), eq(learningAttempts.studentId, studentId), eq(learningAttempts.status, "active")))
+      .limit(1).for("update");
+    if (!row) return null;
+    const record = fromRow(row);
+    const existing = record.examFindings.find((item) => item.action === action);
+    if (existing) return existing;
+    const finding = requestExamFinding(record.vaka, action);
+    if (!finding) return null;
+    const examFindings = [...record.examFindings, finding];
+    await tx.update(learningAttempts).set({ examFindings, updatedAt: new Date() }).where(eq(learningAttempts.id, id));
+    return finding;
   });
 }
 

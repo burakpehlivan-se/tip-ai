@@ -62,13 +62,23 @@ describe("student attempt API", () => {
     const askReq = new NextRequest(`http://localhost/api/student/attempts/${attemptId}`, {
       method: "POST",
       headers: { "content-type": "application/json", cookie: cookieHeader },
-      body: JSON.stringify({ type: "ask", action: "AGRI_YER" }),
+      body: JSON.stringify({ type: "ask", question: "Ağrınız ne zamandır var, bir yere yayılıyor mu?" }),
     });
     const askRes = await postAttemptAction(askReq, { params: Promise.resolve({ id: attemptId }) });
     expect(askRes.status).toBe(200);
     const askBody = await askRes.json();
     expect(askBody.yanit).toBeDefined();
     expect(typeof askBody.yanit).toBe("string");
+    expect(askBody.reply).toEqual(expect.objectContaining({ actions: expect.any(Array), channel: expect.any(String) }));
+
+    const examReq = new NextRequest(`http://localhost/api/student/attempts/${attemptId}`, {
+      method: "POST",
+      headers: { "content-type": "application/json", cookie: cookieHeader },
+      body: JSON.stringify({ type: "exam", action: "VITAL_TANSIYON" }),
+    });
+    const examRes = await postAttemptAction(examReq, { params: Promise.resolve({ id: attemptId }) });
+    expect(examRes.status).toBe(200);
+    expect((await examRes.json()).finding).toEqual(expect.objectContaining({ action: "VITAL_TANSIYON" }));
 
     // request test
     const testReq = new NextRequest(`http://localhost/api/student/attempts/${attemptId}`, {

@@ -60,7 +60,7 @@ export default function DenemePage() {
     };
   }, [router]);
 
-  async function actionIstek(type: "ask" | "test" | "reasoning" | "complete", payload: Record<string, unknown>) {
+  async function actionIstek(type: "ask" | "test" | "exam" | "reasoning" | "complete", payload: Record<string, unknown>) {
     if (!vaka) throw new Error("Vaka oturumu bulunamadı.");
     const response = await fetch(`/api/student/attempts/${vaka.id}`, {
       method: "POST",
@@ -128,15 +128,20 @@ export default function DenemePage() {
           embed
           initialSnapshot={resumeSnapshot}
           onboarding={!resumeSnapshot}
-          onAsk={async (action) => {
-            const yanit = (await actionIstek("ask", { action }))?.yanit;
-            if (!yanit) throw new Error("Hasta yanıtı alınamadı.");
-            return yanit;
+          onAsk={async (question) => {
+            const reply = (await actionIstek("ask", { question }))?.reply;
+            if (!reply?.answer || !Array.isArray(reply.actions)) throw new Error("Hasta yanıtı alınamadı.");
+            return reply;
           }}
           onTestRequest={async (testKey) => {
             const sonuc = (await actionIstek("test", { testKey }))?.sonuc;
             if (!sonuc) throw new Error("Test sonucu alınamadı.");
             return sonuc;
+          }}
+          onExamRequest={async (action) => {
+            const finding = (await actionIstek("exam", { action }))?.finding;
+            if (!finding) throw new Error("Muayene bulgusu alınamadı.");
+            return finding;
           }}
           onReasoningSave={async (reasoning) => {
             await actionIstek("reasoning", { reasoning });

@@ -64,32 +64,48 @@ function normalizeAscii(s: string): string {
 }
 
 export function normalizeSoru(metin: string): string {
+  return normalizeSorular(metin)[0] || "OZEL";
+}
+
+/**
+ * Serbest metindeki birden fazla klinik alanı bulur.
+ *
+ * `normalizeSoru` eski tek-aksiyon API'sini korur; hasta motoru ise aynı turda
+ * sorulmuş başlangıç + yayılım gibi alanları kaybetmemek için bu fonksiyonu
+ * kullanır. Eşleşmeler metindeki konumlarına göre sıralanır.
+ */
+export function normalizeSorular(metin: string): string[] {
   const lower = metin.toLowerCase().trim();
   const ascii = normalizeAscii(metin);
+  const matches: Array<{ action: string; index: number }> = [];
+  const addMatch = (action: string, index: number) => {
+    if (index >= 0 && !matches.some((item) => item.action === action)) {
+      matches.push({ action, index });
+    }
+  };
 
-  // 1) Tam eşleşme
-  if (birlesikSoruSynonymleri[lower]) return birlesikSoruSynonymleri[lower];
-  if (birlesikSoruSynonymleri[ascii]) return birlesikSoruSynonymleri[ascii];
+  if (birlesikSoruSynonymleri[lower]) addMatch(birlesikSoruSynonymleri[lower], 0);
+  if (birlesikSoruSynonymleri[ascii]) addMatch(birlesikSoruSynonymleri[ascii], 0);
 
-  // 2) Ek alias — uzun olan önce
+  // Uzun alias'lar aynı metinde daha güvenilir olduğundan önce eklenir.
   const ekSorted = [...EK_SORU_ALIAS].sort((a, b) => b[0].length - a[0].length);
   for (const [alias, action] of ekSorted) {
-    if (lower.includes(alias) || ascii.includes(normalizeAscii(alias))) {
-      return action;
-    }
+    const index = lower.indexOf(alias);
+    const asciiIndex = ascii.indexOf(normalizeAscii(alias));
+    addMatch(action, index >= 0 ? index : asciiIndex);
   }
 
-  // 3) Sözlük alias — uzun olan önce (kısa "göz" gibi yanlış eşleşmeyi azaltır)
+  // Kısa alias'lar (örn. "göz") yanlış eşleşmeye yatkındır.
   const entries = Object.entries(birlesikSoruSynonymleri) as [string, string][];
   entries.sort((a, b) => b[0].length - a[0].length);
   for (const [alias, action] of entries) {
-    if (alias.length < 3) continue; // çok kısa alias'lar atla
-    if (lower.includes(alias) || ascii.includes(normalizeAscii(alias))) {
-      return action;
-    }
+    if (alias.length < 3) continue;
+    const index = lower.indexOf(alias);
+    const asciiIndex = ascii.indexOf(normalizeAscii(alias));
+    addMatch(action, index >= 0 ? index : asciiIndex);
   }
 
-  return "OZEL";
+  return matches.sort((a, b) => a.index - b.index).map((item) => item.action);
 }
 
 export function normalizeTest(metin: string): string | null {

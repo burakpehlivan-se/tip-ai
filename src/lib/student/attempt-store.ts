@@ -7,10 +7,10 @@ import { adminDataDir } from "@/lib/admin/paths";
 import { readJsonOrRecover, withJsonStoreLock, writeJsonAtomic } from "@/lib/admin/json-store";
 import type { DegerlendirmeSonuc, TestSonucu, Vaka } from "@/lib/types";
 import { degerlendir } from "@/lib/scoring/degerlendir";
-import { hastaDilineCevir } from "@/lib/ai/hasta-dili";
 import { buildInjectedRules, getLabResult } from "@/lib/lab-motor";
 import { getHastaTipiById, loadHastaTipleriStore, recordPlaySession } from "@/lib/admin/store";
-import { uslupDonustur } from "@/lib/ai/uslup-donusturucu";
+import { simulatedPatientAnswer, type SimulatedPatientReply, type SimulatedPatientTurn } from "@/lib/simulated-patient/engine";
+import { requestExamFinding, type ExamFinding } from "@/lib/simulated-patient/exam";
 import { getRadiologyTestResult, RADIOLOGY_TEST_KEY } from "@/lib/student/radiology-test";
 import { getEkgTestResult, EKG_TEST_KEY } from "@/lib/student/ekg-test";
 import { shouldUsePostgresStore } from "@/lib/store-mode";
@@ -21,11 +21,13 @@ import {
 } from "./clinical-reasoning";
 import {
   answerPostgresAttempt,
+  askPostgresAttempt,
   completePostgresAttempt,
   getPostgresActiveAttempt,
   getPostgresAssignedAttempt,
   getPostgresAttemptSourceCaseId,
   requestPostgresAttemptTest,
+  requestPostgresAttemptExam,
   savePostgresAttemptClinicalReasoning,
   startPostgresAssignedAttempt,
   startPostgresStudentAttempt,
@@ -44,8 +46,11 @@ interface AttemptRecord {
   vaka: Vaka;
   sorulanAksiyonlar: string[];
   istenenTestler: string[];
+  muayeneBulgulari?: ExamFinding[];
   /** Aksiyon → dönüştürülmüş cevap (devam eden oturumun birebir tekrarı). */
   cevaplar?: Record<string, string>;
+  /** Ham soru + açılan slotlar; devam eden oturumun konuşma doğruluk kaynağı. */
+  konusma?: SimulatedPatientTurn[];
   clinicalReasoning?: ClinicalReasoningInput | null;
   createdAt: number;
   updatedAt: number;
@@ -82,13 +87,24 @@ export interface PublicAttemptCase {
   hastaTipi?: { id: string; ad: string } | null;
 }
 
+/** Eski aksiyon-yanıt kayıtlarını da okuyabilen devam oturumu görünümü. */
+export interface ResumablePatientTurn {
+  question?: string;
+  actions?: string[];
+  answer?: string;
+  channel?: "hasta" | "muayene" | "tetkik" | "belirsiz";
+  aksiyon?: string;
+  yanit?: string;
+}
+
 /**
  * Sadece sahibinin devam ettiği oturuma gönderilen ilerleme verisi.
  * Yeni vaka başlangıcında cevaplar ve sonuçlar asla istemciye gönderilmez.
  */
 export interface ResumableAttemptCase extends PublicAttemptCase {
   ilerleme: {
-    yanitlar: Array<{ aksiyon: string; yanit: string }>;
+    yanitlar: ResumablePatientTurn[];
+    muayeneBulgulari: ExamFinding[];
     testSonuclari: TestSonucu[];
     clinicalReasoning: ClinicalReasoningInput | null;
   };
@@ -111,31 +127,28 @@ function toPublicAttempt(record: AttemptRecord): PublicAttemptCase {
   };
 }
 
-function baseCevap(record: AttemptRecord, action: string): string {
-  return hastaDilineCevir(record.vaka.hastaYanitlari[action] || record.vaka.hastaYanitlari.OZEL || "Bu konuda ek bilgi veremiyorum.");
-}
-
 function attemptAnswer(record: AttemptRecord, action: string) {
-  return record.cevaplar?.[action] || baseCevap(record, action);
+  return record.cevaplar?.[action] || record.vaka.hastaYanitlari[action] || record.vaka.hastaYanitlari.OZEL || "Bu konuda ek bilgi veremiyorum.";
 }
 
-/** Taban cevabı hasta tipi üslubuna dönüştürür ve kayda yazar. */
-async function yanitHesapla(record: AttemptRecord, action: string): Promise<string> {
-  const tip = record.hastaTipiId ? getHastaTipiById(record.hastaTipiId) : undefined;
-  const yanit = await uslupDonustur({
-    vakaId: record.vaka.sourceCaseId || record.vaka.id,
-    tip,
-    actionKey: action,
-    baseCevap: baseCevap(record, action),
-    baglam: {
-      yas: record.vaka.hasta.yas != null ? String(record.vaka.hasta.yas) : undefined,
-      cinsiyet: record.vaka.hasta.cinsiyet === "E" ? "Erkek" : record.vaka.hasta.cinsiyet === "K" ? "Kadın" : undefined,
-      anaSikayet: record.vaka.hasta.anaSikayet,
-    },
-  });
-  record.cevaplar = record.cevaplar || {};
-  record.cevaplar[action] = yanit;
-  return yanit;
+function legacyKonusma(record: AttemptRecord): SimulatedPatientTurn[] {
+  if (record.konusma?.length) return record.konusma;
+  return record.sorulanAksiyonlar.map((aksiyon) => ({
+    question: aksiyon,
+    actions: [aksiyon],
+    channel: "hasta" as const,
+    answer: attemptAnswer(record, aksiyon),
+    aksiyon,
+  }));
+}
+
+function konusmaTuruEkle(record: AttemptRecord, question: string, reply: SimulatedPatientReply) {
+  const turn: SimulatedPatientTurn = { ...reply, question, aksiyon: reply.actions[0] };
+  record.konusma = legacyKonusma(record);
+  const onceki = record.konusma.find((item) => item.question === question && item.channel === reply.channel);
+  if (onceki) return onceki;
+  record.konusma.push(turn);
+  return turn;
 }
 
 function attemptTest(record: AttemptRecord, testKey: string) {
@@ -160,7 +173,8 @@ function toResumableAttempt(record: AttemptRecord): ResumableAttemptCase {
   return {
     ...toPublicAttempt(record),
     ilerleme: {
-      yanitlar: record.sorulanAksiyonlar.map((aksiyon) => ({ aksiyon, yanit: attemptAnswer(record, aksiyon) })),
+      yanitlar: legacyKonusma(record),
+      muayeneBulgulari: record.muayeneBulgulari || [],
       testSonuclari: record.istenenTestler
         .map((testKey) => attemptTest(record, testKey))
         .filter((test): test is TestSonucu => test !== null),
@@ -308,18 +322,28 @@ export async function getStudentAttemptSourceCaseId(
 }
 
 export function answerStudentAttempt(id: string, actor: string, action: string, studentId?: string): Promise<string | null> {
+  return askStudentAttempt(id, actor, action, studentId).then((reply) => reply?.answer ?? null);
+}
+
+/** Ham öğrenci sorusunu sunucuda slotlara yönlendirir ve kalıcı konuşma durumunu günceller. */
+export function askStudentAttempt(id: string, actor: string, question: string, studentId?: string): Promise<SimulatedPatientReply | null> {
   if (shouldUsePostgresStore(actor)) {
     if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
-    return answerPostgresAttempt(id, studentId, action);
+    return askPostgresAttempt(id, studentId, question);
   }
   return withJsonStoreLock(async () => {
     const found = ownAttempt(id, actor);
     if (!found) return null;
-    if (!found.attempt.sorulanAksiyonlar.includes(action)) found.attempt.sorulanAksiyonlar.push(action);
-    const yanit = await yanitHesapla(found.attempt, action);
+    const reply = simulatedPatientAnswer(found.attempt.vaka, question);
+    if (reply.channel === "hasta") {
+      for (const action of reply.actions) {
+        if (!found.attempt.sorulanAksiyonlar.includes(action)) found.attempt.sorulanAksiyonlar.push(action);
+      }
+    }
+    konusmaTuruEkle(found.attempt, question, reply);
     found.attempt.updatedAt = Date.now();
     save(found.store);
-    return yanit;
+    return reply;
   });
 }
 
@@ -341,6 +365,26 @@ export function requestStudentAttemptTest(id: string, actor: string, testKey: st
     found.attempt.updatedAt = Date.now();
     save(found.store);
     return result;
+  });
+}
+
+/** İstenen vital/fizik muayene bulgusunu hasta sohbetinden bağımsız açar. */
+export function requestStudentAttemptExam(id: string, actor: string, action: string, studentId?: string): Promise<ExamFinding | null> {
+  if (shouldUsePostgresStore(actor)) {
+    if (!studentId) throw new Error("PostgreSQL deneme deposu öğrenci kimliği gerektirir.");
+    return requestPostgresAttemptExam(id, studentId, action);
+  }
+  return withJsonStoreLock(() => {
+    const found = ownAttempt(id, actor);
+    if (!found) return null;
+    const existing = found.attempt.muayeneBulgulari?.find((item) => item.action === action);
+    if (existing) return existing;
+    const finding = requestExamFinding(found.attempt.vaka, action);
+    if (!finding) return null;
+    found.attempt.muayeneBulgulari = [...(found.attempt.muayeneBulgulari || []), finding];
+    found.attempt.updatedAt = Date.now();
+    save(found.store);
+    return finding;
   });
 }
 

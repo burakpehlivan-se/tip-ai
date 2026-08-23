@@ -12,7 +12,9 @@ import {
   RubrikAksiyon,
   Hasta,
 } from "@/lib/types";
-import { normalizeSoru, normalizeTest } from "@/lib/nlp/normalize";
+import { normalizeSoru, normalizeSorular, normalizeTest } from "@/lib/nlp/normalize";
+import { simulatedPatientAnswer, type SimulatedPatientReply } from "@/lib/simulated-patient/engine";
+import { isExamAction, requestExamFinding, type ExamFinding } from "@/lib/simulated-patient/exam";
 import { degerlendir } from "@/lib/scoring/degerlendir";
 import { birlesikTestKatalogu, TEST_VISIBILITY_MAP } from "@/lib/data/test-catalogue";
 import { CHIP_KATEGORI_ETIKETLERI } from "@/lib/data/chip-labels";
@@ -25,7 +27,7 @@ import {
   type ClinicalReasoningInput,
 } from "@/lib/student/clinical-reasoning";
 import { clinicalHistoryChatSummary, type ClinicalHistory } from "@/lib/clinical-history/types";
-import { aiEslestir, defaultMesajlar, mesajlaraSonucEkle, toReasoningList } from "./workspace-helpers";
+import { defaultMesajlar, mesajlaraSonucEkle, toReasoningList } from "./workspace-helpers";
 import {
   buildDebugTestEnvanteri,
   hasDataKeys,
@@ -45,6 +47,7 @@ import {
 export interface WorkspaceSnapshot {
   mesajlar: ChatMesaj[];
   testIstekleri: TestIstegi[];
+  muayeneBulgulari: ExamFinding[];
   sorulanAksiyonlar: string[];
   faz: WorkspaceFaz;
   taniInput: string;
@@ -84,8 +87,9 @@ interface Props {
   debugMode?: boolean;
   onComplete?: (sonuc: DegerlendirmeSonuc, attempt: CompletedAttempt) => void;
   /** Öğrenci modunda cevap/test/puan sunucudaki vaka oturumundan gelir. */
-  onAsk?: (action: string) => Promise<string>;
+  onAsk?: (question: string) => Promise<SimulatedPatientReply>;
   onTestRequest?: (testKey: string) => Promise<TestSonucu | null>;
+  onExamRequest?: (action: string) => Promise<ExamFinding | null>;
   onEvaluate?: (attempt: CompletedAttempt) => Promise<DegerlendirmeSonuc | null>;
   /** Sunucudaki aktif öğrenci denemesine debounced muhakeme taslağını kaydeder. */
   onReasoningSave?: (reasoning: ClinicalReasoningInput) => Promise<void>;
@@ -118,6 +122,7 @@ export default function VakaWorkspace({
   onComplete,
   onAsk,
   onTestRequest,
+  onExamRequest,
   onEvaluate,
   onReasoningSave,
   onboarding = false,
@@ -137,6 +142,9 @@ export default function VakaWorkspace({
   const [input, setInput] = useState("");
   const [testIstekleri, setTestIstekleri] = useState<TestIstegi[]>(
     initialSnapshot?.testIstekleri || []
+  );
+  const [muayeneBulgulari, setMuayeneBulgulari] = useState<ExamFinding[]>(
+    initialSnapshot?.muayeneBulgulari || []
   );
   const [sorulanAksiyonlar, setSorulanAksiyonlar] = useState<string[]>(
     initialSnapshot?.sorulanAksiyonlar || []
@@ -175,9 +183,9 @@ export default function VakaWorkspace({
     };
   }, [poliklinikKey, (vaka as unknown as { poliklinikKey?: string })?.poliklinikKey]);
 
-  const vitalChips = useMemo(() => effectiveChipHavuzu.filter((c) => c.kategori === "vital"), [effectiveChipHavuzu]);
 
-  const drawerEfektifKategoriler = useMemo(() => {
+
+  const drawerEfektifKategoriler = (() => {
     if (chipArama.trim()) return acikKategoriler;
     const hasAny = Array.from(acikKategoriler).some((kat) =>
       effectiveChipHavuzu.some((c) => c.kategori === kat)
@@ -190,7 +198,7 @@ export default function VakaWorkspace({
       }
     }
     return acikKategoriler;
-  }, [acikKategoriler, chipArama, effectiveChipHavuzu]);
+  })();
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
   const soruDrawerRef = useRef<HTMLDialogElement>(null);
   const drawerKapatBtnRef = useRef<HTMLButtonElement>(null);
@@ -216,6 +224,7 @@ export default function VakaWorkspace({
   const [debugSoruArama, setDebugSoruArama] = useState("");
   const [onboardingKapatildi, setOnboardingKapatildi] = useState(false);
   const [islemYukleniyor, setIslemYukleniyor] = useState(false);
+  const [examLoadingAction, setExamLoadingAction] = useState<string | null>(null);
   const [islemHatasi, setIslemHatasi] = useState("");
   const [taslakHazir, setTaslakHazir] = useState(false);
   const [taslakDurumu, setTaslakDurumu] = useState<"kaydediliyor" | "yerel">("yerel");
@@ -293,6 +302,7 @@ export default function VakaWorkspace({
       onSnapshotChange({
         mesajlar,
         testIstekleri,
+        muayeneBulgulari,
         sorulanAksiyonlar,
         faz,
         taniInput,
@@ -304,13 +314,14 @@ export default function VakaWorkspace({
     onSnapshotChange({
       mesajlar,
       testIstekleri,
+      muayeneBulgulari,
       sorulanAksiyonlar,
       faz,
       taniInput,
       tedaviInput,
       clinicalReasoning,
     });
-  }, [mesajlar, testIstekleri, sorulanAksiyonlar, faz, taniInput, tedaviInput, clinicalReasoning, onSnapshotChange]);
+  }, [mesajlar, testIstekleri, muayeneBulgulari, sorulanAksiyonlar, faz, taniInput, tedaviInput, clinicalReasoning, onSnapshotChange]);
 
   useEffect(() => {
     if (!onReasoningSave || !reasoningDirty) return;
@@ -419,6 +430,37 @@ export default function VakaWorkspace({
     }
   }, [vaka.id]);
 
+  const muayeneIste = async (action: string, question?: string) => {
+    if (islemYukleniyor || !isExamAction(action)) return;
+    setIslemYukleniyor(true);
+    setExamLoadingAction(action);
+    setIslemHatasi("");
+    try {
+      const bulgu = onExamRequest
+        ? await onExamRequest(action)
+        : requestExamFinding(vaka, action);
+      if (!bulgu) {
+        setIslemHatasi("Bu muayene bulgusu vaka için kullanılamıyor.");
+        return;
+      }
+      const zatenIstendi = muayeneBulgulari.some((item) => item.action === bulgu.action);
+      if (!zatenIstendi) {
+        setMuayeneBulgulari((prev) => [...prev, bulgu]);
+        setMesajlar((prev) => [
+          ...prev,
+          ...(question ? [{ id: yeniMesajId("exam-q"), rol: "ogrenci" as const, metin: question, zaman: Date.now() }] : []),
+          { id: yeniMesajId("exam"), rol: "sistem", metin: `🩺 ${bulgu.label}: ${bulgu.answer}`, zaman: Date.now() + 1 },
+        ]);
+      }
+      setMobilPanel("hasta");
+    } catch {
+      setIslemHatasi("Muayene bulgusu alınamadı. Bağlantınızı kontrol edip tekrar deneyin.");
+    } finally {
+      setExamLoadingAction(null);
+      setIslemYukleniyor(false);
+    }
+  };
+
   const soruSor = async () => {
     if (!input.trim() || islemYukleniyor) return;
 
@@ -431,26 +473,27 @@ export default function VakaWorkspace({
       return;
     }
 
-    const normalized = normalizeSoru(input);
-    let aksiyon = normalized;
-    if (normalized === "OZEL") {
-      const eslesen = await aiEslestir(input);
-      if (eslesen) aksiyon = eslesen;
+    const muayeneAksiyonu = normalizeSorular(input).find(isExamAction);
+    if (muayeneAksiyonu) {
+      const soru = input;
+      setInput("");
+      await muayeneIste(muayeneAksiyonu, soru);
+      return;
     }
 
     setIslemYukleniyor(true);
     setIslemHatasi("");
     try {
-      const hastaYanit = onAsk
-        ? await onAsk(aksiyon)
-        : vaka.hastaYanitlari[aksiyon] || vaka.hastaYanitlari["OZEL"];
+      const reply = onAsk
+        ? await onAsk(input)
+        : simulatedPatientAnswer(vaka, input);
       const yeniMesajlar: ChatMesaj[] = [
         { id: yeniMesajId("q"), rol: "ogrenci", metin: input, zaman: Date.now() },
-        { id: yeniMesajId("a"), rol: "hasta", metin: hastaYanit, zaman: Date.now() + 1 },
+        { id: yeniMesajId("a"), rol: reply.channel === "hasta" ? "hasta" : "sistem", metin: reply.answer, zaman: Date.now() + 1 },
       ];
       setMesajlar((prev) => [...prev, ...yeniMesajlar]);
-      if (aksiyon !== "OZEL" && !sorulanAksiyonlar.includes(aksiyon)) {
-        setSorulanAksiyonlar((prev) => [...prev, aksiyon]);
+      if (reply.channel === "hasta") {
+        setSorulanAksiyonlar((prev) => Array.from(new Set([...prev, ...reply.actions])));
       }
       setInput("");
     } catch {
@@ -481,21 +524,24 @@ export default function VakaWorkspace({
 
   const chipSor = async (chip: SoruChipi) => {
     if (islemYukleniyor) return;
+    if (isExamAction(chip.aksiyon)) {
+      await muayeneIste(chip.aksiyon, chip.etiket);
+      return;
+    }
     // Chip seçildiğinde direkt hasta yanıtını ver — NLP'e gitme
-    const normalized = chip.aksiyon;
     setIslemYukleniyor(true);
     setIslemHatasi("");
     try {
-      const hastaYanit = onAsk
-        ? await onAsk(normalized)
-        : vaka.hastaYanitlari[normalized] || vaka.hastaYanitlari["OZEL"];
+      const reply = onAsk
+        ? await onAsk(chip.aksiyon)
+        : simulatedPatientAnswer(vaka, chip.etiket);
       const yeniMesajlar: ChatMesaj[] = [
         { id: yeniMesajId("q"), rol: "ogrenci", metin: chip.etiket, zaman: Date.now() },
-        { id: yeniMesajId("a"), rol: "hasta", metin: hastaYanit, zaman: Date.now() + 1 },
+        { id: yeniMesajId("a"), rol: reply.channel === "hasta" ? "hasta" : "sistem", metin: reply.answer, zaman: Date.now() + 1 },
       ];
       setMesajlar((prev) => [...prev, ...yeniMesajlar]);
-      if (!sorulanAksiyonlar.includes(normalized)) {
-        setSorulanAksiyonlar((prev) => [...prev, normalized]);
+      if (reply.channel === "hasta") {
+        setSorulanAksiyonlar((prev) => Array.from(new Set([...prev, ...reply.actions])));
       }
     } catch {
       setIslemHatasi("Hasta yanıtı alınamadı. Bağlantınızı kontrol edip soruyu yeniden deneyin.");
@@ -1000,12 +1046,11 @@ export default function VakaWorkspace({
           mobilGorunur={mobilPanel === "hasta"}
           sorulanAksiyonSayisi={sorulanAksiyonlar.length}
           istenenTestSayisi={testIstekleri.length}
+          muayeneBulgulari={muayeneBulgulari}
+          onExamRequest={muayeneIste}
+          examLoadingAction={examLoadingAction}
           onClinicalHistoryRequest={onClinicalHistoryRequest ? klinikGecmisiIste : undefined}
           clinicalHistoryLoading={clinicalHistoryLoading}
-          vitalChips={vitalChips}
-          onVitalAsk={chipSor}
-          sorulanAksiyonlar={sorulanAksiyonSeti}
-          islemYukleniyor={islemYukleniyor}
         />
 
         {/* Orta Panel — aktif klinik görev */}
@@ -1629,4 +1674,3 @@ export default function VakaWorkspace({
     </div>
   );
 }
-

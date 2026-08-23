@@ -36,6 +36,7 @@ function ornekResumable(uzerine: Partial<ResumableAttemptCase> = {}): ResumableA
         { aksiyon: "agri-yayilim", yanit: "Koluma doğru yayılıyor." },
         { aksiyon: "ozel-soru", yanit: "Bilmiyorum." },
       ],
+      muayeneBulgulari: [],
       testSonuclari: [
         {
           testKey: "EKG",
@@ -128,9 +129,20 @@ describe("resumableAttemptToSnapshot", () => {
     expect(anlik.faz).toBe("test");
   });
 
+  it("istenen muayene bulgularını snapshot'a ve sistem mesajına ekler", () => {
+    const anlik = resumableAttemptToSnapshot(ornekResumable({
+      ilerleme: {
+        ...ornekResumable().ilerleme,
+        muayeneBulgulari: [{ action: "VITAL_TANSIYON", label: "Tansiyon", answer: "145/90" }],
+      },
+    }));
+    expect(anlik.muayeneBulgulari).toEqual([{ action: "VITAL_TANSIYON", label: "Tansiyon", answer: "145/90" }]);
+    expect(anlik.mesajlar.find((mesaj) => mesaj.id === "resume-exam-0")?.metin).toContain("145/90");
+  });
+
   it("test yoksa fazı anamnez tutar", () => {
     const anlik = resumableAttemptToSnapshot(
-      ornekResumable({ ilerleme: { yanitlar: [], testSonuclari: [], clinicalReasoning: null } })
+      ornekResumable({ ilerleme: { yanitlar: [], muayeneBulgulari: [], testSonuclari: [], clinicalReasoning: null } })
     );
     expect(anlik.faz).toBe("anamnez");
     expect(anlik.sorulanAksiyonlar).toEqual([]);

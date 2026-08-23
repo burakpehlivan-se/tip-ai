@@ -39,6 +39,7 @@ function bosSnapshot(): WorkspaceSnapshot {
   return {
     mesajlar: [],
     testIstekleri: [],
+    muayeneBulgulari: [],
     sorulanAksiyonlar: [],
     faz: "anamnez",
     taniInput: "",
@@ -94,7 +95,7 @@ export default function CemicegekSimulator() {
     setTimeout(() => setBanner(null), 5500);
   };
 
-  const actionIstek = useCallback(async (id: string, type: "ask" | "test" | "complete", payload: Record<string, string>) => {
+  const actionIstek = useCallback(async (id: string, type: "ask" | "test" | "exam" | "complete", payload: Record<string, string>) => {
     const response = await fetch(`/api/student/attempts/${id}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -544,8 +545,13 @@ export default function CemicegekSimulator() {
         onSnapshotChange={onSnapshotChange}
         initialSnapshot={restoreSnapshot}
         hastaneAdi="ÇEMİÇGEZEK DEVLET HASTANESİ"
-        onAsk={async (action) => (await actionIstek(aktif.id, "ask", { action }))?.yanit || "Yanıt alınamadı."}
+        onAsk={async (question) => {
+          const reply = (await actionIstek(aktif.id, "ask", { question }))?.reply;
+          if (!reply?.answer || !Array.isArray(reply.actions)) throw new Error("Hasta yanıtı alınamadı.");
+          return reply;
+        }}
         onTestRequest={async (testKey) => (await actionIstek(aktif.id, "test", { testKey }))?.sonuc || null}
+        onExamRequest={async (action) => (await actionIstek(aktif.id, "exam", { action }))?.finding || null}
         onEvaluate={async (attempt: CompletedAttempt) => (await actionIstek(aktif.id, "complete", { taniGirildi: attempt.taniGirildi, tedaviGirildi: attempt.tedaviGirildi }))?.sonuc || null}
       />
     </div>
