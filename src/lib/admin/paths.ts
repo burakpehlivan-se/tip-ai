@@ -60,6 +60,10 @@ export function analyticsPath(): string {
   return path.join(adminDataDir(), "analytics.json");
 }
 
+export function questionsPath(): string {
+  return path.join(adminDataDir(), "questions.json");
+}
+
 export function usersPath(): string {
   return path.join(adminDataDir(), "users.json");
 }

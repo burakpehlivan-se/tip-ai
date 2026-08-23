@@ -234,6 +234,7 @@ export default function PoliklinikPage() {
         <VakaWorkspace
           vaka={vaka}
           vakaNo={vakaNo}
+          poliklinikKey={poliklinikKey}
           key={vaka.id}
           embed
           initialSnapshot={resumeSnapshot}

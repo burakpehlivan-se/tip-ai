@@ -20,6 +20,7 @@ const NAV_GROUPS: NavGroup[] = [
       { href: "/admin/panel/oyna/karisik", label: "Oyna", roles: ["admin", "doktor"] },
       { href: "/admin/panel/hasta-tipleri", label: "Hasta Tipleri", roles: ["admin", "doktor"] },
       { href: "/admin/panel/tibbi-goruntuler", label: "Görüntüler", roles: ["admin", "doktor"] },
+      { href: "/admin/panel/sorular", label: "Sorular", roles: ["admin"] },
       { href: "/admin/panel/kural-motoru", label: "Kurallar", roles: ["admin"] },
     ],
   },
