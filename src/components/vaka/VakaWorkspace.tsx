@@ -149,6 +149,7 @@ export default function VakaWorkspace({
   const [seciliTestKeyleri, setSeciliTestKeyleri] = useState<string[]>([]);
   const [chipArama, setChipArama] = useState("");
   const [aktifOneri, setAktifOneri] = useState(-1);
+  const [onerilerGizli, setOnerilerGizli] = useState(false);
   const [acikKategoriler, setAcikKategoriler] = useState<Set<ChipKategorisi>>(new Set<ChipKategorisi>(["anamnez-agri"]));
   const [showSoruDrawer, setShowSoruDrawer] = useState(false);
   const soruDrawerRef = useRef<HTMLDialogElement>(null);
@@ -584,16 +585,18 @@ export default function VakaWorkspace({
   };
 
   /** Soru girişinde canlı öneri: girilen metinle eşleşen chip soruları (F-arama). */
-  const oneriAdaylari = useMemo(() => {
+  const oneriAdaylariHam = useMemo(() => {
     const q = input.trim().toLowerCase();
     if (q.length < 2) return [];
     return (vaka.soruChipleri as SoruChipi[])
       .filter((c) => !sorulanAksiyonSeti.has(c.aksiyon) && c.etiket.toLowerCase().includes(q))
       .slice(0, 6);
   }, [input, vaka.soruChipleri, sorulanAksiyonSeti]);
+  const oneriAdaylari = onerilerGizli ? [] : oneriAdaylariHam;
 
   const oneriSec = async (chip: SoruChipi) => {
     setInput("");
+    setOnerilerGizli(false);
     setAktifOneri(-1);
     await chipSor(chip);
   };
@@ -619,6 +622,7 @@ export default function VakaWorkspace({
       }
     } else if (e.key === "Escape") {
       setAktifOneri(-1);
+      setOnerilerGizli(true);
     }
   };
 
@@ -1131,7 +1135,7 @@ export default function VakaWorkspace({
                   <label htmlFor="anamnez-sorusu" className="sr-only">Hastaya soru sor veya sorularda ara</label>
                   <div className="relative flex-1">
                     <input id="anamnez-sorusu" type="text" value={input}
-                      onChange={(e) => { setInput(e.target.value); setAktifOneri(-1); }}
+                      onChange={(e) => { setInput(e.target.value); setAktifOneri(-1); setOnerilerGizli(false); }}
                       onKeyDown={anamnezKeyDown}
                       role="combobox" aria-expanded={oneriAdaylari.length > 0} aria-controls="soru-onerileri" aria-autocomplete="list" aria-activedescendant={aktifOneri >= 0 ? `soru-oneri-${aktifOneri}` : undefined} aria-describedby="simule-vaka-uyarisi"
                       placeholder="Hastaya sorun veya soru ara…"
@@ -1142,7 +1146,8 @@ export default function VakaWorkspace({
                         {oneriAdaylari.map((chip, i) => (
                           <li key={chip.aksiyon} role="option" id={`soru-oneri-${i}`} aria-selected={i === aktifOneri}>
                             <button type="button"
-                              onMouseDown={(e) => { e.preventDefault(); void oneriSec(chip); }}
+                              onMouseDown={(e) => e.preventDefault()}
+                              onClick={() => void oneriSec(chip)}
                               onMouseEnter={() => setAktifOneri(i)}
                               className={`w-full px-4 py-2 text-left text-sm transition-colors ${i === aktifOneri ? "bg-surface text-ink" : "bg-canvas text-steel"} hover:bg-surface`}>
                               {chip.etiket}
