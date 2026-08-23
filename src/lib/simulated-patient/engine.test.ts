@@ -93,6 +93,35 @@ describe("simulatedPatientAnswer", () => {
     }));
   });
 
+  it("Synthea kaynak slotunu çelişebilen yerel varsayılandan öncelikli seçer", () => {
+    const syntheaVaka: Vaka = {
+      ...vaka,
+      hastaYanitlari: {
+        SIGARA: "Sigara kullanmıyorum.",
+        SOCIAL_HISTORY: "Yirmi yıldır günde bir paket sigara içiyorum.",
+        SIKAYET_SURE: "Şikayetim bir süredir devam ediyor.",
+        HISTORY_OF_PRESENT: "Üç gün önce düştükten sonra kalça ağrım başladı.",
+        ILAC: "Düzenli ilaç kullanmıyorum.",
+        MEDICATIONS: "Doktorum ağrım için parasetamol ve ibuprofen yazdı.",
+      },
+      soruChipleri: [
+        { etiket: "Sosyal öykü", aksiyon: "SOCIAL_HISTORY", kategori: "anamnez-oyku" },
+        { etiket: "Şikayet öyküsü", aksiyon: "HISTORY_OF_PRESENT", kategori: "anamnez-sistemik" },
+        { etiket: "İlaçlar", aksiyon: "MEDICATIONS", kategori: "anamnez-oyku" },
+      ],
+    };
+
+    expect(simulatedPatientAnswer(syntheaVaka, "Sigara kullanıyor musunuz?")).toEqual(expect.objectContaining({
+      actions: ["SOCIAL_HISTORY"], answer: expect.stringContaining("Yirmi yıldır"),
+    }));
+    expect(simulatedPatientAnswer(syntheaVaka, "Şikayetler nasıl başladı?")).toEqual(expect.objectContaining({
+      actions: ["HISTORY_OF_PRESENT"], answer: expect.stringContaining("Üç gün önce"),
+    }));
+    expect(simulatedPatientAnswer(syntheaVaka, "Düzenli ilaç kullanıyor musunuz?")).toEqual(expect.objectContaining({
+      actions: ["MEDICATIONS"], answer: expect.stringContaining("parasetamol"),
+    }));
+  });
+
   it("eşdeğer sigara ve ilaç aksiyonlarını tek, çelişkisiz cevaba indirir", () => {
     const hamYanitlar = {
       SIGARA: "Sigara kullanmıyorum.",

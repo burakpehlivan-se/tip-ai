@@ -81,8 +81,18 @@ function vakaAksiyonlariniCoz(vaka: Vaka, question: string): string[] {
 
   for (const rawAction of rawActions) {
     const action = kanonikHastaAksiyonu(rawAction);
-    add(action);
-    for (const candidate of GENELDEN_VAKA_AKSIYONUNA[action] || []) add(candidate);
+    const vakaAksiyonlari = GENELDEN_VAKA_AKSIYONUNA[action] || [];
+    const vakadaKarsiligiVar = vakaAksiyonlari.some((candidate) =>
+      Object.prototype.hasOwnProperty.call(vaka.hastaYanitlari, candidate)
+    );
+
+    // Synthea/AI vakalarının kaynak slotu, yerel genel varsayılandan daha
+    // ayrıntılıdır. İkisini aynı turda birleştirmek çelişkili yanıt üretir.
+    if (vakadaKarsiligiVar) {
+      for (const candidate of vakaAksiyonlari) add(candidate);
+    } else {
+      add(action);
+    }
   }
   return resolved;
 }
