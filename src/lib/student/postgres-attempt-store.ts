@@ -9,7 +9,8 @@ import { loadRuntimeCasesStore } from "@/lib/admin/runtime-case-store";
 import type { AdminVaka } from "@/lib/admin/types";
 import { buildInjectedRules, getLabResult } from "@/lib/lab-motor";
 import { degerlendir } from "@/lib/scoring/degerlendir";
-import { simulatedPatientAnswer, type SimulatedPatientReply, type SimulatedPatientTurn } from "@/lib/simulated-patient/engine";
+import { type SimulatedPatientReply, type SimulatedPatientTurn } from "@/lib/simulated-patient/engine";
+import { simuleHastaYanitla } from "@/lib/simulated-patient/gemini-response";
 import { requestExamFinding, type ExamFinding } from "@/lib/simulated-patient/exam";
 import type { DegerlendirmeSonuc, TestSonucu, Vaka } from "@/lib/types";
 import type { PublicAttemptCase, ResumableAttemptCase } from "./attempt-store";
@@ -84,8 +85,6 @@ function publicAttempt(record: StoredAttempt): PublicAttemptCase {
 }
 
 function conversationTurn(record: StoredAttempt, question: string, reply: SimulatedPatientReply): SimulatedPatientTurn {
-  const existing = record.conversation.find((item) => item.question === question && item.channel === reply.channel);
-  if (existing) return existing;
   const turn: SimulatedPatientTurn = { ...reply, question, aksiyon: reply.actions[0] };
   record.conversation.push(turn);
   return turn;
@@ -226,7 +225,12 @@ export async function askPostgresAttempt(id: string, studentId: string, question
     if (!row) return null;
 
     const record = fromRow(row);
-    const reply = simulatedPatientAnswer(record.vaka, question);
+    const reply = await simuleHastaYanitla({
+      vaka: record.vaka,
+      question,
+      previousTurns: record.conversation,
+      persona: record.hastaTipiId ? getHastaTipiById(record.hastaTipiId) : undefined,
+    });
     const askedActions = reply.channel === "hasta"
       ? Array.from(new Set([...record.askedActions, ...reply.actions]))
       : record.askedActions;

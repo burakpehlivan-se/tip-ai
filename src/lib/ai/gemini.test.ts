@@ -13,7 +13,7 @@ describe("geminiChat", () => {
   it("sistem ve sohbet mesajlarını GenerateContent gövdesine çevirir", async () => {
     process.env.GEMINI_API_KEY = "test-key";
     const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({
-      candidates: [{ content: { parts: [{ text: "Merhaba" }] }, finishReason: "STOP" }],
+      candidates: [{ content: { parts: [{ text: "düşünce", thought: true }, { text: "Merhaba" }] }, finishReason: "STOP" }],
       usageMetadata: { promptTokenCount: 12, candidatesTokenCount: 3 },
     }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
@@ -50,5 +50,22 @@ describe("geminiChat", () => {
     expect(geminiYapilandirilmisMi()).toBe(false);
     await expect(geminiChat({ messages: [{ role: "user", content: "test" }] }))
       .rejects.toThrow("GEMINI_API_KEY tanımlı değil.");
+  });
+
+  it("JSON schema verildiğinde Structured Output biçimini kullanır", async () => {
+    process.env.GEMINI_API_KEY = "test-key";
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ candidates: [] }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+
+    await geminiChat({
+      messages: [{ role: "user", content: "test" }],
+      responseSchema: { type: "object", properties: { answer: { type: "string" } }, required: ["answer"] },
+    });
+
+    expect(JSON.parse(fetchMock.mock.calls[0][1].body)).toMatchObject({
+      generationConfig: {
+        responseFormat: { text: { mimeType: "application/json", schema: { type: "object" } } },
+      },
+    });
   });
 });

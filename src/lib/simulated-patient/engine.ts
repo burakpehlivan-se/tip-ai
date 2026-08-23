@@ -74,6 +74,22 @@ function guvenliHastaCevabi(vaka: Vaka, metin: string | undefined): string | nul
   return temiz;
 }
 
+/** Gemini çıktısının hasta katmanından çıkmadığını doğrulamak için dışa açılır. */
+export function hastaCevabiGuvenliMi(vaka: Vaka, metin: string): boolean {
+  return guvenliHastaCevabi(vaka, metin) === metin.trim();
+}
+
+/** Yalnız açıkça seçilmiş ve sızıntı içermeyen hasta slotlarını döndürür. */
+export function izinliHastaGercekleri(vaka: Vaka, actions: string[]): Record<string, string> {
+  return Object.fromEntries(
+    actions.flatMap((action) => {
+      if (hastaKanaliDisiMi(vaka, action)) return [];
+      const answer = guvenliHastaCevabi(vaka, vaka.hastaYanitlari[action]);
+      return answer ? [[action, answer]] : [];
+    })
+  );
+}
+
 function birlestir(cevaplar: string[]): string {
   return cevaplar.slice(0, 4).join(" ");
 }

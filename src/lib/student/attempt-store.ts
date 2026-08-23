@@ -9,7 +9,8 @@ import type { DegerlendirmeSonuc, TestSonucu, Vaka } from "@/lib/types";
 import { degerlendir } from "@/lib/scoring/degerlendir";
 import { buildInjectedRules, getLabResult } from "@/lib/lab-motor";
 import { getHastaTipiById, loadHastaTipleriStore, recordPlaySession } from "@/lib/admin/store";
-import { simulatedPatientAnswer, type SimulatedPatientReply, type SimulatedPatientTurn } from "@/lib/simulated-patient/engine";
+import { type SimulatedPatientReply, type SimulatedPatientTurn } from "@/lib/simulated-patient/engine";
+import { simuleHastaYanitla } from "@/lib/simulated-patient/gemini-response";
 import { requestExamFinding, type ExamFinding } from "@/lib/simulated-patient/exam";
 import { getRadiologyTestResult, RADIOLOGY_TEST_KEY } from "@/lib/student/radiology-test";
 import { getEkgTestResult, EKG_TEST_KEY } from "@/lib/student/ekg-test";
@@ -145,8 +146,6 @@ function legacyKonusma(record: AttemptRecord): SimulatedPatientTurn[] {
 function konusmaTuruEkle(record: AttemptRecord, question: string, reply: SimulatedPatientReply) {
   const turn: SimulatedPatientTurn = { ...reply, question, aksiyon: reply.actions[0] };
   record.konusma = legacyKonusma(record);
-  const onceki = record.konusma.find((item) => item.question === question && item.channel === reply.channel);
-  if (onceki) return onceki;
   record.konusma.push(turn);
   return turn;
 }
@@ -334,7 +333,12 @@ export function askStudentAttempt(id: string, actor: string, question: string, s
   return withJsonStoreLock(async () => {
     const found = ownAttempt(id, actor);
     if (!found) return null;
-    const reply = simulatedPatientAnswer(found.attempt.vaka, question);
+    const reply = await simuleHastaYanitla({
+      vaka: found.attempt.vaka,
+      question,
+      previousTurns: legacyKonusma(found.attempt),
+      persona: found.attempt.hastaTipiId ? getHastaTipiById(found.attempt.hastaTipiId) : undefined,
+    });
     if (reply.channel === "hasta") {
       for (const action of reply.actions) {
         if (!found.attempt.sorulanAksiyonlar.includes(action)) found.attempt.sorulanAksiyonlar.push(action);

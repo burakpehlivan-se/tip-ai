@@ -18,6 +18,8 @@ export interface GeminiChatParametreleri {
   messages: GeminiMesaj[];
   temperature?: number;
   maxTokens?: number;
+  /** Gemini Structured Output için geçerli JSON Schema alt kümesi. */
+  responseSchema?: Record<string, unknown>;
 }
 
 export interface GeminiSonuc {
@@ -51,6 +53,13 @@ function geminiIstekGovdesi(params: GeminiChatParametreleri) {
     generationConfig: {
       temperature: params.temperature ?? 0.7,
       maxOutputTokens: params.maxTokens ?? 8000,
+      ...(params.responseSchema
+        ? {
+            responseFormat: {
+              text: { mimeType: "application/json", schema: params.responseSchema },
+            },
+          }
+        : {}),
     },
   };
 }
@@ -81,7 +90,7 @@ export async function geminiChat(params: GeminiChatParametreleri): Promise<Gemin
 
     const data = (await res.json()) as {
       candidates?: Array<{
-        content?: { parts?: Array<{ text?: string }> };
+        content?: { parts?: Array<{ text?: string; thought?: boolean }> };
         finishReason?: string;
       }>;
       usageMetadata?: { promptTokenCount?: number; candidatesTokenCount?: number };
@@ -89,7 +98,12 @@ export async function geminiChat(params: GeminiChatParametreleri): Promise<Gemin
     const candidate = data.candidates?.[0];
 
     return {
-      content: candidate?.content?.parts?.map((part) => part.text || "").join("") || "",
+      // Thinking modellerinde ara thought parçaları dönebilir; bunlar ne JSON
+      // ayrıştırmasına ne de kullanıcıya giden yanıta dahil edilir.
+      content: candidate?.content?.parts
+        ?.filter((part) => !part.thought)
+        .map((part) => part.text || "")
+        .join("") || "",
       finishReason: candidate?.finishReason,
       promptTokens: data.usageMetadata?.promptTokenCount,
       completionTokens: data.usageMetadata?.candidatesTokenCount,
