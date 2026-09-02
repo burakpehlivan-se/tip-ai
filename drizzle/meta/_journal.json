@@ -127,6 +127,13 @@
       "when": 1787040000000,
       "tag": "0017_simulated_patient_exam_state",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1788380495148,
+      "tag": "0018_imaging_catalog",
+      "breakpoints": true
     }
   ]
 }

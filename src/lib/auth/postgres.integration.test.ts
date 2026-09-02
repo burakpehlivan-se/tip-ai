@@ -18,6 +18,7 @@ import os from "node:os";
 import path from "node:path";
 import { scryptSync } from "node:crypto";
 import { Pool } from "pg";
+import { PGlite } from "@electric-sql/pglite";
 import { runMigrations } from "./migrate";
 import { checkCaseStoreMigrationReadiness } from "./migration-readiness";
 import { importUsersFromFile } from "../../../scripts/import-users";
@@ -67,9 +68,177 @@ function legacyScryptHash(password: string, saltHex: string): string {
 
 const describePg = TEST_URL ? describe : describe.skip;
 
+/**
+ * 0018 is additionally exercised in an in-process disposable PostgreSQL.  This
+ * keeps the independent imaging catalogue's DDL covered when contributors do
+ * not have a local TEST_DATABASE_URL, while the full migration runner remains
+ * covered by the PostgreSQL-only tests below.
+ */
+async function applyImagingMigrationToPGlite(client: PGlite): Promise<void> {
+  await client.query(`CREATE TABLE IF NOT EXISTS users (id uuid PRIMARY KEY)`);
+  await client.query(`CREATE SCHEMA IF NOT EXISTS drizzle`);
+  await client.query(`CREATE TABLE IF NOT EXISTS drizzle.__pglite_migrations (tag text PRIMARY KEY)`);
+  const { rows: applied } = await client.query<{ tag: string }>(
+    `SELECT tag FROM drizzle.__pglite_migrations WHERE tag = '0018_imaging_catalog'`
+  );
+  if (applied.length > 0) return;
+  const migration = fs.readFileSync(
+    path.resolve(process.cwd(), "drizzle/0018_imaging_catalog.sql"),
+    "utf8"
+  );
+  for (const statement of migration.split("--> statement-breakpoint")) {
+    if (statement.trim()) await client.query(statement);
+  }
+  await client.query(`INSERT INTO drizzle.__pglite_migrations (tag) VALUES ('0018_imaging_catalog')`);
+}
+
+describe("imaging catalogue migration (disposable PGlite)", () => {
+  it("creates the standalone catalogue with its lifecycle, FK and unique guards", async () => {
+    const client = new PGlite();
+    try {
+      await applyImagingMigrationToPGlite(client);
+      await applyImagingMigrationToPGlite(client);
+      const { rows: migrationRows } = await client.query<{ count: number }>(
+        `SELECT count(*)::int AS count FROM drizzle.__pglite_migrations WHERE tag = '0018_imaging_catalog'`
+      );
+      expect(migrationRows).toEqual([{ count: 1 }]);
+
+      const { rows: tableRows } = await client.query<{ tablename: string }>(
+        `SELECT tablename FROM pg_tables WHERE schemaname = 'public' AND tablename LIKE 'imaging_%' ORDER BY tablename`
+      );
+      expect(tableRows.map((row) => row.tablename)).toEqual([
+        "imaging_answer_options",
+        "imaging_answer_taxonomies",
+        "imaging_attempts",
+        "imaging_dataset_documents",
+        "imaging_datasets",
+        "imaging_import_runs",
+        "imaging_interpretations",
+        "imaging_record_assets",
+        "imaging_record_labels",
+        "imaging_records",
+        "imaging_render_runs",
+      ]);
+
+      await expect(
+        client.query(
+          `INSERT INTO imaging_datasets (dataset_key, version, display_name, modality) VALUES ('nih-cxr14', '2020', 'NIH', 'CXR')`
+        )
+      ).resolves.toBeDefined();
+      await expect(
+        client.query(
+          `INSERT INTO imaging_datasets (dataset_key, version, display_name, modality) VALUES ('nih-cxr14', '2020', 'NIH duplicate', 'CXR')`
+        )
+      ).rejects.toThrow();
+
+      const { rows: datasetRows } = await client.query<{ id: string }>(
+        `SELECT id FROM imaging_datasets WHERE dataset_key = 'nih-cxr14'`
+      );
+      const datasetId = datasetRows[0]!.id;
+      const { rows: userRows } = await client.query<{ id: string }>(
+        `INSERT INTO users (id) VALUES ('00000000-0000-0000-0000-000000000001') RETURNING id`
+      );
+      const studentId = userRows[0]!.id;
+      const { rows: importRows } = await client.query<{ id: string }>(
+        `INSERT INTO imaging_import_runs (dataset_id, status, manifest_checksum, metadata_checksum, hmac_key_version) VALUES ($1, 'succeeded', 'manifest-a', 'metadata-a', 'v1') RETURNING id`,
+        [datasetId]
+      );
+      const importRunId = importRows[0]!.id;
+      const { rows: recordRows } = await client.query<{ id: string }>(
+        `INSERT INTO imaging_records (dataset_id, import_run_id, source_record_id, modality, metadata_checksum, availability, published_at) VALUES ($1, $2, 'record-1', 'CXR', 'record-a', 'display_ready', now()) RETURNING id`,
+        [datasetId, importRunId]
+      );
+      const recordId = recordRows[0]!.id;
+
+      await expect(
+        client.query(
+          `INSERT INTO imaging_records (dataset_id, import_run_id, source_record_id, modality, metadata_checksum, availability) VALUES ($1, $2, 'record-invalid', 'CXR', 'record-b', 'invalid')`,
+          [datasetId, importRunId]
+        )
+      ).rejects.toThrow();
+
+      await client.query(
+        `INSERT INTO imaging_record_assets (record_id, asset_role, storage_key, mime_type, checksum_sha256, renderer_version, render_profile, published_at) VALUES ($1, 'display_image', 'safe/a.png', 'image/png', 'checksum-a', 'source', 'default', now())`,
+        [recordId]
+      );
+      await expect(
+        client.query(
+          `INSERT INTO imaging_record_assets (record_id, asset_role, storage_key, mime_type, checksum_sha256, renderer_version, render_profile, published_at) VALUES ($1, 'display_image', 'safe/b.png', 'image/png', 'checksum-b', 'source-v2', 'default', now())`,
+          [recordId]
+        )
+      ).rejects.toThrow();
+
+      const { rows: taxonomyRows } = await client.query<{ id: string }>(
+        `INSERT INTO imaging_answer_taxonomies (modality, version, status, display_name) VALUES ('CXR', 'v1', 'active', 'CXR v1') RETURNING id`
+      );
+      const taxonomyId = taxonomyRows[0]!.id;
+      const { rows: attemptRows } = await client.query<{ id: string }>(
+        `INSERT INTO imaging_attempts (student_id, record_id, taxonomy_id, status, record_snapshot) VALUES ($1, $2, $3, 'active', '{}'::jsonb) RETURNING id`,
+        [studentId, recordId, taxonomyId]
+      );
+      const attemptId = attemptRows[0]!.id;
+      await expect(
+        client.query(
+          `INSERT INTO imaging_attempts (student_id, record_id, taxonomy_id, status, record_snapshot) VALUES ($1, $2, $3, 'not-a-status', '{}'::jsonb)`,
+          [studentId, recordId, taxonomyId]
+        )
+      ).rejects.toThrow();
+      await client.query(
+        `INSERT INTO imaging_interpretations (attempt_id, selected_option_keys, structured_observations, evaluation_version) VALUES ($1, '[]'::jsonb, '{}'::jsonb, 'v1')`,
+        [attemptId]
+      );
+      await client.query(
+        `UPDATE imaging_attempts SET evaluation_snapshot = '{"sourceLabels":[]}'::jsonb WHERE id = $1`,
+        [attemptId]
+      );
+      await expect(
+        client.query(
+          `UPDATE imaging_attempts SET evaluation_snapshot = '{"sourceLabels":["changed"]}'::jsonb WHERE id = $1`,
+          [attemptId]
+        )
+      ).rejects.toThrow("evaluation_snapshot is immutable once set");
+
+      await expect(client.query(`DELETE FROM imaging_records WHERE id = $1`, [recordId])).rejects.toThrow();
+
+      await expect(client.query(`DELETE FROM users WHERE id = $1`, [studentId])).resolves.toBeDefined();
+      const { rows: surviving } = await client.query(
+        `SELECT count(*)::int AS attempts FROM imaging_attempts WHERE id = $1`,
+        [attemptId]
+      );
+      expect(surviving[0]).toMatchObject({ attempts: 0 });
+
+      const { rows: forbiddenFkRows } = await client.query<{ table_name: string }>(
+        `SELECT tc.table_name
+           FROM information_schema.table_constraints tc
+           JOIN information_schema.constraint_column_usage ccu
+             ON ccu.constraint_name = tc.constraint_name
+            AND ccu.table_schema = tc.table_schema
+          WHERE tc.constraint_type = 'FOREIGN KEY'
+            AND tc.table_schema = 'public'
+            AND tc.table_name LIKE 'imaging_%'
+            AND ccu.table_name IN ('clinical_cases', 'learning_attempts', 'radiology_sources', 'ekg_sources')`
+      );
+      expect(forbiddenFkRows).toEqual([]);
+    } finally {
+      await client.close();
+    }
+  });
+});
+
 async function dropAll(): Promise<void> {
   const pool = new Pool({ connectionString: TEST_URL! });
   try {
+    await pool.query(`DROP TABLE IF EXISTS imaging_interpretations CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS imaging_attempts CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS imaging_answer_options CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS imaging_answer_taxonomies CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS imaging_record_labels CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS imaging_record_assets CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS imaging_records CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS imaging_render_runs CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS imaging_import_runs CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS imaging_dataset_documents CASCADE`);
+    await pool.query(`DROP TABLE IF EXISTS imaging_datasets CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS clinical_case_audit_logs CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS published_clinical_case_versions CASCADE`);
     await pool.query(`DROP TABLE IF EXISTS clinical_cases CASCADE`);
@@ -84,6 +253,11 @@ async function dropAll(): Promise<void> {
     await pool.query(`DROP TYPE IF EXISTS user_role CASCADE`);
     await pool.query(`DROP TYPE IF EXISTS learning_attempt_status CASCADE`);
     await pool.query(`DROP TYPE IF EXISTS clinical_case_status CASCADE`);
+    await pool.query(`DROP TYPE IF EXISTS imaging_attempt_status CASCADE`);
+    await pool.query(`DROP TYPE IF EXISTS imaging_taxonomy_status CASCADE`);
+    await pool.query(`DROP TYPE IF EXISTS imaging_record_availability CASCADE`);
+    await pool.query(`DROP TYPE IF EXISTS imaging_render_run_status CASCADE`);
+    await pool.query(`DROP TYPE IF EXISTS imaging_import_run_status CASCADE`);
     await pool.query(`DROP SCHEMA IF EXISTS drizzle CASCADE`);
   } finally {
     await pool.end();
@@ -125,11 +299,31 @@ describePg("PostgreSQL 16 entegrasyon", () => {
       expect(names).toContain("clinical_cases");
       expect(names).toContain("published_clinical_case_versions");
       expect(names).toContain("clinical_case_audit_logs");
+      expect(names).toContain("imaging_datasets");
+      expect(names).toContain("imaging_dataset_documents");
+      expect(names).toContain("imaging_import_runs");
+      expect(names).toContain("imaging_render_runs");
+      expect(names).toContain("imaging_records");
+      expect(names).toContain("imaging_record_assets");
+      expect(names).toContain("imaging_record_labels");
+      expect(names).toContain("imaging_answer_taxonomies");
+      expect(names).toContain("imaging_answer_options");
+      expect(names).toContain("imaging_attempts");
+      expect(names).toContain("imaging_interpretations");
 
       const { rows: enumRows } = await pool.query(
         `SELECT typname FROM pg_type WHERE typname = 'user_role'`
       );
       expect(enumRows.length).toBe(1);
+      const { rows: imagingEnumRows } = await pool.query(
+        `SELECT typname FROM pg_type
+          WHERE typname IN (
+            'imaging_import_run_status', 'imaging_render_run_status',
+            'imaging_record_availability', 'imaging_taxonomy_status',
+            'imaging_attempt_status'
+          )`
+      );
+      expect(imagingEnumRows).toHaveLength(5);
     } finally {
       await pool.end();
     }
@@ -147,7 +341,7 @@ describePg("PostgreSQL 16 entegrasyon", () => {
         `SELECT COUNT(*)::int AS n FROM drizzle.__drizzle_migrations`
       );
       expect(afterRows[0].n).toBe(beforeRows[0].n);
-      expect(afterRows[0].n).toBeGreaterThan(0);
+      expect(afterRows[0].n).toBe(19);
     } finally {
       await pool.end();
     }

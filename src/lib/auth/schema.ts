@@ -14,6 +14,7 @@ import {
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
+import { sql } from "drizzle-orm";
 
 /** Panel rolleri — "ogrenci" öğrenci tarafı hesabıdır (panel erişimi yok) */
 export const userRole = pgEnum("user_role", ["admin", "doktor", "ogrenci"]);
@@ -24,6 +25,28 @@ export const learningAttemptStatus = pgEnum("learning_attempt_status", [
   "expired",
 ]);
 export const clinicalCaseStatus = pgEnum("clinical_case_status", ["taslak", "aktif", "arsiv"]);
+/** Independent source-record catalogue lifecycle states. */
+export const imagingImportRunStatus = pgEnum("imaging_import_run_status", [
+  "running",
+  "succeeded",
+  "failed",
+  "review_required",
+]);
+export const imagingRenderRunStatus = pgEnum("imaging_render_run_status", ["running", "succeeded", "failed"]);
+export const imagingRecordAvailability = pgEnum("imaging_record_availability", [
+  "indexed",
+  "display_ready",
+  "unavailable",
+  "stale",
+  "retired",
+]);
+export const imagingTaxonomyStatus = pgEnum("imaging_taxonomy_status", ["draft", "active", "retired"]);
+export const imagingAttemptStatus = pgEnum("imaging_attempt_status", [
+  "active",
+  "submitted",
+  "completed",
+  "abandoned",
+]);
 
 /**
  * Tek kimlik deposu: yalnızca giriş bilgileri ve rol tutulur.
@@ -753,3 +776,290 @@ export const syntheaImagingStudies = pgTable(
 );
 
 export type SyntheaImagingStudy = typeof syntheaImagingStudies.$inferSelect;
+
+// ═══════════════════════════════════════════════════════════════════════════
+// Independent medical-image catalogue.
+//
+// These tables intentionally have no relation to clinical_cases,
+// learning_attempts, radiology_sources, ekg_sources, or synthea_*.  They index
+// source dataset records directly for the separate image-analysis workspace.
+// ═══════════════════════════════════════════════════════════════════════════
+
+export const imagingDatasets = pgTable(
+  "imaging_datasets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    datasetKey: text("dataset_key").notNull(),
+    version: text("version").notNull(),
+    displayName: text("display_name").notNull(),
+    modality: text("modality").notNull(),
+    sourceUri: text("source_uri"),
+    attributionUri: text("attribution_uri"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("imaging_datasets_key_version_unique").on(table.datasetKey, table.version),
+    index("imaging_datasets_modality_published_idx").on(table.modality, table.publishedAt),
+  ]
+);
+
+export const imagingDatasetDocuments = pgTable(
+  "imaging_dataset_documents",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    datasetId: uuid("dataset_id")
+      .notNull()
+      .references(() => imagingDatasets.id, { onDelete: "restrict" }),
+    documentKind: text("document_kind").notNull(),
+    /** Importer-only relative storage key; never streamed to student routes. */
+    storageKey: text("storage_key").notNull(),
+    checksumSha256: text("checksum_sha256").notNull(),
+    mimeType: text("mime_type").notNull(),
+    title: text("title"),
+    attribution: text("attribution"),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("imaging_dataset_documents_dataset_storage_unique").on(table.datasetId, table.storageKey),
+    index("imaging_dataset_documents_dataset_kind_idx").on(table.datasetId, table.documentKind),
+  ]
+);
+
+export const imagingImportRuns = pgTable(
+  "imaging_import_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    datasetId: uuid("dataset_id")
+      .notNull()
+      .references(() => imagingDatasets.id, { onDelete: "restrict" }),
+    status: imagingImportRunStatus("status").notNull().default("running"),
+    manifestChecksum: text("manifest_checksum").notNull(),
+    metadataChecksum: text("metadata_checksum").notNull(),
+    /** Version only; material never enters the database. */
+    hmacKeyVersion: text("hmac_key_version"),
+    discoveredCounts: jsonb("discovered_counts").$type<Record<string, number>>().notNull().default({}),
+    importedCounts: jsonb("imported_counts").$type<Record<string, number>>().notNull().default({}),
+    errorSummary: jsonb("error_summary").$type<Record<string, unknown>>(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("imaging_import_runs_dataset_status_started_idx").on(table.datasetId, table.status, table.startedAt),
+    index("imaging_import_runs_dataset_manifest_idx").on(table.datasetId, table.manifestChecksum),
+  ]
+);
+
+export const imagingRenderRuns = pgTable(
+  "imaging_render_runs",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    datasetId: uuid("dataset_id")
+      .notNull()
+      .references(() => imagingDatasets.id, { onDelete: "restrict" }),
+    importRunId: uuid("import_run_id")
+      .notNull()
+      .references(() => imagingImportRuns.id, { onDelete: "restrict" }),
+    status: imagingRenderRunStatus("status").notNull().default("running"),
+    rendererVersion: text("renderer_version").notNull(),
+    renderProfile: text("render_profile").notNull(),
+    cursor: text("cursor"),
+    discoveredCount: integer("discovered_count").notNull().default(0),
+    renderedCount: integer("rendered_count").notNull().default(0),
+    failedCount: integer("failed_count").notNull().default(0),
+    errorSummary: jsonb("error_summary").$type<Record<string, unknown>>(),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("imaging_render_runs_dataset_status_started_idx").on(table.datasetId, table.status, table.startedAt),
+    index("imaging_render_runs_import_run_idx").on(table.importRunId),
+  ]
+);
+
+export const imagingRecords = pgTable(
+  "imaging_records",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    datasetId: uuid("dataset_id")
+      .notNull()
+      .references(() => imagingDatasets.id, { onDelete: "restrict" }),
+    importRunId: uuid("import_run_id")
+      .notNull()
+      .references(() => imagingImportRuns.id, { onDelete: "restrict" }),
+    sourceRecordId: text("source_record_id").notNull(),
+    /** HMAC-derived, versioned server-internal repeat-exposure key only. */
+    sourceSubjectKey: text("source_subject_key"),
+    modality: text("modality").notNull(),
+    sourceAge: integer("source_age"),
+    sourceSex: text("source_sex"),
+    viewPosition: text("view_position"),
+    protocol: text("protocol"),
+    metadataChecksum: text("metadata_checksum").notNull(),
+    availability: imagingRecordAvailability("availability").notNull().default("indexed"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("imaging_records_dataset_source_record_unique").on(table.datasetId, table.sourceRecordId),
+    index("imaging_records_catalog_idx").on(table.modality, table.availability, table.publishedAt),
+    index("imaging_records_dataset_import_idx").on(table.datasetId, table.importRunId),
+    index("imaging_records_subject_key_idx").on(table.datasetId, table.sourceSubjectKey),
+  ]
+);
+
+export const imagingRecordAssets = pgTable(
+  "imaging_record_assets",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recordId: uuid("record_id")
+      .notNull()
+      .references(() => imagingRecords.id, { onDelete: "cascade" }),
+    renderRunId: uuid("render_run_id").references(() => imagingRenderRuns.id, { onDelete: "set null" }),
+    assetRole: text("asset_role").notNull(),
+    storageKey: text("storage_key").notNull(),
+    mimeType: text("mime_type").notNull(),
+    checksumSha256: text("checksum_sha256").notNull(),
+    sizeBytes: bigint("size_bytes", { mode: "number" }),
+    width: integer("width"),
+    height: integer("height"),
+    samplingRateHz: doublePrecision("sampling_rate_hz"),
+    rendererVersion: text("renderer_version").notNull(),
+    renderProfile: text("render_profile").notNull(),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("imaging_record_assets_version_unique").on(
+      table.recordId,
+      table.assetRole,
+      table.rendererVersion,
+      table.renderProfile
+    ),
+    uniqueIndex("imaging_record_assets_one_published_display_image_unique")
+      .on(table.recordId)
+      .where(sql`${table.assetRole} = 'display_image' AND ${table.publishedAt} IS NOT NULL`),
+    index("imaging_record_assets_record_role_published_idx").on(table.recordId, table.assetRole, table.publishedAt),
+  ]
+);
+
+export const imagingRecordLabels = pgTable(
+  "imaging_record_labels",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    recordId: uuid("record_id")
+      .notNull()
+      .references(() => imagingRecords.id, { onDelete: "cascade" }),
+    sourceLabelKey: text("source_label_key").notNull(),
+    sourceLabelCode: text("source_label_code"),
+    sourceLabelName: text("source_label_name").notNull(),
+    category: text("category"),
+    isPrimary: boolean("is_primary").notNull().default(false),
+    provenance: text("provenance").notNull(),
+    confidence: doublePrecision("confidence"),
+    sourceValue: jsonb("source_value").$type<Record<string, unknown>>(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("imaging_record_labels_record_source_key_unique").on(table.recordId, table.sourceLabelKey),
+    index("imaging_record_labels_record_primary_idx").on(table.recordId, table.isPrimary),
+  ]
+);
+
+export const imagingAnswerTaxonomies = pgTable(
+  "imaging_answer_taxonomies",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    modality: text("modality").notNull(),
+    version: text("version").notNull(),
+    status: imagingTaxonomyStatus("status").notNull().default("draft"),
+    displayName: text("display_name").notNull(),
+    description: text("description"),
+    scoringVersion: text("scoring_version").notNull().default("v1"),
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("imaging_answer_taxonomies_modality_version_unique").on(table.modality, table.version),
+    index("imaging_answer_taxonomies_modality_status_idx").on(table.modality, table.status, table.publishedAt),
+  ]
+);
+
+export const imagingAnswerOptions = pgTable(
+  "imaging_answer_options",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    taxonomyId: uuid("taxonomy_id")
+      .notNull()
+      .references(() => imagingAnswerTaxonomies.id, { onDelete: "cascade" }),
+    optionKey: text("option_key").notNull(),
+    displayLabel: text("display_label").notNull(),
+    category: text("category"),
+    /** Server-side mapping only; pre-submit responses never include it. */
+    sourceLabelMapping: jsonb("source_label_mapping").$type<Record<string, unknown>>().notNull().default({}),
+    sortOrder: integer("sort_order").notNull().default(0),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [
+    uniqueIndex("imaging_answer_options_taxonomy_option_key_unique").on(table.taxonomyId, table.optionKey),
+    index("imaging_answer_options_taxonomy_active_order_idx").on(table.taxonomyId, table.active, table.sortOrder),
+  ]
+);
+
+export const imagingAttempts = pgTable(
+  "imaging_attempts",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    studentId: uuid("student_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    recordId: uuid("record_id")
+      .notNull()
+      .references(() => imagingRecords.id, { onDelete: "restrict" }),
+    taxonomyId: uuid("taxonomy_id")
+      .notNull()
+      .references(() => imagingAnswerTaxonomies.id, { onDelete: "restrict" }),
+    status: imagingAttemptStatus("status").notNull().default("active"),
+    /** Labels-free snapshot; immutable evaluation is populated only on submit. */
+    recordSnapshot: jsonb("record_snapshot").notNull(),
+    evaluationSnapshot: jsonb("evaluation_snapshot"),
+    startedAt: timestamp("started_at", { withTimezone: true }).notNull().defaultNow(),
+    updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+    submittedAt: timestamp("submitted_at", { withTimezone: true }),
+    completedAt: timestamp("completed_at", { withTimezone: true }),
+  },
+  (table) => [
+    index("imaging_attempts_student_status_updated_idx").on(table.studentId, table.status, table.updatedAt),
+    index("imaging_attempts_student_record_idx").on(table.studentId, table.recordId),
+  ]
+);
+
+export const imagingInterpretations = pgTable(
+  "imaging_interpretations",
+  {
+    id: uuid("id").primaryKey().defaultRandom(),
+    attemptId: uuid("attempt_id")
+      .notNull()
+      .references(() => imagingAttempts.id, { onDelete: "cascade" })
+      .unique(),
+    selectedOptionKeys: jsonb("selected_option_keys").$type<string[]>().notNull(),
+    likelyDiagnosis: text("likely_diagnosis"),
+    structuredObservations: jsonb("structured_observations").notNull(),
+    freeText: text("free_text"),
+    score: doublePrecision("score"),
+    feedback: jsonb("feedback").$type<Record<string, unknown>>(),
+    evaluationVersion: text("evaluation_version").notNull(),
+    createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  },
+  (table) => [index("imaging_interpretations_created_idx").on(table.createdAt)]
+);
+
+export type ImagingDataset = typeof imagingDatasets.$inferSelect;
+export type ImagingRecord = typeof imagingRecords.$inferSelect;
+export type ImagingAttempt = typeof imagingAttempts.$inferSelect;
+export type ImagingInterpretation = typeof imagingInterpretations.$inferSelect;
