@@ -22,6 +22,10 @@
     "db:build-radiology-sources:dry": "npx tsx scripts/build-radiology-sources.ts --dry",
     "db:build-ekg-sources": "npx tsx scripts/build-ekg-sources.ts",
     "db:build-ekg-sources:dry": "npx tsx scripts/build-ekg-sources.ts --dry",
+    "imaging:import:dry": "npx tsx scripts/import-imaging-catalog.ts --dry",
+    "imaging:import": "npx tsx scripts/import-imaging-catalog.ts --apply",
+    "imaging:render-ekg:dry": "npx tsx scripts/render-imaging-ekg.ts --dry",
+    "imaging:render-ekg": "npx tsx scripts/render-imaging-ekg.ts --apply",
     "lint": "eslint .",
     "validate:vakalar": "npx tsx scripts/validate-vakalar.ts",
     "validate:vakalar:json": "npx tsx scripts/validate-vakalar.ts --json",
@@ -44,7 +48,8 @@
     "pdfkit": "^0.19.1",
     "pg": "^8.23.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "sharp": "^0.34.5"
   },
   "devDependencies": {
     "@electric-sql/pglite": "^0.5.4",
